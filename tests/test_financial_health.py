@@ -201,11 +201,26 @@ def test_api_explicit_period_query_param():
     assert body["metrics"]["revenue_growth"]["status"] == "MISSING_DATA"
 
 
-def test_api_404_when_no_periods_recorded():
+def test_api_unavailable_when_no_periods_recorded():
     headers = _headers("health_api_empty")
     study = _study(headers)
     resp = client.get(f"/studies/{study['id']}/financial-health/", headers=headers)
-    assert resp.status_code == 404
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data_status"] == "NO_PERIODS_RECORDED"
+    assert body["metrics"]
+    assert all(metric["value"] is None for metric in body["metrics"].values())
+    assert all(metric["status"] == "MISSING_DATA" for metric in body["metrics"].values())
+    assert body["summary"] == summarize(compute_metrics({}))
+    assert body["period"] == "NO_DATA"
+    assert body["prior_period"] is None
+
+
+def test_api_unknown_explicit_period_remains_not_found():
+    headers = _headers("health_missing_period")
+    study = _study(headers)
+    _set_period(headers, study["id"], "FY2025", revenue=1000000)
+    assert client.get(f"/studies/{study['id']}/financial-health/?period=FY2099", headers=headers).status_code == 404
 
 
 def test_financial_health_ownership_isolation():

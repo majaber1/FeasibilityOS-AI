@@ -53,6 +53,7 @@ class FinancialHealthOut(BaseModel):
     prior_period: Optional[str] = None
     metrics: Dict[str, MetricOut]
     summary: Dict[str, str]
+    data_status: str = "CALCULATED"  # NO_PERIODS_RECORDED when no CompanyFinancialPeriod rows exist
 
 
 def _row_to_dict(row) -> dict:
@@ -77,7 +78,18 @@ def get_financial_health(study_id: int, period: Optional[str] = None, user: User
             .all()
         )
         if not rows:
-            raise HTTPException(status_code=404, detail="No financial periods recorded for this study")
+            # Return 200 with explicit NOT_AVAILABLE semantics. Missing financial data
+            # is a valid domain state (user hasn't recorded any periods yet) — not an error.
+            # The browser must not see a 404 during normal navigation.
+            metrics = compute_metrics({})
+            return FinancialHealthOut(
+                study_id=study_id,
+                period="NO_DATA",
+                prior_period=None,
+                metrics=_metrics_out(metrics),
+                summary=summarize(metrics),
+                data_status="NO_PERIODS_RECORDED",
+            )
 
         if period is not None:
             matches = [r for r in rows if r.period == period]

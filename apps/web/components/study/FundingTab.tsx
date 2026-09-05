@@ -462,9 +462,9 @@ export default function FundingTab({ token, studyId, locale }: Props) {
 
   // Derived KPI values strictly from live APIs
   const confirmedGapVal = financingStructure?.confirmed_funding_gap ?? gap?.funding_gap ?? 0;
-  const safeDebtVal =
-    financingStructure?.internal_screening_debt_capacity ??
-    (capacity?.status === "CALCULATED" ? capacity.base_capacity : 0);
+  const safeDebtVal = capacity?.status === "CALCULATED"
+    ? (financingStructure?.internal_screening_debt_capacity ?? capacity.base_capacity)
+    : null;
   const verifiedCollateralVal = collateralSummary?.total_verified_value ?? 0;
   const potentialResidualVal = financingStructure?.potential_residual_gap ?? 0;
 

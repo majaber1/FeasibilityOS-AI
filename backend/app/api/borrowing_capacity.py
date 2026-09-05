@@ -60,7 +60,22 @@ def get_borrowing_capacity(study_id: int, period: Optional[str] = None, user: Us
             .all()
         )
         if not rows:
-            raise HTTPException(status_code=404, detail="No financial periods recorded for this study")
+            # Return 200 with explicit INSUFFICIENT_DATA semantics. Missing financial data
+            # is a valid domain state (user hasn't recorded company periods yet) — not an error.
+            # The browser must not see a 404 during normal navigation.
+            return BorrowingCapacityOut(
+                study_id=study_id,
+                period="NO_DATA",
+                status="INSUFFICIENT_DATA",
+                base_capacity=None,
+                stress_capacity=None,
+                primary_constraint=None,
+                secondary_constraint=None,
+                financial_support="لا توجد فترات مالية مسجلة لهذه الدراسة. أضف بيانات الفترات المالية للحصول على تقدير القدرة الاقتراضية.",
+                missing_inputs=["all_company_financial_period_data"],
+                missing_underwriting_inputs=["all_company_financial_period_data"],
+                assumptions_used={},
+            )
 
         if period is not None:
             matches = [r for r in rows if r.period == period]

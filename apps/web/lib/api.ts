@@ -221,6 +221,10 @@ export function computeStudy(
   });
 }
 
+export function computeStudyFromAssumptions(token: string, studyId: number) {
+  return authedRequest<Study>(`/feasibility/${studyId}/compute-from-assumptions`, token, { method: "POST" });
+}
+
 export function reportDownloadUrl(studyId: number, fmt: "pdf" | "docx", locale: "ar" | "en") {
   return API_BASE + "/reports/study/" + studyId + "?fmt=" + fmt + "&locale=" + locale;
 }

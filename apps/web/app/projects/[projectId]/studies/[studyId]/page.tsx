@@ -11,6 +11,7 @@ import FundingTab from "@/components/study/FundingTab";
 import ValidationTab from "@/components/study/ValidationTab";
 import LaunchTab from "@/components/study/LaunchTab";
 import GrowthTab from "@/components/study/GrowthTab";
+import FinancialAnalysisTab from "@/components/study/FinancialAnalysisTab";
 
 const sections = [
   "overview",
@@ -136,6 +137,11 @@ export default function StudyWorkspacePage({ params }: { params: Promise<{ proje
     [ar, saveState]
   );
 
+  // Keep server HTML and the first browser render identical while session state loads.
+  if (loading) {
+    return <main className="container-page py-16">{ar ? "جارٍ استعادة الدراسة المحفوظة..." : "Restoring saved study..."}</main>;
+  }
+
   if (!token) {
     return (
       <main className="container-page py-16">
@@ -145,10 +151,6 @@ export default function StudyWorkspacePage({ params }: { params: Promise<{ proje
         </Link>
       </main>
     );
-  }
-
-  if (loading) {
-    return <main className="container-page py-16">{ar ? "جارٍ استعادة الدراسة المحفوظة..." : "Restoring saved study..."}</main>;
   }
 
   if (error && !study) {
@@ -310,6 +312,8 @@ export default function StudyWorkspacePage({ params }: { params: Promise<{ proje
             <EvidenceTab token={token} studyId={study.id} locale={locale} />
           ) : active === "assumptions" ? (
             <AssumptionsTab token={token} studyId={study.id} locale={locale} />
+          ) : active === "financial" ? (
+            <FinancialAnalysisTab token={token} study={study} locale={locale} onComputed={reload} />
           ) : active === "funding" ? (
             <FundingTab token={token} studyId={study.id} locale={locale} />
           ) : active === "validation" ? (

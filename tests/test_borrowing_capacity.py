@@ -158,11 +158,24 @@ def test_api_returns_range_and_disclaimer():
     assert len(body["missing_underwriting_inputs"]) > 0
 
 
-def test_api_404_without_any_period():
+def test_api_insufficient_data_without_any_period():
     headers = _headers("cap_api_empty")
     study = _study(headers)
     resp = client.get(f"/studies/{study['id']}/borrowing-capacity/", headers=headers)
-    assert resp.status_code == 404
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "INSUFFICIENT_DATA"
+    assert body["base_capacity"] is None
+    assert body["stress_capacity"] is None
+    assert body["missing_inputs"]
+    assert body["assumptions_used"] == {}
+
+
+def test_api_unknown_explicit_period_remains_not_found():
+    headers = _headers("capacity_missing_period")
+    study = _study(headers)
+    _set_period(headers, study["id"], "FY2025", ebitda=1000000)
+    assert client.get(f"/studies/{study['id']}/borrowing-capacity/?period=FY2099", headers=headers).status_code == 404
 
 
 def test_borrowing_capacity_ownership_isolation():

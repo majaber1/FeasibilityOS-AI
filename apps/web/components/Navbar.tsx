@@ -33,7 +33,7 @@ export function Navbar() {
     { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
     { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
     { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
-    { href: "/tools/opportunities", label: t.nav.opportunities },
+    { href: "/opportunities", label: t.nav.opportunities },
     { href: "/pricing", label: t.nav.pricing },
   ];
 
