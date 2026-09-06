@@ -6,8 +6,10 @@ NOT_AVAILABLE / INSUFFICIENT_DATA. Validation GO still requires real evidence.
 from __future__ import annotations
 
 import os
+import json
 import tempfile
 import uuid
+from pathlib import Path
 
 import pytest
 
@@ -25,17 +27,11 @@ from app.main import app
 client = TestClient(app)
 PASSWORD = "Sup3rSecretPassword123!"
 
+REFERENCE_FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "reference-projects.json").read_text(encoding="utf-8"))
+assert REFERENCE_FIXTURE["dataset_marker"] == "REFERENCE_TEST_DATA"
 PROJECTS = [
-    {"name": "Saudi Scrap AI Marketplace", "industry": "technology", "investment": 850000, "stage": "idea", "activity": "AI marketplace + recycling brokerage"},
-    {"name": "Smart Clinic SaaS", "industry": "healthcare", "investment": 420000, "stage": "mvp", "activity": "B2B clinic SaaS subscriptions"},
-    {"name": "Plastic Recycling Factory", "industry": "industrial", "investment": 12500000, "stage": "idea", "activity": "High-CAPEX recycling plant"},
-    {"name": "Food Waste Marketplace", "industry": "food", "investment": 310000, "stage": "idea", "activity": "Restaurant surplus marketplace"},
-    {"name": "Smart Maintenance Platform", "industry": "technology", "investment": 540000, "stage": "mvp", "activity": "Technician booking marketplace"},
-    {"name": "Online Training Platform", "industry": "education", "investment": 280000, "stage": "idea", "activity": "EdTech courses and subscriptions"},
-    {"name": "Specialized E-commerce Store", "industry": "retail", "investment": 190000, "stage": "idea", "activity": "Inventory-led specialty retail"},
-    {"name": "Smart Agriculture Project", "industry": "industrial", "investment": 2100000, "stage": "idea", "activity": "AgriTech equipment and seasonal cycles"},
-    {"name": "AI Document Automation SaaS", "industry": "technology", "investment": 670000, "stage": "mvp", "activity": "Enterprise document processing"},
-    {"name": "Logistics Optimization Platform", "industry": "technology", "investment": 930000, "stage": "idea", "activity": "Fleet route-optimization SaaS"},
+    {**row, "name": f"REFERENCE_TEST_DATA — {row['name']}"}
+    for row in REFERENCE_FIXTURE["projects"]
 ]
 
 
@@ -250,6 +246,31 @@ def test_wave65_new_study_does_not_duplicate_existing_study():
     assert a.json()["id"] == b.json()["id"]
     listed = client.get(f"/feasibility/?project_id={project['id']}", headers=headers).json()
     assert len(listed) == 1
+
+
+def test_reference_new_project_study_is_isolated_from_previous_project_data():
+    tok = _register("isolation")
+    headers = _auth(tok)
+    first_project = client.post("/projects/", headers=headers, json=PROJECTS[0]).json()
+    first_study = client.post(
+        "/feasibility/",
+        headers=headers,
+        json={"project_id": first_project["id"], "title": PROJECTS[0]["name"], "industry": PROJECTS[0]["industry"], "investment": PROJECTS[0]["investment"]},
+    ).json()
+    _assumption(headers, first_study["id"], "capex", 850000, "CAPEX", "النفقات الرأسمالية")
+
+    second_project = client.post("/projects/", headers=headers, json=PROJECTS[1]).json()
+    second_study = client.post(
+        "/feasibility/",
+        headers=headers,
+        json={"project_id": second_project["id"], "title": PROJECTS[1]["name"], "industry": PROJECTS[1]["industry"], "investment": PROJECTS[1]["investment"]},
+    ).json()
+
+    assert second_study["id"] != first_study["id"]
+    second_assumptions = client.get(f"/studies/{second_study['id']}/assumptions/", headers=headers)
+    assert second_assumptions.status_code == 200
+    assert second_assumptions.json() == []
+    assert client.get(f"/feasibility/{second_study['id']}", headers=headers).json()["project_id"] == second_project["id"]
 
 
 def test_wave65_go_without_evidence_is_blocked():

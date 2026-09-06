@@ -2,6 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 import path from "path";
 
 const repoRoot = path.resolve(__dirname, "../..");
+const frontendPort = Number(process.env.PLAYWRIGHT_FRONTEND_PORT || 3100);
+const backendPort = Number(process.env.PLAYWRIGHT_BACKEND_PORT || 8100);
+const frontendUrl = `http://127.0.0.1:${frontendPort}`;
+const backendUrl = `http://127.0.0.1:${backendPort}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -12,14 +16,15 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: frontendUrl,
+    screenshot: "only-on-failure",
     trace: "on-first-retry",
     video: "off",
   },
   webServer: [
     {
-      command: "python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000",
-      url: "http://127.0.0.1:8000/health",
+      command: `python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port ${backendPort}`,
+      url: `${backendUrl}/health`,
       cwd: repoRoot,
       timeout: 120000,
       reuseExistingServer: false,
@@ -31,13 +36,13 @@ export default defineConfig({
       },
     },
     {
-      command: "npx next start --port 3000 --hostname 127.0.0.1",
-      url: "http://127.0.0.1:3000",
+      command: `npx next start --port ${frontendPort} --hostname 127.0.0.1`,
+      url: frontendUrl,
       timeout: 120000,
       reuseExistingServer: false,
       env: {
         ...process.env,
-        BACKEND_API_URL: "http://127.0.0.1:8000",
+        BACKEND_API_URL: backendUrl,
       },
     },
   ],

@@ -19,10 +19,11 @@ export default function ProjectsPage() {
   const [studiesByProject, setStudiesByProject] = useState<Record<number, Study>>({});
   const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState<Project | null>(null);
   const [name, setName] = useState(""); const [industry, setIndustry] = useState("technology"); const [investment, setInvestment] = useState(100000); const [stage, setStage] = useState("idea");
-  const [error, setError] = useState<string | null>(null); const token = getToken();
+  const [error, setError] = useState<string | null>(null); const [token, setToken] = useState<string | null>(null);
 
   async function load(archived = showArchived) { if (!token) return; setError(null); try { const rows = (await listProjects(token, archived)).filter((p) => p.is_archived === archived); setProjects(rows); const groups = await Promise.all(rows.map(async (project) => [project.id, (await listStudies(token, project.id))[0]] as const)); setStudiesByProject(Object.fromEntries(groups.filter((entry): entry is readonly [number, Study] => Boolean(entry[1])))); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } }
-  useEffect(() => { void load(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setToken(getToken()); }, []);
+  useEffect(() => { if (token) void load(false); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
   function reset() { setEditing(null); setName(""); setIndustry("technology"); setInvestment(100000); setStage("idea"); setShowForm(false); }
   function beginEdit(p: Project) { setEditing(p); setName(p.name); setIndustry(p.industry); setInvestment(p.investment); setStage(p.stage); setShowForm(true); }
   async function submit(e: React.FormEvent) {

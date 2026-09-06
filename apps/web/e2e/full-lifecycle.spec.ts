@@ -13,7 +13,7 @@ async function addAssumption(page: Page, key: string, labelEn: string, labelAr: 
   await expect(page.getByTestId(`assumption-card-${key}`)).toBeVisible();
 }
 
-test("full founder lifecycle persists after refresh", async ({ page }) => {
+test("full founder lifecycle persists after refresh and relogin", async ({ page }, testInfo) => {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
   const unexpectedNetwork: string[] = [];
@@ -25,7 +25,7 @@ test("full founder lifecycle persists after refresh", async ({ page }) => {
     if (text === "Failed to load resource: the server responded with a status of 404 (Not Found)") return;
     consoleErrors.push(text);
   });
-  page.on("pageerror", (err) => pageErrors.push(String(err)));
+  page.on("pageerror", (err) => pageErrors.push(`${page.url()} :: ${String(err)}`));
   page.on("response", (response) => {
     const status = response.status();
     const url = response.url();
@@ -46,15 +46,15 @@ test("full founder lifecycle persists after refresh", async ({ page }) => {
   await expect(page.getByTestId("projects-workspace")).toBeVisible({ timeout: 30000 });
 
   await page.getByTestId("add-project-btn").click();
-  await page.getByTestId("project-name-input").fill("Saudi Scrap AI Marketplace");
+  await page.getByTestId("project-name-input").fill("REFERENCE_TEST_DATA — Scrap AI Marketplace");
   await page.getByTestId("project-industry-select").selectOption("technology");
   await page.getByTestId("project-investment-input").fill("850000");
   await page.getByTestId("save-project-btn").click();
   await expect(page.getByTestId("project-workspace")).toBeVisible({ timeout: 30000 });
-  await expect(page.getByTestId("project-workspace-title")).toContainText("Saudi Scrap AI Marketplace");
+  await expect(page.getByTestId("project-workspace-title")).toContainText("REFERENCE_TEST_DATA — Scrap AI Marketplace");
 
   await page.getByTestId("edit-project-profile").click();
-  await page.getByTestId("project-profile-name").fill("Saudi Scrap AI Marketplace");
+  await page.getByTestId("project-profile-name").fill("REFERENCE_TEST_DATA — Scrap AI Marketplace");
   await page.getByTestId("project-profile-investment").fill("860000");
   await page.getByTestId("save-project-profile").click();
   await expect(page.getByTestId("edit-project-profile")).toBeVisible();
@@ -133,6 +133,28 @@ test("full founder lifecycle persists after refresh", async ({ page }) => {
   await expect(page.getByText("Open CR and municipal file")).toBeVisible();
   await page.getByTestId("study-section-growth").click();
   await expect(page.getByTestId("growth-health-state")).toContainText("INSUFFICIENT_DATA");
+
+  await page.screenshot({ path: testInfo.outputPath("01-lifecycle-before-relogin.png"), fullPage: true });
+  await page.getByRole("button", { name: /Log out|خروج/ }).click();
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(email);
+  await page.getByTestId("login-password").fill(PASSWORD);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await page.goto("/projects");
+  await expect(page.getByText("REFERENCE_TEST_DATA — Scrap AI Marketplace")).toBeVisible();
+  await page.getByRole("link", { name: "REFERENCE_TEST_DATA — Scrap AI Marketplace", exact: true }).click();
+  await expect(page.getByTestId("project-workspace-title")).toContainText("REFERENCE_TEST_DATA — Scrap AI Marketplace");
+  await page.getByRole("link", { name: /View decision|عرض القرار/ }).click();
+  await expect(page.getByTestId("study-workspace")).toBeVisible({ timeout: 30000 });
+  await page.getByTestId("study-section-assumptions").click();
+  await expect(page.getByTestId("assumption-card-capex")).toBeVisible();
+  await page.getByTestId("study-section-validation").click();
+  await expect(page.getByTestId("latest-decision-banner")).toBeVisible();
+  await page.getByTestId("study-section-launch").click();
+  await page.getByTestId("launch-tasks-tab").click();
+  await expect(page.getByText("Open CR and municipal file")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("02-lifecycle-after-relogin.png"), fullPage: true });
 
   expect(pageErrors, pageErrors.join("\n")).toEqual([]);
   expect(consoleErrors, consoleErrors.join("\n")).toEqual([]);

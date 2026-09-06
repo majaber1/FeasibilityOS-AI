@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0",
+  "project": "Saudi Business",
+  "current_phase": {
+    "gate": "G8",
+    "name": "Verification",
+    "status": "PARTIAL",
+    "production_readiness": "NOT_CERTIFIED"
+  },
+  "lifecycle_status": {
+    "register": "VERIFIED_LIVE_E2E",
+    "login": "VERIFIED_LIVE_E2E",
+    "create_project": "VERIFIED_LIVE_E2E",
+    "create_study": "VERIFIED_LIVE_E2E",
+    "edit_project": "VERIFIED_LIVE_E2E",
+    "edit_assumptions": "VERIFIED_LIVE_E2E",
+    "calculate": "VERIFIED_LIVE_E2E",
+    "validation": "VERIFIED_LIVE_E2E",
+    "decision": "VERIFIED_LIVE_E2E",
+    "launch": "VERIFIED_LIVE_E2E",
+    "growth": "VERIFIED_LIVE_E2E"
+  },
+  "feature_verification_status": {
+    "ten_reference_project_dataset": "VERIFIED_INTEGRATION",
+    "project_study_isolation": "VERIFIED_INTEGRATION",
+    "one_study_per_project_duplicate_guard": "VERIFIED_INTEGRATION",
+    "project_profile_edit_persistence": "VERIFIED_LIVE_E2E",
+    "assumption_and_calculation_persistence": "VERIFIED_LIVE_E2E",
+    "refresh_and_relogin_persistence": "VERIFIED_LIVE_E2E",
+    "validation_go_evidence_gate": "VERIFIED_INTEGRATION",
+    "production_environment": "NOT_IMPLEMENTED"
+  },
+  "test_evidence": [
+    {
+      "kind": "browser_e2e",
+      "command": "npm run e2e",
+      "result": "1 passed",
+      "duration": "57.7s",
+      "environment": "isolated local Chromium, frontend 3100, backend 8100",
+      "artifacts": [
+        "evidence/reference-validation/01-lifecycle-before-relogin.png",
+        "evidence/reference-validation/02-lifecycle-after-relogin.png"
+      ]
+    },
+    {
+      "kind": "integration",
+      "command": "python -m pytest tests/test_wave65_lifecycle.py -q",
+      "result": "4 passed",
+      "duration": "17.00s"
+    },
+    {
+      "kind": "frontend_quality",
+      "commands": ["npm run typecheck", "npm run lint", "npm run build"],
+      "result": "passed; build generated 37 routes"
+    }
+  ],
+  "reference_data": {
+    "marker": "REFERENCE_TEST_DATA",
+    "fixture": "tests/fixtures/reference-projects.json",
+    "classification": "USER_ASSUMPTION",
+    "market_fact_claim": false
+  },
+  "last_updated": "2026-09-07"
+}
