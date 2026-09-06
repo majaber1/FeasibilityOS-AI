@@ -122,10 +122,10 @@ export default function BusinessProfileTab({ token, studyId, locale }: Props) {
       <p className="text-sm text-ink-600">{c.intro}</p>
       {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
-      <form onSubmit={onSubmit} className="mt-4 grid gap-3 sm:grid-cols-2">
+      <form onSubmit={onSubmit} className="mt-4 grid gap-3 sm:grid-cols-2" data-testid="business-profile-form">
         <label className="block text-sm sm:col-span-2">
           <span>{c.activity}</span>
-          <input value={form.business_activity ?? ""} onChange={(e) => setForm({ ...form, business_activity: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+          <input value={form.business_activity ?? ""} onChange={(e) => setForm({ ...form, business_activity: e.target.value })} data-testid="profile-activity-input" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
         </label>
         <label className="block text-sm sm:col-span-2">
           <span>{c.description}</span>
@@ -180,7 +180,7 @@ export default function BusinessProfileTab({ token, studyId, locale }: Props) {
 
         <div className="sm:col-span-2 flex items-center justify-end gap-3">
           {savedAt && <span className="text-xs text-emerald-700">{c.saved}</span>}
-          <button type="submit" disabled={busy} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60">
+          <button type="submit" disabled={busy} data-testid="save-business-profile" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60">
             {busy ? c.saving : c.save}
           </button>
         </div>

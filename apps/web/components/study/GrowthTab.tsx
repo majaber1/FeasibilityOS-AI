@@ -338,7 +338,7 @@ export default function GrowthTab({
   const { business_health, trends, unit_economics, risks, expansion_readiness, growth_funding } = data;
 
   return (
-    <div className="space-y-6" dir={ar ? "rtl" : "ltr"}>
+    <div className="space-y-6" dir={ar ? "rtl" : "ltr"} data-testid="growth-os-workspace">
       {/* Header Banner */}
       <div className="rounded-3xl border border-slate-200 bg-gradient-to-r from-emerald-900 via-slate-900 to-ink-900 p-6 text-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -358,6 +358,7 @@ export default function GrowthTab({
           </div>
           <div className="flex flex-col items-end gap-2">
             <span
+              data-testid="growth-health-state"
               className={`rounded-xl border px-3 py-1.5 text-xs font-bold ${
                 healthStatusMap[business_health.health_state]?.badge || "bg-slate-100 text-slate-800"
               }`}

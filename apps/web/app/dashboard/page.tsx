@@ -112,7 +112,7 @@ export default function DashboardPage() {
     .reduce((total, project) => total + Number(project.investment || 0), 0);
 
   const nextStep = !projects.length
-    ? { href: "/businesses", title: ar ? "أضف مشروعك الأول" : "Add your first project", detail: ar ? "ابدأ بالاسم والقطاع والاستثمار المتوقع." : "Start with its name, sector, and expected investment." }
+    ? { href: "/projects", title: ar ? "أضف مشروعك الأول" : "Add your first project", detail: ar ? "ابدأ بالاسم والقطاع والاستثمار المتوقع." : "Start with its name, sector, and expected investment." }
     : !studies.length
       ? { href: "/tools/feasibility", title: ar ? "أنشئ دراسة الجدوى" : "Build a feasibility study", detail: ar ? "حوّل مشروعك إلى افتراضات ونتائج مالية واضحة." : "Turn your project into clear assumptions and financial results." }
       : !readiness
@@ -153,7 +153,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link href="/businesses" className="rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold backdrop-blur transition hover:bg-white/15">{ar ? "إدارة المشاريع" : "Manage projects"}</Link>
+              <Link href="/projects" className="rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold backdrop-blur transition hover:bg-white/15">{ar ? "إدارة المشاريع" : "Manage projects"}</Link>
               <Link href="/tools" className="rounded-xl bg-gold-400 px-5 py-3 text-sm font-bold text-brand-900 shadow-lg shadow-black/10 transition hover:bg-gold-300">{ar ? "أدوات الأعمال" : "Business tools"}</Link>
             </div>
           </div>
@@ -208,20 +208,20 @@ export default function DashboardPage() {
           <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
             <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
               <div><h2 className="font-bold text-ink-900">{ar ? "المشاريع الأخيرة" : "Recent projects"}</h2><p className="mt-1 text-xs text-ink-500">{ar ? "آخر نشاط في مساحة العمل" : "Latest workspace activity"}</p></div>
-              <Link href="/businesses" className="text-sm font-bold text-brand-700 hover:text-brand-800">{ar ? "عرض الكل" : "View all"}</Link>
+              <Link href="/projects" className="text-sm font-bold text-brand-700 hover:text-brand-800">{ar ? "عرض الكل" : "View all"}</Link>
             </header>
             {visibleProjects.length ? (
               <div className="divide-y divide-slate-100">
                 {visibleProjects.map((project) => (
-                  <div key={project.id} className="grid gap-3 px-5 py-4 transition hover:bg-slate-50 sm:grid-cols-[1.4fr_1fr_auto] sm:items-center sm:px-6">
+                  <Link key={project.id} href={project.id > 0 ? `/projects/${project.id}` : "/projects"} className="grid gap-3 px-5 py-4 transition hover:bg-slate-50 sm:grid-cols-[1.4fr_1fr_auto] sm:items-center sm:px-6">
                     <div><p className="font-semibold text-ink-900">{project.name}</p><p className="mt-1 text-xs text-ink-500">{project.industry}</p></div>
                     <p className="text-sm font-semibold text-ink-700">{money(Number(project.investment), lang)}</p>
                     <span className="w-fit rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700">{project.stage || (ar ? "نشط" : "Active")}</span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
-              <div className="p-10 text-center"><p className="text-sm text-ink-600">{ar ? "لا توجد مشاريع بعد." : "No projects yet."}</p><Link href="/businesses" className="mt-4 inline-flex text-sm font-bold text-brand-700">{ar ? "أنشئ مشروعك الأول" : "Create your first project"}</Link></div>
+              <div className="p-10 text-center"><p className="text-sm text-ink-600">{ar ? "لا توجد مشاريع بعد." : "No projects yet."}</p><Link href="/projects" className="mt-4 inline-flex text-sm font-bold text-brand-700">{ar ? "أنشئ مشروعك الأول" : "Create your first project"}</Link></div>
             )}
           </article>
 

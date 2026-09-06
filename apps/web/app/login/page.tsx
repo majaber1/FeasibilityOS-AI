@@ -110,6 +110,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                data-testid="login-email"
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
               />
             </label>
@@ -123,6 +124,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                data-testid="login-password"
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
               />
             </label>
@@ -139,6 +141,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={busy}
+              data-testid="login-submit"
               className="w-full rounded-md bg-brand-600 px-4 py-2.5 font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy ? c.loading : c.submit}

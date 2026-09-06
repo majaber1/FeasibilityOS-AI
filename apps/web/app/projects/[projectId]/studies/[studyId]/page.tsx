@@ -115,6 +115,16 @@ export default function StudyWorkspacePage({ params }: { params: Promise<{ proje
   }, [reload, token]);
 
   useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash.replace("#", "") as (typeof sections)[number];
+      if ((sections as readonly string[]).includes(hash)) setActive(hash);
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
+  useEffect(() => {
     if (!token || !persistedStudyId || !currentStep || !revisionRef.current || !hydrated.current) return;
     setSaveState("saving");
     const timer = window.setTimeout(() => {
@@ -186,7 +196,7 @@ export default function StudyWorkspacePage({ params }: { params: Promise<{ proje
   } | null;
 
   return (
-    <main className="container-page py-8">
+    <main className="container-page py-8" data-testid="study-workspace">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href={`/projects/${project.id}`} className="text-sm text-brand-700 hover:underline">
@@ -209,7 +219,11 @@ export default function StudyWorkspacePage({ params }: { params: Promise<{ proje
           {sections.map((section, index) => (
             <button
               key={section}
-              onClick={() => setActive(section)}
+              data-testid={`study-section-${section}`}
+              onClick={() => {
+                setActive(section);
+                window.location.hash = section;
+              }}
               className={`block w-full rounded-lg px-3 py-2 text-start text-sm ${active === section ? "bg-brand-50 font-semibold text-brand-800" : "hover:bg-slate-50"}`}
             >
               {labels[locale][index]}
@@ -313,7 +327,7 @@ export default function StudyWorkspacePage({ params }: { params: Promise<{ proje
           ) : active === "assumptions" ? (
             <AssumptionsTab token={token} studyId={study.id} locale={locale} />
           ) : active === "financial" ? (
-            <FinancialAnalysisTab token={token} study={study} locale={locale} onComputed={reload} />
+            <FinancialAnalysisTab token={token} study={study} locale={locale} onComputed={reload} onOpenAssumptions={() => { setActive("assumptions"); window.location.hash = "assumptions"; }} />
           ) : active === "funding" ? (
             <FundingTab token={token} studyId={study.id} locale={locale} />
           ) : active === "validation" ? (

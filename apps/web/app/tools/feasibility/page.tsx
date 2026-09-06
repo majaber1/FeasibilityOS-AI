@@ -41,7 +41,7 @@ export default function FeasibilityServicePage() {
         breadcrumb={[{ label: ar ? "الأدوات" : "Tools", href: "/tools" }]}
         actions={
           <Link
-            href="/feasibility/new"
+            href="/projects"
             className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-700"
           >
             {ar ? "دراسة جديدة" : "New study"}
@@ -96,7 +96,7 @@ export default function FeasibilityServicePage() {
             title={ar ? "لا توجد دراسات بعد" : "No studies yet"}
             description={ar ? "ابدأ أول دراسة جدوى لمشروعك." : "Start your first feasibility study."}
             actionLabel={ar ? "دراسة جديدة" : "New study"}
-            actionHref="/feasibility/new"
+            actionHref="/projects"
           />
         ) : (
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
@@ -105,7 +105,12 @@ export default function FeasibilityServicePage() {
             </header>
             <div className="divide-y divide-slate-100">
               {studies.map((s) => (
-                <div key={s.id} className="flex items-center justify-between px-6 py-4 transition hover:bg-slate-50">
+                <Link
+                  key={s.id}
+                  href={`/projects/${s.project_id}/studies/${s.id}`}
+                  data-testid={`open-study-${s.id}`}
+                  className="flex items-center justify-between px-6 py-4 transition hover:bg-slate-50"
+                >
                   <div>
                     <p className="font-semibold text-ink-900">{s.title}</p>
                     <p className="mt-1 text-xs text-ink-500">{s.study_type} — {ar ? `خطوة ${s.current_step}` : `Step ${s.current_step}`}</p>
@@ -119,7 +124,7 @@ export default function FeasibilityServicePage() {
                       <Badge variant="neutral">{ar ? "مسودة" : "Draft"}</Badge>
                     )}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </section>

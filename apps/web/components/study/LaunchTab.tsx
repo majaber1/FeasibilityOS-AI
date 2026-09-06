@@ -356,7 +356,7 @@ export default function LaunchTab({
   const completedTasksCount = tasks.filter((t) => t.status === "COMPLETED").length;
 
   return (
-    <div className="space-y-6" dir={ar ? "rtl" : "ltr"}>
+    <div className="space-y-6" dir={ar ? "rtl" : "ltr"} data-testid="launch-os-workspace">
       {/* HEADER & STATUS BAR */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -502,6 +502,7 @@ export default function LaunchTab({
           </button>
           <button
             onClick={() => setSubTab("tasks")}
+            data-testid="launch-tasks-tab"
             className={`pb-3 px-4 text-sm font-semibold border-b-2 transition ${
               subTab === "tasks"
                 ? "border-emerald-600 text-emerald-600"
@@ -778,6 +779,7 @@ export default function LaunchTab({
                     required
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
+                    data-testid="launch-task-title"
                     placeholder={ar ? "مثال: سداد رسوم الفاتورة الإلكترونية عبر سداد" : "e.g. Pay licensing fee"}
                     className="w-full text-sm border border-slate-300 rounded-lg p-2"
                   />
@@ -843,6 +845,7 @@ export default function LaunchTab({
                 <button
                   type="submit"
                   disabled={savingAction || !newTaskTitle}
+                  data-testid="launch-add-task"
                   className="px-4 py-2 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
                 >
                   {savingAction ? (ar ? "جارٍ الحفظ..." : "Saving...") : ar ? "+ إضافة المهمة" : "+ Add Task"}

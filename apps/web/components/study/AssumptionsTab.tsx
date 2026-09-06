@@ -162,7 +162,7 @@ export default function AssumptionsTab({ token, studyId, locale }: Props) {
       {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <div className="mt-4 flex justify-end">
-        <button onClick={() => setShowForm((v) => !v)} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+        <button onClick={() => setShowForm((v) => !v)} data-testid="add-assumption-btn" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
           {showForm ? c.cancel : c.add}
         </button>
       </div>
@@ -171,11 +171,11 @@ export default function AssumptionsTab({ token, studyId, locale }: Props) {
         <form onSubmit={onSubmit} className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
           <label className="block text-sm">
             <span>{c.key}</span>
-            <input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="monthly_rent" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+            <input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="monthly_rent" data-testid="assumption-key-input" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
           </label>
           <label className="block text-sm">
             <span>{c.origin}</span>
-            <select value={form.origin} onChange={(e) => setForm({ ...form, origin: e.target.value as AssumptionOrigin })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
+            <select value={form.origin} onChange={(e) => setForm({ ...form, origin: e.target.value as AssumptionOrigin })} data-testid="assumption-origin-select" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
               {ASSUMPTION_ORIGINS.map((o) => (
                 <option key={o} value={o}>{c.originLabels[o]}</option>
               ))}
@@ -183,15 +183,15 @@ export default function AssumptionsTab({ token, studyId, locale }: Props) {
           </label>
           <label className="block text-sm">
             <span>{c.labelEn}</span>
-            <input value={form.label_en} onChange={(e) => setForm({ ...form, label_en: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+            <input value={form.label_en} onChange={(e) => setForm({ ...form, label_en: e.target.value })} data-testid="assumption-label-en" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
           </label>
           <label className="block text-sm">
             <span>{c.labelAr}</span>
-            <input value={form.label_ar} onChange={(e) => setForm({ ...form, label_ar: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+            <input value={form.label_ar} onChange={(e) => setForm({ ...form, label_ar: e.target.value })} data-testid="assumption-label-ar" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
           </label>
           <label className="block text-sm">
             <span>{c.value}</span>
-            <input type="number" value={form.value_number} onChange={(e) => setForm({ ...form, value_number: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
+            <input type="number" value={form.value_number} onChange={(e) => setForm({ ...form, value_number: e.target.value })} data-testid="assumption-value-input" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
           </label>
           <label className="block text-sm">
             <span>{c.unit}</span>
@@ -224,7 +224,7 @@ export default function AssumptionsTab({ token, studyId, locale }: Props) {
           {formError && <p role="alert" className="sm:col-span-2 rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
 
           <div className="sm:col-span-2 flex justify-end">
-            <button type="submit" disabled={busy} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60">
+            <button type="submit" disabled={busy} data-testid="save-assumption-btn" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60">
               {busy ? c.saving : c.save}
             </button>
           </div>
@@ -235,7 +235,7 @@ export default function AssumptionsTab({ token, studyId, locale }: Props) {
         {items === null && <p className="text-sm text-ink-500">…</p>}
         {items !== null && items.length === 0 && <p className="text-sm text-ink-500">{c.empty}</p>}
         {items?.map((item) => (
-          <article key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
+          <article key={item.id} data-testid={`assumption-card-${item.key}`} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${ORIGIN_STYLE[item.origin]}`}>{c.originLabels[item.origin]}</span>

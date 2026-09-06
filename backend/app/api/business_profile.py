@@ -71,7 +71,8 @@ def get_business_profile(study_id: int, user: UserOut = Depends(get_current_user
         owned_study_or_error(db, models, study_id, user)
         profile = db.query(models.BusinessProfile).filter_by(study_id=study_id).first()
         if profile is None:
-            raise HTTPException(status_code=404, detail="No business profile recorded for this study")
+            # Missing profile is a valid empty state, not a navigation error.
+            return BusinessProfileOut(study_id=study_id, is_existing_business=False)
         return profile
     finally:
         db.close()

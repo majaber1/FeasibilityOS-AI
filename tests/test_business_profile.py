@@ -42,11 +42,15 @@ def _study(headers):
     ).json()
 
 
-def test_get_before_any_upsert_is_404():
+def test_get_before_any_upsert_returns_empty_profile():
     headers = _headers("profile_missing")
     study = _study(headers)
     resp = client.get(f"/studies/{study['id']}/business-profile/", headers=headers)
-    assert resp.status_code == 404
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["study_id"] == study["id"]
+    assert body["business_activity"] is None
+    assert body["is_existing_business"] is False
 
 
 def test_put_creates_then_partially_updates_without_clobbering_other_fields():
