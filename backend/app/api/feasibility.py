@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 
 from app.db import DB_ENABLED, SessionLocal
 from app.api.auth import UserOut, get_current_user
+from app.services.study_access import can_access_owner as _can_access, owned_study_or_error as _owned_study_or_error
 
 # financial-engine/ lives at the repo root, three levels above this file.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "financial-engine"))
@@ -40,31 +41,6 @@ def _require_db():
     return SessionLocal()
 
 
-def _project_owner_id(db, models, project_id) -> Optional[int]:
-    project = db.get(models.Project, project_id) if project_id is not None else None
-    return project.owner_id if project is not None else None
-
-
-def _can_access(user: UserOut, owner_id: Optional[int]) -> bool:
-    """Admins access anything; everyone else only their own resources."""
-    return user.role_key == "admin" or (owner_id is not None and owner_id == user.id)
-
-
-def _owned_study_or_error(db, models, study_id: int, user: UserOut):
-    """Fetch a study enforcing ownership via its project owner.
-
-    404 when the study does not exist; 403 when it exists but the caller is not
-    the owner (and not an admin). Never leaks another user's study contents.
-    """
-    study = db.get(models.FeasibilityStudy, study_id)
-    if study is None:
-        raise HTTPException(status_code=404, detail="Study not found")
-    owner_id = _project_owner_id(db, models, study.project_id)
-    if not _can_access(user, owner_id):
-        raise HTTPException(status_code=403, detail="Not authorized for this study")
-    return study
-
-
 class StudyCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     industry: str = Field(..., min_length=1, max_length=100)
@@ -76,6 +52,7 @@ class StudyCreate(BaseModel):
 class StepIn(BaseModel):
     step: int = Field(..., ge=1, le=6)
     data: dict = Field(default_factory=dict)
+    expected_revision: Optional[int] = Field(default=None, ge=1)
 
 
 class ComputeIn(BaseModel):
@@ -90,6 +67,7 @@ class StudyOut(BaseModel):
     study_type: str
     status: str
     current_step: int
+    revision: int
     payload: dict
     result: Optional[dict] = None
 
@@ -125,6 +103,7 @@ def _to_out(models, study, result: Optional[dict]) -> StudyOut:
         study_type=study.study_type,
         status=study.status,
         current_step=study.current_step,
+        revision=study.revision,
         payload=study.payload or {},
         result=result,
     )
@@ -157,6 +136,18 @@ def create_study(data: StudyCreate, user: UserOut = Depends(get_current_user)):
             # A study may only be attached to a project the caller owns.
             if not _can_access(user, project.owner_id):
                 raise HTTPException(status_code=403, detail="Not authorized for this project")
+
+            # A project is the persistent root aggregate and has one study.
+            # Returning the existing resource makes retries and double-clicks
+            # idempotent without creating duplicate customer records.
+            existing = (
+                db.query(models.FeasibilityStudy)
+                .filter(models.FeasibilityStudy.project_id == project_id)
+                .order_by(models.FeasibilityStudy.id.asc())
+                .first()
+            )
+            if existing is not None:
+                return _to_out(models, existing, _latest_result(db, models, existing.id))
 
         study = models.FeasibilityStudy(
             project_id=project_id,
@@ -214,10 +205,20 @@ def save_step(study_id: int, body: StepIn, user: UserOut = Depends(get_current_u
     db = _require_db()
     try:
         study = _owned_study_or_error(db, models, study_id, user)
+        if body.expected_revision is not None and study.revision != body.expected_revision:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "study_revision_conflict",
+                    "message": "The study changed in another session. Reload before saving.",
+                    "current_revision": study.revision,
+                },
+            )
         payload = dict(study.payload or {})
         payload[f"step_{body.step}"] = body.data
         study.payload = payload
         study.current_step = max(study.current_step, body.step)
+        study.revision += 1
         if study.status == "draft" and body.step >= 6:
             study.status = "in_review"
         db.add(study)
@@ -257,6 +258,73 @@ def compute(study_id: int, body: ComputeIn, user: UserOut = Depends(get_current_
                 "sensitivity": sens,
                 "discount_rate": body.discount_rate,
                 "annual_cash_flows": body.annual_cash_flows,
+            },
+        )
+        db.add(result)
+        study.status = "completed"
+        study.current_step = max(study.current_step, 5)
+        db.add(study)
+        db.commit()
+        db.refresh(study)
+        return _to_out(models, study, _latest_result(db, models, study.id))
+    finally:
+        db.close()
+
+
+@router.post("/{study_id}/compute-from-assumptions", response_model=StudyOut)
+def compute_from_assumptions(study_id: int, user: UserOut = Depends(get_current_user)):
+    """Compute the feasibility model from the study's recorded assumptions.
+
+    Requires at least capex and revenue_year1 as active StudyAssumption rows
+    (see app.services.financial_projection); returns 422 listing what's
+    missing rather than silently defaulting them. Reuses the same
+    deterministic calculator as POST /{study_id}/compute -- this endpoint
+    only changes where the inputs come from.
+    """
+    from app import models
+    from app.services.financial_projection import ALL_ASSUMPTION_KEYS, missing_required_keys, project_cash_flows
+
+    db = _require_db()
+    try:
+        study = _owned_study_or_error(db, models, study_id, user)
+        active = (
+            db.query(models.StudyAssumption)
+            .filter(
+                models.StudyAssumption.study_id == study_id,
+                models.StudyAssumption.is_active.is_(True),
+                models.StudyAssumption.key.in_(ALL_ASSUMPTION_KEYS),
+            )
+            .all()
+        )
+        values = {row.key: row.value_number for row in active}
+        missing = missing_required_keys(values)
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "missing_assumptions",
+                    "message": "Record these assumptions before computing: " + ", ".join(missing),
+                    "missing": missing,
+                },
+            )
+        investment, cash_flows, discount_rate = project_cash_flows(values)
+
+        res = evaluate_feasibility(investment, cash_flows, discount_rate)
+        sens = sensitivity_analysis(investment, cash_flows, discount_rate)
+
+        result = models.FinancialResult(
+            study_id=study.id,
+            roi=res.roi_percent,
+            npv=res.npv_value,
+            irr=res.irr_value,
+            payback_years=res.payback_years,
+            verdict=res.verdict,
+            detail={
+                "sensitivity": sens,
+                "discount_rate": discount_rate,
+                "annual_cash_flows": cash_flows,
+                "source": "assumptions",
+                "assumption_versions": {row.key: {"id": row.id, "version": row.version} for row in active},
             },
         )
         db.add(result)

@@ -1,0 +1,16 @@
+{
+  "dataset_marker": "REFERENCE_TEST_DATA",
+  "disclaimer": "All numeric and descriptive planning values are generated USER_ASSUMPTION test inputs. They are not market facts and must never be presented as verified external facts.",
+  "projects": [
+    {"name":"Scrap AI Marketplace","industry":"technology","investment":850000,"stage":"idea","activity":"AI-assisted scrap marketplace and recycling brokerage"},
+    {"name":"SaaS Platform","industry":"technology","investment":420000,"stage":"mvp","activity":"Subscription workflow software for small businesses"},
+    {"name":"Restaurant","industry":"food","investment":650000,"stage":"idea","activity":"Neighbourhood casual dining restaurant"},
+    {"name":"Manufacturing","industry":"industrial","investment":12500000,"stage":"idea","activity":"Light industrial component manufacturing"},
+    {"name":"Logistics","industry":"technology","investment":930000,"stage":"idea","activity":"Fleet routing and delivery coordination platform"},
+    {"name":"Healthcare Clinic","industry":"healthcare","investment":2100000,"stage":"idea","activity":"Outpatient primary-care clinic"},
+    {"name":"E-commerce","industry":"retail","investment":190000,"stage":"idea","activity":"Inventory-led specialist online store"},
+    {"name":"Recycling Plant","industry":"industrial","investment":9800000,"stage":"idea","activity":"Plastic sorting and recycling plant"},
+    {"name":"Agriculture Technology","industry":"industrial","investment":2400000,"stage":"mvp","activity":"Sensor-assisted irrigation and farm operations technology"},
+    {"name":"B2B Services","industry":"technology","investment":310000,"stage":"early_revenue","activity":"Contract-based operational support services for businesses"}
+  ]
+}

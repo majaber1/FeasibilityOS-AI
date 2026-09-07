@@ -1,10 +1,7 @@
-// Backend origin for the same-origin proxy below. Overridable via
-// BACKEND_API_URL (server-only, not exposed to the client) for other
-// deployments. The safe fallback is local development only: production
-// operators must set BACKEND_API_URL explicitly instead of silently sending
-// credentials and business data to a stale third-party deployment.
-const BACKEND_API_URL = (process.env.BACKEND_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-
+// BACKEND_API_URL (server-only, not exposed to the client) must be set in
+// any deployed environment; app/api/backend/[...path]/route.ts reads it at
+// request time via lib/server-auth.ts#backendUrl. Fail fast at build/start
+// on Vercel instead of silently proxying nothing.
 if (process.env.VERCEL && !process.env.BACKEND_API_URL) {
   throw new Error("BACKEND_API_URL must be configured for Vercel deployments");
 }
@@ -15,35 +12,25 @@ const nextConfig = {
   // Docker consumes Next's standalone server; Vercel applies its own output
   // adapter and must retain the normal Next.js build layout.
   output: process.env.VERCEL ? undefined : "standalone",
-  // Without this, Next.js auto-redirects /api/backend/opportunities/ ->
-  // /api/backend/opportunities (308) BEFORE the rewrite runs. FastAPI then
-  // 307-redirects back to the slash form -- but that second redirect's
-  // Location header points at BACKEND_API_URL directly (bypassing the
-  // proxy), so the client follows it as a *cross-origin* redirect and both
-  // fetch() and curl correctly strip the Authorization header for security.
-  // Net effect: every authenticated collection endpoint (POST /feasibility/,
-  // /projects/, /leads/, ...) silently 401'd through the proxy. Disabling
-  // Next's own trailing-slash handling lets the rewrite forward the request
-  // in a single same-origin hop, matching FastAPI's canonical trailing-slash
-  // routes exactly (see lib/api.ts call sites) -- zero redirects needed.
+  // /api/backend/[...path]/route.ts (the secure, cookie-authenticated proxy)
+  // is a dynamic catch-all route. Without this, Next.js auto-redirects
+  // /api/backend/feasibility/ -> /api/backend/feasibility (308) before that
+  // route handler runs, and FastAPI's redirect_slashes=False then rejects
+  // the slash-less form -- silently 401/404ing every authenticated
+  // collection endpoint (POST /feasibility/, /projects/, /leads/, ...).
+  // Disabling Next's own trailing-slash handling lets the request reach the
+  // route handler in a single hop, matching FastAPI's canonical
+  // trailing-slash routes exactly (see lib/api.ts call sites).
   skipTrailingSlashRedirect: true,
-  // Proxies browser calls through this app's own origin to the FastAPI
-  // backend server-side. This is what makes lib/api.ts's default
-  // "/api/backend" base work without any CORS configuration on the backend:
-  // the browser only ever talks to same-origin URLs; the cross-origin hop
-  // happens server-to-server, where CORS does not apply. The backend's
-  // production CORS policy (deny-by-default without an explicit allowlist,
-  // see backend/app/core/config.py) is intentionally left untouched.
-  async rewrites() {
-    // :path(.*) -- a named param with an explicit regex constraint -- is
-    // captured as a raw string, unlike the segment-based :path* catch-all,
-    // so a trailing slash in the request survives into the destination as a
-    // literal character. That desync (":path*" silently drops it) broke every
-    // authenticated collection endpoint through this proxy against FastAPI's
-    // trailing-slash-sensitive routes (see redirect_slashes=False in
-    // backend/app/main.py).
-    return [{ source: "/api/backend/:path(.*)", destination: BACKEND_API_URL + "/:path" }];
-  },
+  // NOTE: there is intentionally no rewrites() here. A prior version of this
+  // file rewrote /api/backend/:path(.*) directly to BACKEND_API_URL -- but
+  // Next.js applies array-form (afterFiles) rewrites BEFORE dynamic routes
+  // are matched, so that rewrite silently intercepted every request before
+  // the secure session-cookie proxy in app/api/backend/[...path]/route.ts
+  // ever ran, forwarding the browser's non-secret "session" placeholder
+  // straight to FastAPI instead of swapping in the real HTTP-only cookie
+  // JWT. Every authenticated call 401'd. The route handler is the proxy now;
+  // do not reintroduce a rewrite for this path.
 };
 
 export default nextConfig;

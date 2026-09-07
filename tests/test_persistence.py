@@ -72,8 +72,15 @@ def test_core_entities_persist():
         )
         session.add(user)
         prog = models.FundingProgram(
-            key="ntdp", name_en="NTDP", name_ar="المنشآت التقنية",
-            verification_status="requires_verification",
+            slug="ntdp",
+            program_name_en="NTDP",
+            program_name_ar="المنشآت التقنية",
+            provider="NTDP",
+            provider_ar="البرنامج الوطني لتنمية تقنية المعلومات",
+            program_type="DIRECT_LOAN",
+            official_source_url="https://ntdp.gov.sa",
+            source_owner="NTDP",
+            verification_status="VERIFIED_CURRENT",
         )
         session.add(prog)
         idea = models.IdeaBankEntry(title_en="Cold chain SaaS", title_ar="سلسلة تبريد", industry="logistics")
@@ -86,7 +93,7 @@ def test_core_entities_persist():
     session = app_db.SessionLocal()
     try:
         assert session.query(models.User).filter_by(email="persistence_probe@example.com").count() == 1
-        assert session.query(models.FundingProgram).filter_by(key="ntdp").one().name_ar == "المنشآت التقنية"
+        assert session.query(models.FundingProgram).filter_by(slug="ntdp").one().program_name_ar == "المنشآت التقنية"
         assert session.query(models.IdeaBankEntry).filter_by(industry="logistics").count() >= 1
     finally:
         session.close()

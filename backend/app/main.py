@@ -21,6 +21,27 @@ from app.api.opportunities import router as opportunities_router
 from app.api.leads import router as leads_router
 from app.api.proposals import router as proposals_router
 from app.api.entitlements import router as entitlements_router
+from app.api.evidence import router as evidence_router
+from app.api.assumptions import router as assumptions_router
+from app.api.quick_idea_check import router as quick_idea_check_router
+from app.api.business_profile import router as business_profile_router
+from app.api.extracted_facts import router as extracted_facts_router
+from app.api.company_financial_profile import router as company_financial_profile_router
+from app.api.financial_health import router as financial_health_router
+from app.api.scenarios import router as scenarios_router
+from app.api.decision import router as decision_router
+from app.api.funding_gap import router as funding_gap_router
+from app.api.borrowing_capacity import router as borrowing_capacity_router
+from app.api.collateral import router as collateral_router
+from app.api.funding_readiness import router as funding_readiness_router
+from app.api.funding_programs import router as funding_programs_router
+from app.api.funding_matching import router as funding_matching_router
+from app.api.financing_structure import router as financing_structure_router
+from app.api.verified_opportunities import router as verified_opportunities_router
+from app.api.opportunity_matching import router as opportunity_matching_router
+from app.api.validation import router as validation_router
+from app.api.launch import router as launch_router
+from app.api.growth import router as growth_router
 from app.api.auth import UserOut, require_roles
 from app.services.monitoring import metrics_snapshot, observe_request
 
@@ -61,10 +82,33 @@ app.include_router(opportunities_router)
 app.include_router(leads_router)
 app.include_router(proposals_router)
 app.include_router(entitlements_router)
+app.include_router(evidence_router)
+app.include_router(assumptions_router)
+app.include_router(quick_idea_check_router)
+app.include_router(business_profile_router)
+app.include_router(extracted_facts_router)
+app.include_router(company_financial_profile_router)
+app.include_router(financial_health_router)
+app.include_router(scenarios_router)
+app.include_router(decision_router)
+app.include_router(funding_gap_router)
+app.include_router(borrowing_capacity_router)
+app.include_router(collateral_router)
+app.include_router(funding_readiness_router)
+app.include_router(funding_programs_router)
+app.include_router(funding_matching_router)
+app.include_router(financing_structure_router)
+app.include_router(opportunity_matching_router)
+app.include_router(verified_opportunities_router)
+app.include_router(validation_router)
+app.include_router(launch_router)
+app.include_router(growth_router)
 
-from app.db import ensure_migrations_applied  # noqa: E402
+from app.db import ensure_migrations_applied, init_db  # noqa: E402
 
 ensure_migrations_applied()
+if (settings.environment or "").strip().lower() not in {"production", "prod"}:
+    init_db()
 
 
 def _db_ping() -> bool:

@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/LanguageProvider";
 import {
   computeStudy,
   createStudy,
   getProject,
   getToken,
+  listStudies,
   matchFunding,
   reportDownloadUrl,
   saveStudyStep,
@@ -43,6 +45,8 @@ const copy = {
       discount: "معدل الخصم (%)",
       compute: "احسب النتائج",
       computing: "جارٍ الحساب...",
+      assumptionNote: "كل القيم هنا افتراض مستخدم (USER_ASSUMPTION) وليست حقائق سوقية.",
+      back: "العودة للمدخلات",
     },
     step3: {
       heading: "٣. النتائج",
@@ -82,6 +86,8 @@ const copy = {
       discount: "Discount rate (%)",
       compute: "Compute results",
       computing: "Computing...",
+      assumptionNote: "Every value here is a USER_ASSUMPTION, not a verified market fact.",
+      back: "Back to inputs",
     },
     step3: {
       heading: "3. Results",
@@ -117,6 +123,7 @@ function fmtMetric(n: number | null | undefined, locale: "ar" | "en", digits = 1
 
 export default function NewFeasibilityStudyPage() {
   const { locale } = useLanguage();
+  const router = useRouter();
   const c = copy[locale];
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -128,10 +135,10 @@ export default function NewFeasibilityStudyPage() {
   const [investment, setInvestment] = useState<number>(500000);
   const [stage, setStage] = useState<string>("mvp");
 
-  const [revenues, setRevenues] = useState("420000,600000,780000,900000,1020000");
-  const [operatingCosts, setOperatingCosts] = useState("360000,430000,500000,560000,620000");
-  const [fixedCosts, setFixedCosts] = useState(300000);
-  const [variableCostPercent, setVariableCostPercent] = useState(25);
+  const [revenues, setRevenues] = useState("");
+  const [operatingCosts, setOperatingCosts] = useState("");
+  const [fixedCosts, setFixedCosts] = useState<number | "">("");
+  const [variableCostPercent, setVariableCostPercent] = useState<number | "">("");
   const [discount, setDiscount] = useState<number>(10);
 
   const [study, setStudy] = useState<Study | null>(null);
@@ -146,15 +153,19 @@ export default function NewFeasibilityStudyPage() {
     const projectId = rawId ? Number(rawId) : NaN;
     if (!Number.isInteger(projectId) || projectId <= 0) return;
     void getProject(token, projectId)
-      .then((project) => {
+      .then(async (project) => {
         setLinkedProjectId(project.id);
         setName(project.name);
         setIndustry(project.industry);
         setInvestment(project.investment);
         setStage(project.stage);
+        const existing = (await listStudies(token, project.id))[0];
+        if (existing) {
+          router.replace(`/projects/${project.id}/studies/${existing.id}`);
+        }
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-  }, [token]);
+  }, [router, token]);
 
   async function onCreateStudy(e: React.FormEvent) {
     e.preventDefault();
@@ -163,6 +174,10 @@ export default function NewFeasibilityStudyPage() {
     setError(null);
     try {
       const created = await createStudy(token, { title: name, industry, investment, project_id: linkedProjectId, study_type: "general" });
+      if (linkedProjectId) {
+        router.replace(`/projects/${created.project_id}/studies/${created.id}`);
+        return;
+      }
       setStudy(created);
       setStep(2);
     } catch (err) {
@@ -185,7 +200,12 @@ export default function NewFeasibilityStudyPage() {
       }
       const annual_cash_flows = revenueValues.map((revenue, index) => revenue - costValues[index]);
       const discount_rate = discount / 100;
-      await saveStudyStep(token, study.id, 2, { revenues: revenueValues, operating_costs: costValues, annual_cash_flows, discount_rate, fixed_costs: fixedCosts, variable_cost_percent: variableCostPercent });
+      const fixed = Number(fixedCosts);
+      const variable = Number(variableCostPercent);
+      if (!Number.isFinite(fixed) || fixed < 0 || !Number.isFinite(variable) || variable < 0) {
+        throw new Error(locale === "ar" ? "أدخل تكاليف ثابتة ونسبة متغيرة كافتراض مستخدم، أو اترك الحساب بعد تعبئتهما." : "Enter user-assumed fixed costs and variable percent before computing.");
+      }
+      await saveStudyStep(token, study.id, 2, { revenues: revenueValues, operating_costs: costValues, annual_cash_flows, discount_rate, fixed_costs: fixed, variable_cost_percent: variable, source: "USER_ASSUMPTION" });
       const computed = await computeStudy(token, study.id, { annual_cash_flows, discount_rate });
       setStudy(computed);
       const matches = await matchFunding({ industry, stage, has_mvp: stage !== "idea", has_technical_team: true });
@@ -223,13 +243,6 @@ export default function NewFeasibilityStudyPage() {
     }
   }
 
-  function resetWizard() {
-    setStep(1);
-    setStudy(null);
-    setFunding(null);
-    setError(null);
-  }
-
   if (!token) {
     return (
       <main className="container-page py-16">
@@ -250,8 +263,8 @@ export default function NewFeasibilityStudyPage() {
 
   const result = study?.result;
   const verdict = result?.verdict as keyof typeof c.step3.verdict | undefined;
-  const contributionMargin = 1 - variableCostPercent / 100;
-  const breakEvenRevenue = contributionMargin > 0 ? fixedCosts / contributionMargin : null;
+  const contributionMargin = 1 - Number(variableCostPercent || 0) / 100;
+  const breakEvenRevenue = contributionMargin > 0 && Number(fixedCosts) > 0 ? Number(fixedCosts) / contributionMargin : null;
 
   return (
     <main className="container-page py-14">
@@ -339,6 +352,7 @@ export default function NewFeasibilityStudyPage() {
       {step === 2 && (
         <form onSubmit={onCompute} className="mt-8 max-w-md space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-semibold text-ink-900">{c.step2.heading}</h2>
+          <p className="text-xs text-amber-800 rounded-lg bg-amber-50 p-2">{c.step2.assumptionNote}</p>
           <label className="block text-sm">
             <span className="text-ink-700">{c.step2.revenue}</span>
             <input
@@ -356,11 +370,11 @@ export default function NewFeasibilityStudyPage() {
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm">
               <span className="text-ink-700">{c.step2.fixedCosts}</span>
-              <input type="number" min={0} value={fixedCosts} onChange={(e) => setFixedCosts(Number(e.target.value))} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500" />
+              <input type="number" min={0} required value={fixedCosts} onChange={(e) => setFixedCosts(e.target.value === "" ? "" : Number(e.target.value))} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500" />
             </label>
             <label className="block text-sm">
               <span className="text-ink-700">{c.step2.variableCost}</span>
-              <input type="number" min={0} max={99} value={variableCostPercent} onChange={(e) => setVariableCostPercent(Number(e.target.value))} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500" />
+              <input type="number" min={0} max={99} required value={variableCostPercent} onChange={(e) => setVariableCostPercent(e.target.value === "" ? "" : Number(e.target.value))} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500" />
             </label>
           </div>
           <label className="block text-sm">
@@ -440,11 +454,28 @@ export default function NewFeasibilityStudyPage() {
                 {c.step3.report} (DOCX)
               </button>
               <button
-                onClick={resetWizard}
+                type="button"
+                onClick={() => setStep(2)}
+                data-testid="back-to-inputs"
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink-700 hover:border-brand-500"
+              >
+                {c.step2.back}
+              </button>
+              {study ? (
+                <Link
+                  href={`/projects/${study.project_id}/studies/${study.id}`}
+                  data-testid="open-study-workspace-from-results"
+                  className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white"
+                >
+                  {locale === "ar" ? "فتح مساحة الدراسة" : "Open study workspace"}
+                </Link>
+              ) : null}
+              <Link
+                href="/projects"
                 className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink-700 hover:border-brand-500"
               >
                 {c.step3.newStudy}
-              </button>
+              </Link>
             </div>
           </div>
 

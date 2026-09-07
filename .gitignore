@@ -15,3 +15,11 @@ dist/
 apps/web/.next/
 apps/web/next-env.d.ts
 apps/web/tsconfig.tsbuildinfo
+
+# SQLite databases
+*.db
+
+# Playwright
+apps/web/playwright-report/
+apps/web/test-results/
+playwright_wave65.db
