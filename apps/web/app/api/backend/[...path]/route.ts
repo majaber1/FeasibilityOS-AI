@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { backendUrl, isSafeBrowserMutation, SESSION_COOKIE } from "@/lib/server-auth";
 
-const HOP_BY_HOP = new Set(["connection", "content-length", "host", "keep-alive", "transfer-encoding"]);
+const HOP_BY_HOP = new Set(["connection", "content-length", "content-encoding", "host", "keep-alive", "transfer-encoding"]);
 
 const PREFIX = "/api/backend/";
 
