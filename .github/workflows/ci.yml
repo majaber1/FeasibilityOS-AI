@@ -109,7 +109,7 @@ jobs:
           required = {
               "users", "organizations", "roles", "projects", "feasibility_studies",
               "financial_assumptions", "financial_results", "sensitivity_scenarios",
-              "funding_programs", "funding_matches", "idea_bank_entries",
+              "funding_programs", "idea_bank_entries",
               "franchise_opportunities",
               "multazim_requirements", "documents", "reports", "audit_logs",
               "qualification_profiles", "qualification_requirements",
