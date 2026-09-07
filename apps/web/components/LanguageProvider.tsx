@@ -39,7 +39,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY, locale);
-      document.cookie = STORAGE_KEY + "=" + locale + "; path=/; max-age=31536000; samesite=lax";
     }
   }, [locale]);
 
