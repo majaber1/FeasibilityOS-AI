@@ -114,7 +114,7 @@ export default function DashboardPage() {
   const nextStep = !projects.length
     ? { href: "/businesses", title: ar ? "أضف مشروعك الأول" : "Add your first project", detail: ar ? "ابدأ بالاسم والقطاع والاستثمار المتوقع." : "Start with its name, sector, and expected investment." }
     : !studies.length
-      ? { href: "/tools/feasibility", title: ar ? "أنشئ دراسة الجدوى" : "Build a feasibility study", detail: ar ? "حوّل مشروعك إلى افتراضات ونتائج مالية واضحة." : "Turn your project into clear assumptions and financial results." }
+      ? { href: "/projects", title: ar ? "أنشئ دراسة جدوى ذكية" : "Start an AI feasibility study", detail: ar ? "استخدم محرك الذكاء الاصطناعي V2 لتحليل مشروعك خطوة بخطوة." : "Use the V2 AI engine to analyze your project step by step." }
       : !readiness
         ? { href: "/tools/qualification", title: ar ? "قيّم جاهزية مشروعك" : "Assess business readiness", detail: ar ? "اعرف متطلبات التمويل والامتثال التي تحتاجها." : "Find the funding and compliance requirements still needed." }
         : { href: "/tools/funding", title: ar ? "استكشف التمويل المناسب" : "Explore suitable funding", detail: ar ? "استخدم نتائج الدراسة والجاهزية لمراجعة الخيارات." : "Use your feasibility and readiness results to review options." };
@@ -240,7 +240,7 @@ export default function DashboardPage() {
           <div className="mb-4 flex items-end justify-between"><div><h2 className="text-lg font-bold text-ink-900">{ar ? "أدوات النمو" : "Growth tools"}</h2><p className="mt-1 text-sm text-ink-500">{ar ? "كل ما تحتاجه للانتقال من الفكرة إلى التمويل" : "Everything needed to move from idea to funding"}</p></div></div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { href: "/tools/feasibility", code: "01", title: ar ? "دراسة الجدوى" : "Feasibility", body: ar ? "النموذج المالي والتقرير" : "Financial model and report" },
+              { href: "/tools/feasibility", code: "01", title: ar ? "دراسة الجدوى V2" : "Feasibility V2", body: ar ? "محرك ذكاء اصطناعي متعدد الوكلاء" : "Multi-agent AI engine" },
               { href: "/tools/financial", code: "02", title: ar ? "التحليل المالي" : "Financial analysis", body: ar ? "عائد الاستثمار وصافي القيمة الحالية" : "ROI, NPV, IRR calculations" },
               { href: "/tools/funding", code: "03", title: ar ? "مطابقة التمويل" : "Funding match", body: ar ? "خيارات حسب القطاع والمرحلة" : "Options by sector and stage" },
               { href: "/tools/proposal", code: "04", title: ar ? "بناء العروض" : "Proposals", body: ar ? "عروض تجارية واستثمارية" : "Commercial and investor proposals" },

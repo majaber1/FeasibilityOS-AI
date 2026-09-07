@@ -227,6 +227,21 @@ export function matchFunding(payload: {
   });
 }
 
+// --- V2 AI Study Engine ---------------------------------------------------
+
+export type V2Study = {
+  study_id: string;
+  phase: string;
+  archetype?: string | null;
+  verdict?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export function listV2Studies(token: string) {
+  return authedRequest<{ studies: V2Study[] }>("/api/v2/studies", token).then((r) => r.studies);
+}
+
 // --- Investment opportunities (public, unauthenticated) ---------------------
 
 export type Opportunity = {

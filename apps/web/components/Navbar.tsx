@@ -31,7 +31,7 @@ export function Navbar() {
     { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
     { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
     { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
-    { href: "/tools/opportunities", label: t.nav.opportunities },
+    { href: "/tools/opportunities", label: locale === "ar" ? "رادار الفرص" : "Opportunity Radar" },
     { href: "/pricing", label: t.nav.pricing },
   ];
 
@@ -106,16 +106,6 @@ export function Navbar() {
               </li>
             ))}
             <li className="border-t border-slate-100 pt-2">
-              <Link href="/tools/funding" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-brand-50">
-                {t.nav.funding}
-              </Link>
-            </li>
-            <li>
-              <Link href="/tools/qualification" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-brand-50">
-                {locale === "ar" ? "التأهيل" : "Qualification"}
-              </Link>
-            </li>
-            <li>
               <Link href="/help" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-brand-50">
                 {t.nav.help}
               </Link>

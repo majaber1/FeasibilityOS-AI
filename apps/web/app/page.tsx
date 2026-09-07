@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 
 const services = [
-  { href: "/tools/feasibility", icon: "📊", code: "01", title: { ar: "دراسة الجدوى", en: "Feasibility Study" }, desc: { ar: "محرّك مالي حقيقي مع تقرير احترافي", en: "Real financial engine with professional report" } },
+  { href: "/tools/feasibility", icon: "📊", code: "01", title: { ar: "دراسة الجدوى V2", en: "Feasibility Study V2" }, desc: { ar: "محرك ذكاء اصطناعي متعدد الوكلاء", en: "Multi-agent AI decision engine" } },
   { href: "/tools/financial", icon: "💰", code: "02", title: { ar: "التحليل المالي", en: "Financial Analysis" }, desc: { ar: "ROI و NPV و IRR وتحليل الحساسية", en: "ROI, NPV, IRR, and sensitivity analysis" } },
-  { href: "/tools/proposal", icon: "📝", code: "03", title: { ar: "منشئ العروض", en: "Proposal Builder" }, desc: { ar: "عروض تجارية احترافية بالعربية والإنجليزية", en: "Professional proposals in Arabic & English" } },
-  { href: "/tools/funding", icon: "🏦", code: "04", title: { ar: "مطابقة التمويل", en: "Funding Matcher" }, desc: { ar: "مطابقة شفافة مع البرامج السعودية", en: "Transparent matching with Saudi programs" } },
-  { href: "/tools/qualification", icon: "✅", code: "05", title: { ar: "تأهيل الأعمال", en: "Qualification" }, desc: { ar: "جاهزية المنشأة للتمويل والمناقصات", en: "Business readiness for funding & tenders" } },
-  { href: "/tools/opportunities", icon: "🎯", code: "06", title: { ar: "فرص الاستثمار", en: "Opportunities" }, desc: { ar: "فرص مصنّفة حسب القطاع والمخاطر", en: "Opportunities by sector and risk" } },
+  { href: "/tools/funding", icon: "🏦", code: "03", title: { ar: "مطابقة التمويل", en: "Funding Matcher" }, desc: { ar: "مطابقة شفافة مع البرامج السعودية", en: "Transparent matching with Saudi programs" } },
+  { href: "/tools/opportunities", icon: "🎯", code: "04", title: { ar: "رادار الفرص", en: "Opportunity Radar" }, desc: { ar: "فرص مصنّفة حسب القطاع والمخاطر", en: "Opportunities by sector and risk" } },
+  { href: "/tools/ideas", icon: "💡", code: "05", title: { ar: "بنك الأفكار", en: "Idea Bank" }, desc: { ar: "أفكار مشاريع رؤية 2030", en: "Vision 2030 project ideas" } },
+  { href: "/tools/proposal", icon: "📝", code: "06", title: { ar: "منشئ العروض", en: "Proposal Builder" }, desc: { ar: "عروض تجارية احترافية بالعربية والإنجليزية", en: "Professional proposals in Arabic & English" }, comingSoon: true },
 ];
 
 const journey = [
@@ -49,10 +49,10 @@ export default function HomePage() {
               {ar ? "استعرض الأدوات" : "Explore tools"}
             </Link>
             <Link
-              href="/tools/feasibility"
+              href="/projects"
               className="rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-ink-800 transition hover:border-brand-500 hover:text-brand-600"
             >
-              {ar ? "ابدأ دراسة جدوى" : "Start a feasibility study"}
+              {ar ? "ابدأ دراسة جدوى ذكية" : "Start an AI feasibility study"}
             </Link>
           </div>
         </div>
@@ -88,19 +88,25 @@ export default function HomePage() {
         </div>
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <Link
-              key={s.href}
-              href={s.href}
-              className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-card-hover"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 text-2xl">{s.icon}</div>
-                <span className="text-[10px] font-bold tracking-[0.2em] text-ink-500">{s.code}</span>
-              </div>
-              <h3 className="mt-4 text-lg font-bold text-ink-900 group-hover:text-brand-700">{ar ? s.title.ar : s.title.en}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-600">{ar ? s.desc.ar : s.desc.en}</p>
-              <span className="mt-4 inline-block text-brand-600 transition group-hover:translate-x-1 rtl:group-hover:-translate-x-1">→</span>
-            </Link>
+            <div key={s.href} className="relative">
+              {"comingSoon" in s && s.comingSoon && (
+                <span className="absolute end-3 top-3 z-10 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-800">
+                  {ar ? "قريبًا" : "Coming soon"}
+                </span>
+              )}
+              <Link
+                href={s.href}
+                className={`group block rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-card-hover ${"comingSoon" in s && s.comingSoon ? "pointer-events-none opacity-60" : ""}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 text-2xl">{s.icon}</div>
+                  <span className="text-[10px] font-bold tracking-[0.2em] text-ink-500">{s.code}</span>
+                </div>
+                <h3 className="mt-4 text-lg font-bold text-ink-900 group-hover:text-brand-700">{ar ? s.title.ar : s.title.en}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-ink-600">{ar ? s.desc.ar : s.desc.en}</p>
+                <span className="mt-4 inline-block text-brand-600 transition group-hover:translate-x-1 rtl:group-hover:-translate-x-1">→</span>
+              </Link>
+            </div>
           ))}
         </div>
       </section>
