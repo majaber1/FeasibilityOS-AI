@@ -1,4 +1,7 @@
 import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
@@ -21,6 +24,7 @@ from app.api.opportunities import router as opportunities_router
 from app.api.leads import router as leads_router
 from app.api.proposals import router as proposals_router
 from app.api.entitlements import router as entitlements_router
+from app.api.v2.study_engine import router as v2_study_router
 from app.api.evidence import router as evidence_router
 from app.api.assumptions import router as assumptions_router
 from app.api.quick_idea_check import router as quick_idea_check_router
@@ -82,6 +86,7 @@ app.include_router(opportunities_router)
 app.include_router(leads_router)
 app.include_router(proposals_router)
 app.include_router(entitlements_router)
+app.include_router(v2_study_router)
 app.include_router(evidence_router)
 app.include_router(assumptions_router)
 app.include_router(quick_idea_check_router)

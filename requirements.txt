@@ -15,6 +15,11 @@ reportlab==4.2.2
 python-docx==1.1.2
 arabic-reshaper==3.0.0
 python-bidi==0.4.2
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-groq>=0.2.0
+litellm>=1.40.0
+langfuse>=2.0.0
 pytest==9.1.1
 httpx==0.27.2
 boto3==1.40.21
