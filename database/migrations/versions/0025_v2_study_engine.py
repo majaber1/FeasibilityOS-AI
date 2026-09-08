@@ -1,14 +1,14 @@
 """V2 AI study engine tables
 
-Revision ID: 0008
-Revises: 0007
+Revision ID: 0025_v2_study_engine
+Revises: 0024_wave6_integrity
 Create Date: 2026-09-07
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0008"
-down_revision = "0007"
+revision = "0025_v2_study_engine"
+down_revision = "0024_wave6_integrity"
 branch_labels = None
 depends_on = None
 
