@@ -217,3 +217,60 @@ def generate_docx(ctx, locale="ar"):
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def build_proposal_context(proposal):
+    payload = proposal.payload or {}
+    return {"title": proposal.title, "type": proposal.proposal_type, "status": proposal.status,
+            "version": proposal.version, **payload}
+
+
+def generate_proposal_pdf(ctx, locale="ar"):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+    labels = {
+        "ar": [("client_name", "العميل"), ("client_company", "الشركة"), ("scope", "نطاق العرض"),
+               ("deliverables", "المخرجات"), ("methodology", "المنهجية"), ("price", "القيمة"),
+               ("timeline", "الجدول الزمني"), ("terms", "الشروط")],
+        "en": [("client_name", "Client"), ("client_company", "Company"), ("scope", "Scope"),
+               ("deliverables", "Deliverables"), ("methodology", "Methodology"), ("price", "Value"),
+               ("timeline", "Timeline"), ("terms", "Terms")],
+    }
+    buf = io.BytesIO(); c = canvas.Canvas(buf, pagesize=A4); width, height = A4
+    left, right, y = 20 * mm, width - 20 * mm, height - 24 * mm
+    def draw(text, bold=False, size=11):
+        nonlocal y
+        if y < 28 * mm: c.showPage(); y = height - 24 * mm
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        value = _dir_text(str(text or "—")[:150], locale)
+        (c.drawRightString(right, y, value) if locale == "ar" else c.drawString(left, y, value)); y -= 8 * mm
+    draw(("سعودي بزنس — عرض للمستثمر" if locale == "ar" else "Saudi Business — Investor Proposal"), True, 18)
+    draw(ctx.get("title"), True, 14); y -= 3 * mm
+    for key, label in labels[locale if locale in labels else "en"]:
+        value = ctx.get(key)
+        if key == "price" and value: value = f"{value} {ctx.get('currency', 'SAR')}"
+        draw(f"{label}: {value or '—'}")
+    draw("هذا العرض معلوماتي ولا يمثل التزامًا استثماريًا أو ضمانًا للعائد." if locale == "ar" else "This proposal is informational and is not an investment commitment or return guarantee.", False, 8)
+    c.showPage(); c.save(); return buf.getvalue()
+
+
+def generate_proposal_docx(ctx, locale="ar"):
+    from docx import Document as WordDocument
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Pt
+    labels = {
+        "ar": [("client_name", "العميل"), ("client_company", "الشركة"), ("scope", "نطاق العرض"), ("deliverables", "المخرجات"), ("methodology", "المنهجية"), ("price", "القيمة"), ("timeline", "الجدول الزمني"), ("terms", "الشروط")],
+        "en": [("client_name", "Client"), ("client_company", "Company"), ("scope", "Scope"), ("deliverables", "Deliverables"), ("methodology", "Methodology"), ("price", "Value"), ("timeline", "Timeline"), ("terms", "Terms")],
+    }
+    doc = WordDocument(); align = WD_ALIGN_PARAGRAPH.RIGHT if locale == "ar" else WD_ALIGN_PARAGRAPH.LEFT
+    def add(text, bold=False, size=11):
+        p = doc.add_paragraph(); p.alignment = align; run = p.add_run(str(text)); run.bold = bold; run.font.size = Pt(size)
+    add("سعودي بزنس — عرض للمستثمر" if locale == "ar" else "Saudi Business — Investor Proposal", True, 18)
+    add(ctx.get("title", ""), True, 14)
+    for key, label in labels[locale if locale in labels else "en"]:
+        value = ctx.get(key) or "—"
+        if key == "price" and value != "—": value = f"{value} {ctx.get('currency', 'SAR')}"
+        add(f"{label}: {value}")
+    add("هذا العرض معلوماتي ولا يمثل التزامًا استثماريًا أو ضمانًا للعائد." if locale == "ar" else "This proposal is informational and is not an investment commitment or return guarantee.", size=8)
+    buf = io.BytesIO(); doc.save(buf); return buf.getvalue()

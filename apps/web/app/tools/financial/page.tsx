@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ServiceHeader } from "@/components/ui/ServiceHeader";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge } from "@/components/ui/Badge";
 import { evaluateFinancial, type FeasibilityEvalResponse } from "@/lib/api";
+import { useProjectContext } from "@/lib/use-project-context";
 
 function money(value: number) {
   return new Intl.NumberFormat("en-SA", { style: "currency", currency: "SAR", maximumFractionDigits: 0 }).format(value);
@@ -21,6 +22,11 @@ export default function FinancialAnalysisPage() {
   const [result, setResult] = useState<FeasibilityEvalResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { project, error: projectError } = useProjectContext();
+
+  useEffect(() => {
+    if (project) setInvestment(String(project.investment));
+  }, [project]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,6 +63,12 @@ export default function FinancialAnalysisPage() {
       />
 
       <div className="container-page space-y-8 py-8">
+        {project && (
+          <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">
+            {ar ? "التحليل مرتبط بالمشروع:" : "Analysis linked to project:"} <strong>{project.name}</strong>
+          </div>
+        )}
+        {projectError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{projectError}</p>}
         <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
             <h2 className="text-xl font-bold text-ink-900">{ar ? "بيانات التحليل" : "Analysis inputs"}</h2>

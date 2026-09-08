@@ -12,6 +12,7 @@ import {
   type QualificationProfile,
   type QualificationRequirement,
 } from "@/lib/api";
+import { useProjectContext } from "@/lib/use-project-context";
 
 const starter = [
   { category: "commercial", title_ar: "سجل تجاري ساري", title_en: "Valid commercial registration", authority: "Ministry of Commerce" },
@@ -29,6 +30,7 @@ export default function QualificationPage() {
   const [requirements, setRequirements] = useState<QualificationRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { project } = useProjectContext();
 
   const load = useCallback(async (auth: string) => {
     const profiles = await listQualificationProfiles(auth);
@@ -79,10 +81,10 @@ export default function QualificationPage() {
     {error && <p role="alert" className="mb-6 rounded-lg bg-red-50 p-4 text-red-700">{error}</p>}
     {!profile ? <form onSubmit={create} className="grid gap-5 rounded-2xl border bg-white p-7 shadow-card sm:grid-cols-2">
       <h2 className="sm:col-span-2 text-xl font-bold">{ar ? "بيانات المنشأة" : "Business details"}</h2>
-      <input required name="company_name_ar" placeholder="اسم المنشأة بالعربية" className="rounded-lg border p-3" />
+      <input required name="company_name_ar" defaultValue={project?.name || ""} placeholder="اسم المنشأة بالعربية" className="rounded-lg border p-3" />
       <input name="company_name_en" placeholder="Company name in English" className="rounded-lg border p-3" />
       <input name="cr_number" placeholder={ar ? "رقم السجل التجاري" : "Commercial registration"} className="rounded-lg border p-3" />
-      <input name="sector" placeholder={ar ? "القطاع" : "Sector"} className="rounded-lg border p-3" />
+      <input name="sector" defaultValue={project?.industry || ""} placeholder={ar ? "القطاع" : "Sector"} className="rounded-lg border p-3" />
       <select name="company_size" className="rounded-lg border p-3"><option value="micro">{ar ? "متناهية الصغر" : "Micro"}</option><option value="small">{ar ? "صغيرة" : "Small"}</option><option value="medium">{ar ? "متوسطة" : "Medium"}</option></select>
       <button className="rounded-lg bg-brand-600 p-3 font-semibold text-white">{ar ? "إنشاء التقييم" : "Create assessment"}</button>
     </form> : <div className="grid gap-6 lg:grid-cols-[280px,1fr]">

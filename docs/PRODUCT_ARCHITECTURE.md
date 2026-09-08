@@ -1,94 +1,131 @@
 # Saudi Business — Product Architecture
 
-## Core Architecture
+Last verified against current `main`: **2026-08-26**.
 
+## Source-of-truth policy
+
+1. Current GitHub `main` is the code authority.
+2. `GET /api/deployment-health` on the public web application is the runtime authority for frontend/backend reachability and safe dependency state.
+3. Backend `/health` and `/health/ready` are the detailed operational contracts.
+4. This file is the canonical architecture document.
+5. Historical implementation plans and audits are dated evidence and must not override current runtime/code.
+
+## Runtime topology
+
+```text
+Browser
+  |
+  v
+Next.js 16 web app
+  |-- same-origin /api/backend/* rewrite
+  |-- public /api/deployment-health
+  |
+  | server-only BACKEND_API_URL
+  v
+FastAPI backend
+  |-- auth / RBAC
+  |-- businesses/projects
+  |-- feasibility / financial
+  |-- funding / qualification
+  |-- proposals / reports
+  |-- opportunities / franchises
+  |-- documents / leads / admin
+  |-- /health
+  `-- /health/ready
+        |
+        +--> PostgreSQL
+        `--> Cloudflare R2 for authenticated funding documents
 ```
+
+The frontend and backend are separate deployable components but form one product. Browser clients use a same-origin rewrite by default; the backend origin stays server-side.
+
+## Core product model
+
+```text
 Customer Account
   ↓
-Organization
+Organization / Business Context
   ↓
 Business / Project
   ↓
 Independent Tools / Services
 ```
 
-## Service Boundaries
+Major tools can be entered independently and can optionally reuse shared business/project context. Linking between outputs is explicit rather than silently merging unrelated workflows.
 
-Each major tool is an independent service that can:
-- Be used standalone without other tools
-- Be sold separately with its own subscription
-- Be independently navigated via `/tools/<service>`
-- Optionally link to a shared Business context
+## Current service boundaries
 
-### Services
+| Service | Web route | Backend boundary | Current state |
+| --- | --- | --- | --- |
+| Feasibility Study | `/tools/feasibility` | feasibility API | Implemented |
+| Financial Analysis | `/tools/financial` | financial API | Implemented |
+| Funding Matcher | `/tools/funding` | funding API | Implemented |
+| Business Qualification | `/tools/qualification` | qualification API | Implemented |
+| Proposal Builder | proposal workflow | proposals API | Implemented/MVP |
+| Reports | reports workflow | reports API | Implemented |
+| Investment Opportunities | opportunities workflow | opportunities API | Implemented |
+| Franchise | franchise workflow | franchises API | Catalog/service boundary |
+| Funding Documents | funding/document workflow | documents API + Cloudflare R2 | Implemented; runtime configuration health-reported |
+| Leads | public/product CTAs | leads API | Implemented |
+| Admin / Metrics | protected admin | admin/metrics | Implemented |
 
-| Service | Route | API Prefix | DB Model | Status |
-|---------|-------|------------|----------|--------|
-| Feasibility Study | `/tools/feasibility` | `/api/feasibility` | FeasibilityStudy | Complete |
-| Financial Analysis | `/tools/financial` | `/api/financial` | FinancialResult | Complete |
-| Proposal Builder | `/tools/proposal` | `/api/proposals` | Proposal | MVP |
-| Funding Matcher | `/tools/funding` | `/api/funding` | FundingMatch | Complete |
-| Business Qualification | `/tools/qualification` | `/api/qualification` | QualificationProfile | Complete |
-| Investment Opportunities | `/tools/opportunities` | `/api/opportunities` | InvestmentOpportunity | Complete |
-| Franchise | `/tools/franchise` | `/api/franchises` | FranchiseOpportunity | Catalog |
-| Auctions | `/tools/auctions` | `/api/auctions` | Auction | Catalog |
-| Reports | `/tools/reports` | `/api/reports` | Report | Complete |
+### Removed boundary
 
-## Shared Business Context
+**Auctions are removed from the current application and database migration history includes their removal.** Do not restore or document `/tools/auctions` or `/api/auctions` as an active current service unless a future product decision explicitly reintroduces them.
 
-The `Business / Project` entity provides shared context across all tools:
-- Business name, sector, description
-- Investment amount, stage
-- Location, company profile
+## Persistence
 
-Each tool can:
-1. **Read** shared business context (name, sector, investment)
-2. **Own** its specific records (studies, proposals, matches)
-3. **Link** optionally to other tool outputs
+### PostgreSQL
 
-### Service Linking (Optional)
+The FastAPI backend is designed for PostgreSQL production persistence. Health never equates a configured URL with a working database: `/health` performs a safe connection ping and `/health/ready` gates production readiness.
 
-- Proposal Builder → "Import from Feasibility Study"
-- Funding Matcher → "Use Business Profile"
-- Reports → "Combine feasibility + financial + proposal"
-- Qualification → "Apply existing business information"
+Development/demo SQLite states are clearly labelled non-production and non-durable where applicable.
 
-Linking is always explicit and optional. Never silently combined.
+### Cloudflare R2
 
-## Entitlement Model
+Authenticated funding documents use `backend/app/services/object_storage.py`, which creates an S3-compatible client for Cloudflare R2 using:
 
-```
-ServiceEntitlement
-  - service_key: feasibility | financial_analysis | proposal | funding | qualification | ...
-  - enabled: boolean
-  - plan: starter | professional | enterprise
-  - quota: integer (optional)
-  - used: integer
-  - reset_at: datetime (optional)
-```
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME`
 
-Development mode provides all services enabled with starter plan.
+Backend health reports only whether the complete R2 configuration is present and the provider label; it never returns credential values.
 
-## Navigation Structure
+## Health contract
 
-### Primary Nav
-- Dashboard
-- My Businesses
-- Tools
-- Opportunities
-- Pricing
+### Public web health
 
-### Tools Hub (`/tools`)
-Service cards showing all available tools with status and CTA.
+`GET /api/deployment-health`
 
-### Business Hub (`/businesses`)
-Project cards with linked tool access.
+The Next.js server calls backend `/health/ready` and `/health`, then returns a safe allow-list including:
 
-## Future Extraction
+- frontend/backend readiness
+- service/version/environment
+- DB enabled/backend/connected state
+- persistence label
+- object-storage state/provider
 
-The modular monolith design allows any service to be extracted into:
-- Its own deployable service
-- Its own API
-- Its own subscription product
+### Backend health
 
-Cross-service integration happens through documented internal interfaces.
+- `GET /health` — liveness + safe dependency state.
+- `GET /health/ready` — production readiness gate with safe failure codes.
+
+Jaber Dashboard should consume the public deployment-health URL rather than relying on hardcoded repository-audit text.
+
+## Security model
+
+- Role-based APIs and protected admin boundaries.
+- JWT production secret requirements are part of readiness checks.
+- Email delivery is only a readiness requirement when email verification is explicitly enabled.
+- CORS is deny-by-default in production unless configured.
+- Browser-to-backend traffic normally stays same-origin through the Next.js rewrite.
+- R2 and database credentials are server-only secrets.
+
+## Modular architecture
+
+Saudi Business is a modular monolith, not a collection of microservices. Tool boundaries are explicit in routes/models/APIs so a service can be extracted later if scale, ownership or commercial packaging requires it. Until then, unnecessary service separation should be avoided.
+
+## Documentation maintenance rule
+
+Changes to active modules, database/storage providers, health contracts, deployment topology or product boundaries must update this document and README in the same PR. Jaber Dashboard sync should flag documentation drift when the referenced blobs or verification timestamps fall behind relevant code changes.

@@ -1,13 +1,13 @@
 """Service architecture: entitlements, proposals, notifications, analytics
 
-Revision ID: 0007
-Revises: 0006
+Revision ID: 0007_service_architecture
+Revises: 0006_account_security
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0007"
-down_revision = "0006"
+revision = "0007_service_architecture"
+down_revision = "0006_account_security"
 branch_labels = None
 depends_on = None
 

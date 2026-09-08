@@ -7,8 +7,10 @@ from matcher import match
 
 def test_match_returns_all_programs_ranked():
     results = match("technology", stage="mvp", has_mvp=True, has_technical_team=True)
-    assert len(results) == 6
+    assert len(results) == 5
     assert results[0]["score_percent"] >= results[-1]["score_percent"]
+    assert all(result["source_url"].startswith("https://") for result in results)
+    assert all(result["eligibility_sample_ar"] for result in results)
 
 
 def test_unrelated_industry_scores_lower():

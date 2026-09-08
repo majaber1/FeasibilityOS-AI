@@ -241,7 +241,12 @@ def _verification_required() -> bool:
     configured = os.getenv("REQUIRE_EMAIL_VERIFICATION")
     if configured is not None:
         return configured.strip().lower() in {"1", "true", "yes", "on"}
-    return os.getenv("ENVIRONMENT", "development").strip().lower() in {"production", "prod"}
+    # Email verification is an opt-in production capability.  Treating it as
+    # implicitly enabled made a fresh production deployment impossible to use:
+    # registration returned 503 until SMTP was configured, even though the rest
+    # of the account flow and durable database were healthy.  Operators that
+    # require verification still enable it explicitly together with SMTP.
+    return False
 
 
 def _is_production() -> bool:

@@ -7,7 +7,8 @@ import { ServiceHeader } from "@/components/ui/ServiceHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Stepper } from "@/components/ui/Stepper";
 import { Badge } from "@/components/ui/Badge";
-import { getToken, listProposals, createProposal, type Proposal } from "@/lib/api";
+import { getToken, listProposals, createProposal, updateProposal, deleteProposal, exportProposal, type Proposal } from "@/lib/api";
+import { useProjectContext } from "@/lib/use-project-context";
 
 const proposalTypes = [
   { key: "commercial", icon: "🤝", ar: "عرض تجاري", en: "Commercial Proposal" },
@@ -19,8 +20,8 @@ const proposalTypes = [
 ];
 
 const steps = {
-  ar: ["نوع العرض", "العميل / المستلم", "النطاق والحل", "التسعير والجدول", "المراجعة والتصدير"],
-  en: ["Proposal type", "Client / recipient", "Scope & solution", "Pricing & timeline", "Review & export"],
+  ar: ["نوع العرض", "العميل / المستلم", "النطاق والحل", "التسعير والجدول", "المراجعة والحفظ"],
+  en: ["Proposal type", "Client / recipient", "Scope & solution", "Pricing & timeline", "Review & save"],
 };
 
 type ProposalDraft = {
@@ -64,25 +65,48 @@ export default function ProposalBuilderPage() {
   const [draft, setDraft] = useState<ProposalDraft>(emptyDraft);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [error, setError] = useState("");
+  const { project, error: projectError } = useProjectContext();
 
   useEffect(() => {
     const token = getToken();
-    if (token) listProposals(token).then(setProposals).catch(() => {});
+    setSignedIn(Boolean(token));
+    setAuthChecked(true);
+    if (token) listProposals(token).then(setProposals).catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [mode]);
+
+  useEffect(() => {
+    if (!project || editingId) return;
+    setDraft((current) => ({
+      ...current,
+      title: current.title || `${ar ? "عرض" : "Proposal"} — ${project.name}`,
+      price: current.price || String(project.investment),
+    }));
+  }, [ar, editingId, project]);
 
   const set = (field: keyof ProposalDraft, value: string) =>
     setDraft((prev) => ({ ...prev, [field]: value }));
 
   async function handleSave() {
     const token = getToken();
-    if (!token) return;
+    if (!token) { setError(ar ? "سجّل الدخول لحفظ العرض." : "Sign in to save the proposal."); return; }
+    if (!draft.title.trim() || !draft.client_name.trim() || !draft.scope.trim()) {
+      setError(ar ? "أدخل عنوان العرض واسم العميل ونطاق العمل." : "Enter the proposal title, client name, and scope of work.");
+      return;
+    }
     setSaving(true);
+    setError("");
     try {
-      await createProposal(token, {
+      const proposalPayload = {
         title: draft.title || `${selectedType} proposal`,
         proposal_type: selectedType || "commercial",
         locale: ar ? "ar" : "en",
         payload: {
+          project_id: project?.id,
+          project_name: project?.name,
           client_name: draft.client_name,
           client_email: draft.client_email,
           client_company: draft.client_company,
@@ -95,14 +119,71 @@ export default function ProposalBuilderPage() {
           validity_days: draft.validity_days,
           terms: draft.terms,
         },
-      });
+      };
+      if (editingId) {
+        await updateProposal(token, editingId, { title: proposalPayload.title, payload: proposalPayload.payload });
+      } else {
+        await createProposal(token, proposalPayload);
+      }
       setMode("list");
       setCurrentStep(0);
       setDraft(emptyDraft);
-    } catch {
+      setEditingId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleEdit(proposal: Proposal) {
+    const payload = proposal.payload || {};
+    setEditingId(proposal.id);
+    setSelectedType(proposal.proposal_type);
+    setDraft({
+      ...emptyDraft,
+      ...Object.fromEntries(Object.keys(emptyDraft).map((key) => [key, String(payload[key] ?? "")])),
+      title: proposal.title,
+      proposal_type: proposal.proposal_type,
+      currency: String(payload.currency ?? "SAR"),
+      validity_days: String(payload.validity_days ?? "30"),
+    });
+    setCurrentStep(1);
+    setMode("new");
+    setError("");
+  }
+
+  async function handleDelete(proposal: Proposal) {
+    const token = getToken();
+    if (!token || !window.confirm(ar ? `حذف العرض «${proposal.title}»؟` : `Delete “${proposal.title}”?`)) return;
+    setError("");
+    try {
+      await deleteProposal(token, proposal.id);
+      setProposals((current) => current.filter((item) => item.id !== proposal.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleExport(proposal: Proposal, fmt: "pdf" | "docx") {
+    const token = getToken(); if (!token) return;
+    setError("");
+    try { await exportProposal(token, proposal.id, fmt, ar ? "ar" : "en"); }
+    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+  }
+
+  if (!authChecked) {
+    return <div className="container-page py-20 text-center text-sm text-ink-500">{ar ? "جارٍ التحميل..." : "Loading..."}</div>;
+  }
+
+  if (!signedIn) {
+    return (
+      <div className="container-page py-20 text-center">
+        <h1 className="text-2xl font-bold text-ink-900">{ar ? "سجّل الدخول لإنشاء العروض" : "Sign in to create proposals"}</h1>
+        <p className="mt-3 text-sm text-ink-600">{ar ? "يتم حفظ العروض في حسابك ويمكن تعديلها أو حذفها لاحقًا." : "Proposals are saved to your account and can be edited or deleted later."}</p>
+        <Link href="/login" className="mt-6 inline-flex rounded-xl bg-brand-600 px-6 py-3 text-sm font-bold text-white">{ar ? "تسجيل الدخول" : "Sign in"}</Link>
+      </div>
+    );
   }
 
   if (mode === "new") {
@@ -118,6 +199,8 @@ export default function ProposalBuilderPage() {
           ]}
         />
         <div className="container-page space-y-8 py-8">
+          {project && <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">{ar ? "العرض مرتبط بالمشروع:" : "Proposal linked to project:"} <strong>{project.name}</strong></div>}
+          {(error || projectError) && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || projectError}</p>}
           <Stepper steps={ar ? steps.ar : steps.en} current={currentStep} />
 
           {currentStep === 0 && (
@@ -138,16 +221,6 @@ export default function ProposalBuilderPage() {
                 ))}
               </div>
 
-              <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
-                <p className="text-sm text-blue-800">
-                  {ar
-                    ? "💡 إذا كانت لديك دراسة جدوى موجودة، يمكنك استيراد البيانات تلقائيًا."
-                    : "💡 If you have an existing feasibility study, you can import data automatically."}
-                </p>
-                <button className="mt-2 text-sm font-bold text-blue-700 hover:text-blue-800">
-                  {ar ? "استيراد من دراسة الجدوى" : "Import from Feasibility Study"}
-                </button>
-              </div>
             </section>
           )}
 
@@ -232,7 +305,7 @@ export default function ProposalBuilderPage() {
 
           {currentStep === 4 && (
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
-              <h2 className="text-xl font-bold text-ink-900">{ar ? "المراجعة والتصدير" : "Review & Export"}</h2>
+              <h2 className="text-xl font-bold text-ink-900">{ar ? "المراجعة والحفظ" : "Review & Save"}</h2>
               <div className="mt-6 space-y-4">
                 <ReviewRow label={ar ? "نوع العرض" : "Type"} value={proposalTypes.find((t) => t.key === selectedType)?.[ar ? "ar" : "en"] || selectedType || "—"} />
                 <ReviewRow label={ar ? "العنوان" : "Title"} value={draft.title || "—"} />
@@ -277,6 +350,7 @@ export default function ProposalBuilderPage() {
       />
 
       <div className="container-page space-y-8 py-8">
+        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
         <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-card sm:p-8">
           <h2 className="text-xl font-bold text-ink-900">{ar ? "أنواع العروض" : "Proposal types"}</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -300,12 +374,18 @@ export default function ProposalBuilderPage() {
             </header>
             <div className="divide-y divide-slate-100">
               {proposals.map((p) => (
-                <div key={p.id} className="flex items-center justify-between px-5 py-4 hover:bg-slate-50">
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50">
                   <div>
                     <p className="font-semibold text-ink-900">{p.title}</p>
                     <p className="mt-1 text-xs text-ink-500">{proposalTypes.find((t) => t.key === p.proposal_type)?.[ar ? "ar" : "en"] || p.proposal_type}</p>
                   </div>
-                  <Badge variant={p.status === "completed" ? "success" : p.status === "draft" ? "neutral" : "info"}>{p.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={p.status === "completed" ? "success" : p.status === "draft" ? "neutral" : "info"}>{p.status}</Badge>
+                    <button onClick={() => handleExport(p, "pdf")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:bg-slate-50">PDF</button>
+                    <button onClick={() => handleExport(p, "docx")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:bg-slate-50">Word</button>
+                    <button onClick={() => handleEdit(p)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-brand-700 hover:bg-brand-50">{ar ? "تعديل" : "Edit"}</button>
+                    <button onClick={() => handleDelete(p)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50">{ar ? "حذف" : "Delete"}</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -320,14 +400,6 @@ export default function ProposalBuilderPage() {
           />
         )}
 
-        <section className="rounded-xl border border-blue-200 bg-blue-50 p-5">
-          <h3 className="font-semibold text-blue-800">{ar ? "ربط اختياري" : "Optional linking"}</h3>
-          <p className="mt-2 text-sm text-blue-700">
-            {ar
-              ? "يمكنك ربط العرض بمشروع موجود لاستيراد البيانات تلقائيًا، أو إنشاء عرض مستقل بالكامل."
-              : "You can link your proposal to an existing business to auto-import data, or create a fully independent proposal."}
-          </p>
-        </section>
       </div>
     </div>
   );

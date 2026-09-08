@@ -200,7 +200,6 @@ export default function PricingPage() {
               { tool: locale === "ar" ? "تأهيل الأعمال" : "Qualification", s: "1", p: "∞", e: "∞" },
               { tool: locale === "ar" ? "فرص الاستثمار" : "Opportunities", s: "✓", p: "✓", e: "✓" },
               { tool: locale === "ar" ? "الامتياز التجاري" : "Franchise", s: "✓", p: "✓", e: "✓" },
-              { tool: locale === "ar" ? "المزادات" : "Auctions", s: "✓", p: "✓", e: "✓" },
               { tool: locale === "ar" ? "التقارير" : "Reports", s: "1/mo", p: "∞", e: "∞" },
               { tool: locale === "ar" ? "بنك الأفكار" : "Idea Bank", s: "✓", p: "✓", e: "✓" },
             ].map((row) => (

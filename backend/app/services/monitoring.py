@@ -8,9 +8,9 @@ import time
 import uuid
 from collections import Counter
 
-# Reuse Uvicorn's configured access logger so JSON events are emitted in
+# Reuse Uvicorn's configured logger so JSON events are emitted in
 # containers without requiring a second logging configuration.
-logger = logging.getLogger("uvicorn.access")
+logger = logging.getLogger("uvicorn")
 _lock = threading.Lock()
 _requests = Counter()
 _latency_ms = Counter()

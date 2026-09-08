@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/LanguageProvider";
-import { register } from "@/lib/api";
+import { login, register, saveToken } from "@/lib/api";
 
 type RoleKey =
   | "entrepreneur"
@@ -40,8 +41,8 @@ const copy = {
     loading: "جارٍ الإنشاء...",
     haveAccount: "لديك حساب بالفعل؟",
     login: "تسجيل الدخول",
-    success: "تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتفعيل حساب",
-    serviceNote: "يتطلب تفعيل الحساب وصول رسالة التحقق إلى بريدك الإلكتروني.",
+    success: "تم إنشاء الحساب بنجاح. يمكنك الآن تسجيل الدخول باسم",
+    serviceNote: "قد يُطلب تأكيد البريد الإلكتروني عند تفعيل خدمة الرسائل في المنصة.",
   },
   en: {
     title: "Create an account",
@@ -53,12 +54,13 @@ const copy = {
     loading: "Creating...",
     haveAccount: "Already have an account?",
     login: "Sign in",
-    success: "Account created. Check your email to verify",
-    serviceNote: "Account activation requires access to the verification email sent to your inbox.",
+    success: "Account created successfully. You can now sign in as",
+    serviceNote: "Email confirmation may be required when email delivery is enabled for the platform.",
   },
 };
 
 export default function RegisterPage() {
+  const router = useRouter();
   const { locale } = useLanguage();
   const c = copy[locale];
   const [fullName, setFullName] = useState("");
@@ -81,7 +83,11 @@ export default function RegisterPage() {
         role_key: roleKey,
         locale,
       });
+      const session = await login(email, password);
+      saveToken(session.access_token);
       setCreatedFor(profile.full_name || profile.email);
+      router.push("/projects");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -106,6 +112,7 @@ export default function RegisterPage() {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                data-testid="register-name"
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
               />
             </label>
@@ -116,6 +123,7 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                data-testid="register-email"
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
               />
             </label>
@@ -127,6 +135,7 @@ export default function RegisterPage() {
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                data-testid="register-password"
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
               />
             </label>
@@ -152,6 +161,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={busy}
+              data-testid="register-submit"
               className="w-full rounded-md bg-brand-600 px-4 py-2.5 font-medium text-white hover:bg-brand-700 disabled:opacity-60"
             >
               {busy ? c.loading : c.submit}

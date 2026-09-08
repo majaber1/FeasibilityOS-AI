@@ -13,7 +13,7 @@ router = APIRouter(prefix="/entitlements", tags=["entitlements"])
 
 SERVICES = [
     "feasibility", "financial_analysis", "proposal", "funding",
-    "qualification", "opportunities", "franchise", "auctions", "reports",
+    "qualification", "opportunities", "franchise", "reports",
     "ideas",
 ]
 

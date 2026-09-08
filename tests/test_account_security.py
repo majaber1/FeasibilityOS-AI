@@ -99,6 +99,28 @@ def test_production_registration_fails_before_creating_an_unverifiable_account(m
     assert "email delivery" in response.json()["detail"].lower()
 
 
+def test_production_registration_works_when_verification_is_not_enabled(monkeypatch):
+    """A production demo must not silently enable an unavailable SMTP gate."""
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.delenv("REQUIRE_EMAIL_VERIFICATION", raising=False)
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("SMTP_FROM", raising=False)
+    email = _email("production_demo")
+    password = "StrongPass1"
+
+    created = client.post(
+        "/auth/register",
+        json={"email": email, "password": password},
+    )
+
+    assert created.status_code == 201, created.text
+    signed_in = client.post(
+        "/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert signed_in.status_code == 200, signed_in.text
+
+
 def test_signed_in_user_can_update_safe_profile_fields_only(monkeypatch):
     monkeypatch.setenv("REQUIRE_EMAIL_VERIFICATION", "false")
     email = _email("profile")

@@ -17,7 +17,6 @@ type Dict = {
     opportunities: string;
     ideas: string;
     franchises: string;
-    auctions: string;
     multazim: string;
     pricing: string;
     help: string;
@@ -32,7 +31,6 @@ type Dict = {
     qualification: string;
     opportunities: string;
     franchise: string;
-    auctions: string;
     reports: string;
   };
   hero: { title: string; subtitle: string; cta: string; secondary: string };
@@ -69,7 +67,6 @@ export const dictionaries: Record<Locale, Dict> = {
       opportunities: "فرص استثمارية",
       ideas: "بنك الأفكار",
       franchises: "فرص الامتياز",
-      auctions: "المزاد",
       multazim: "ملتزم",
       pricing: "الأسعار",
       help: "مركز المساعدة",
@@ -84,7 +81,6 @@ export const dictionaries: Record<Locale, Dict> = {
       qualification: "التأهيل",
       opportunities: "فرص الاستثمار",
       franchise: "الامتياز التجاري",
-      auctions: "المزاد",
       reports: "التقارير",
     },
     hero: {
@@ -138,7 +134,6 @@ export const dictionaries: Record<Locale, Dict> = {
       opportunities: "Investment Opportunities",
       ideas: "Idea Bank",
       franchises: "Franchises",
-      auctions: "Auctions",
       multazim: "Multazim",
       pricing: "Pricing",
       help: "Help Center",
@@ -153,7 +148,6 @@ export const dictionaries: Record<Locale, Dict> = {
       qualification: "Qualification",
       opportunities: "Opportunities",
       franchise: "Franchise",
-      auctions: "Auctions",
       reports: "Reports",
     },
     hero: {

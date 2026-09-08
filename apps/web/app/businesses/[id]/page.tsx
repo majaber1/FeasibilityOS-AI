@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ServiceHeader } from "@/components/ui/ServiceHeader";
 import { KpiCard } from "@/components/ui/KpiCard";
-import { getToken, listStudies, type Project, type Study } from "@/lib/api";
+import { getToken, getProject, listStudies, type Project, type Study } from "@/lib/api";
 
 function money(value: number, locale: "ar" | "en") {
   return new Intl.NumberFormat(locale === "ar" ? "ar-SA" : "en-SA", {
@@ -17,7 +17,7 @@ function money(value: number, locale: "ar" | "en") {
 }
 
 const toolLinks = (id: string, ar: boolean) => [
-  { href: `/tools/feasibility?business=${id}`, icon: "📊", label: ar ? "دراسة الجدوى" : "Feasibility Study" },
+  { href: `/projects/${id}`, icon: "📊", label: ar ? "دراسة الجدوى" : "Feasibility Study" },
   { href: `/tools/financial?business=${id}`, icon: "💰", label: ar ? "التحليل المالي" : "Financial Analysis" },
   { href: `/tools/proposal?business=${id}`, icon: "📝", label: ar ? "منشئ العروض" : "Proposal Builder" },
   { href: `/tools/funding?business=${id}`, icon: "🏦", label: ar ? "مطابقة التمويل" : "Funding Matcher" },
@@ -39,12 +39,11 @@ export default function BusinessDetailPage() {
     if (!token) { setLoading(false); return; }
 
     Promise.all([
-      import("@/lib/api").then(({ listProjects }) => listProjects(token, true)),
+      getProject(token, Number(id)),
       listStudies(token, Number(id)).catch(() => []),
     ])
-      .then(([projects, s]) => {
-        const p = projects.find((x: Project) => x.id === Number(id));
-        if (p) setProject(p);
+      .then(([p, s]) => {
+        setProject(p);
         setStudies(s);
       })
       .catch(() => {})
@@ -82,12 +81,22 @@ export default function BusinessDetailPage() {
         subtitle={project.industry}
         breadcrumb={[{ label: ar ? "أعمالي" : "My Businesses", href: "/businesses" }]}
         actions={
-          <Link
-            href={`/tools/feasibility?business=${id}`}
-            className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-700"
-          >
-            {ar ? "دراسة جدوى جديدة" : "New feasibility study"}
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/projects/${id}`}
+              data-testid="open-project-workspace"
+              className="rounded-xl border border-brand-200 bg-white px-5 py-3 text-sm font-semibold text-brand-700 shadow-card hover:bg-brand-50"
+            >
+              {ar ? "ملف المشروع" : "Project file"}
+            </Link>
+            <Link
+              href={studies[0] ? `/projects/${id}/studies/${studies[0].id}` : `/projects/${id}`}
+              data-testid="open-or-start-study"
+              className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-700"
+            >
+              {studies[0] ? (ar ? "متابعة الدراسة الحالية" : "Continue existing study") : (ar ? "ابدأ الدراسة" : "Start study")}
+            </Link>
+          </div>
         }
       />
 
@@ -122,7 +131,12 @@ export default function BusinessDetailPage() {
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
               <div className="divide-y divide-slate-100">
                 {studies.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between px-6 py-4 transition hover:bg-slate-50">
+                  <Link
+                    key={s.id}
+                    href={`/projects/${id}/studies/${s.id}`}
+                    data-testid={`open-study-${s.id}`}
+                    className="flex items-center justify-between px-6 py-4 transition hover:bg-slate-50"
+                  >
                     <div>
                       <p className="font-semibold text-ink-900">{s.title}</p>
                       <p className="mt-1 text-xs text-ink-500">{s.study_type} — {s.status}</p>
@@ -132,7 +146,7 @@ export default function BusinessDetailPage() {
                         {s.result.verdict === "feasible" ? (ar ? "مجدٍ" : "Feasible") : s.result.verdict === "not_feasible" ? (ar ? "غير مجدٍ" : "Not Feasible") : (ar ? "حدّي" : "Borderline")}
                       </span>
                     )}
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>

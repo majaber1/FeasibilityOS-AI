@@ -8,6 +8,7 @@ import { KpiCard } from "@/components/ui/KpiCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { getToken, listQualificationProfiles, type QualificationProfile } from "@/lib/api";
+import { useProjectContext } from "@/lib/use-project-context";
 
 const categories = [
   { key: "legal", icon: "⚖️", ar: "الجاهزية القانونية", en: "Legal readiness" },
@@ -24,6 +25,8 @@ export default function QualificationServicePage() {
   const [profiles, setProfiles] = useState<QualificationProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
+  const { project } = useProjectContext();
+  const assessmentHref = project ? `/qualification?project_id=${project.id}` : "/qualification";
 
   useEffect(() => {
     const token = getToken();
@@ -46,7 +49,7 @@ export default function QualificationServicePage() {
         breadcrumb={[{ label: ar ? "الأدوات" : "Tools", href: "/tools" }]}
         actions={
           signedIn ? (
-            <Link href="/qualification" className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-700">
+            <Link href={assessmentHref} className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-700">
               {latestProfile ? (ar ? "تحديث التقييم" : "Update assessment") : (ar ? "بدء التقييم" : "Start assessment")}
             </Link>
           ) : undefined
@@ -95,7 +98,7 @@ export default function QualificationServicePage() {
             title={ar ? "لم يتم التقييم بعد" : "No assessment yet"}
             description={ar ? "ابدأ بتقييم جاهزية أعمالك لتحديد نقاط القوة والتحسين." : "Start assessing your business readiness to identify strengths and areas for improvement."}
             actionLabel={ar ? "بدء التقييم" : "Start assessment"}
-            actionHref="/qualification"
+            actionHref={assessmentHref}
           />
         ) : (
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">

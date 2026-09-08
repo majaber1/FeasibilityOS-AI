@@ -97,7 +97,6 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      # Scenario A: fresh database -> upgrade head -> every expected table exists
       - name: "Scenario A: fresh DB upgrade head"
         run: alembic -c database/alembic.ini upgrade head
       - name: "Scenario A: verify expected tables incl qualification"
@@ -110,8 +109,8 @@ jobs:
           required = {
               "users", "organizations", "roles", "projects", "feasibility_studies",
               "financial_assumptions", "financial_results", "sensitivity_scenarios",
-              "funding_programs", "funding_matches", "idea_bank_entries",
-              "franchise_opportunities", "auctions", "auction_bids",
+              "funding_programs", "idea_bank_entries",
+              "franchise_opportunities",
               "multazim_requirements", "documents", "reports", "audit_logs",
               "qualification_profiles", "qualification_requirements",
               "multazim_assessment_requests", "alembic_version",
@@ -119,9 +118,10 @@ jobs:
           }
           missing = required - tables
           assert not missing, f"missing tables: {sorted(missing)}"
-          print("OK - all", len(required), "expected tables present")
+          discontinued = {"auctions", "auction_bids"}
+          assert not (discontinued & tables), f"discontinued auction tables still present: {sorted(discontinued & tables)}"
+          print("OK - all", len(required), "expected tables present; auctions removed")
           PY
-      # Scenario B: existing 0001-era DB, seed a row, then upgrade to head.
       - name: "Scenario B: reset DB and upgrade to 0001_initial only"
         run: |
           python - <<'PY'
@@ -174,7 +174,6 @@ jobs:
           assert n == 1, f"seeded org row lost during upgrade (found {n})"
           print("OK - qualification tables added, existing data preserved")
           PY
-      # Downgrade/upgrade cycle
       - name: "Cycle: head has project archive columns (0003)"
         run: |
           alembic -c database/alembic.ini upgrade head
@@ -185,9 +184,6 @@ jobs:
           assert {"is_archived", "archived_at"} <= cols, f"archive columns missing at head: {sorted(cols)}"
           print("OK - projects has is_archived/archived_at at head")
           PY
-      # Explicit revision target (not a relative "-1" step): a relative step
-      # silently breaks every time a new migration is appended after 0003,
-      # since "head - 1" then undoes the newest migration instead of 0003.
       - name: "Cycle: downgrade to 0002 removes archive columns + everything after"
         run: |
           alembic -c database/alembic.ini downgrade 0002_business_qualification

@@ -5,16 +5,11 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ServiceHeader } from "@/components/ui/ServiceHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Badge } from "@/components/ui/Badge";
 import { getToken, listStudies, reportDownloadUrl, type Study } from "@/lib/api";
+import { useProjectContext } from "@/lib/use-project-context";
 
 const reportTypes = [
   { key: "feasibility", icon: "📊", ar: "تقرير دراسة الجدوى", en: "Feasibility Report" },
-  { key: "executive", icon: "📋", ar: "ملخص تنفيذي", en: "Executive Summary" },
-  { key: "financial", icon: "💰", ar: "تقرير مالي", en: "Financial Report" },
-  { key: "investor", icon: "💼", ar: "حزمة المستثمر", en: "Investor Package" },
-  { key: "qualification", icon: "✅", ar: "تقرير التأهيل", en: "Qualification Report" },
-  { key: "funding", icon: "🏦", ar: "تقرير جاهزية التمويل", en: "Funding Readiness" },
 ];
 
 export default function ReportsServicePage() {
@@ -23,16 +18,43 @@ export default function ReportsServicePage() {
   const [studies, setStudies] = useState<Study[]>([]);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
+  const [error, setError] = useState("");
+  const { project, error: projectError } = useProjectContext();
 
   useEffect(() => {
     const token = getToken();
     if (!token) { setLoading(false); return; }
     setSignedIn(true);
-    listStudies(token)
+    listStudies(token, project?.id)
       .then(setStudies)
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [project?.id]);
+
+  async function downloadReport(studyId: number, format: "pdf" | "docx", language: "ar" | "en") {
+    const token = getToken();
+    if (!token) return;
+    setError("");
+    try {
+      const response = await fetch(reportDownloadUrl(studyId, format, language), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || response.statusText);
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `feasibility_${studyId}_${language}.${format}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   const completed = studies.filter((s) => s.status === "completed");
 
@@ -46,6 +68,8 @@ export default function ReportsServicePage() {
       />
 
       <div className="container-page space-y-8 py-8">
+        {project && <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">{ar ? "تقارير المشروع:" : "Project reports:"} <strong>{project.name}</strong></div>}
+        {(error || projectError) && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || projectError}</p>}
         <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-card sm:p-8">
           <h2 className="text-xl font-bold text-ink-900">{ar ? "أنواع التقارير" : "Report types"}</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -87,36 +111,24 @@ export default function ReportsServicePage() {
                     <p className="mt-1 text-xs text-ink-500">{s.study_type}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <a href={reportDownloadUrl(s.id, "pdf", "ar")} target="_blank" className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:border-brand-500 hover:text-brand-600">
+                    <button onClick={() => downloadReport(s.id, "pdf", "ar")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:border-brand-500 hover:text-brand-600">
                       PDF {ar ? "عربي" : "AR"}
-                    </a>
-                    <a href={reportDownloadUrl(s.id, "pdf", "en")} target="_blank" className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:border-brand-500 hover:text-brand-600">
+                    </button>
+                    <button onClick={() => downloadReport(s.id, "pdf", "en")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:border-brand-500 hover:text-brand-600">
                       PDF {ar ? "إنجليزي" : "EN"}
-                    </a>
-                    <a href={reportDownloadUrl(s.id, "docx", "ar")} target="_blank" className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:border-brand-500 hover:text-brand-600">
+                    </button>
+                    <button onClick={() => downloadReport(s.id, "docx", "ar")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:border-brand-500 hover:text-brand-600">
                       DOCX {ar ? "عربي" : "AR"}
-                    </a>
-                    <a href={reportDownloadUrl(s.id, "docx", "en")} target="_blank" className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:border-brand-500 hover:text-brand-600">
+                    </button>
+                    <button onClick={() => downloadReport(s.id, "docx", "en")} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-ink-700 hover:border-brand-500 hover:text-brand-600">
                       DOCX {ar ? "إنجليزي" : "EN"}
-                    </a>
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </section>
         )}
-
-        <section className="rounded-2xl border border-gold-200 bg-gold-50 p-6">
-          <h3 className="text-lg font-bold text-gold-800">{ar ? "حزمة المستثمر" : "Investor Package"}</h3>
-          <p className="mt-2 text-sm text-gold-700">
-            {ar
-              ? "اجمع دراسة الجدوى والتحليل المالي والعرض التجاري وملف المنشأة في حزمة واحدة احترافية للمستثمرين."
-              : "Combine your feasibility study, financial analysis, business proposal, and company profile into one professional investor package."}
-          </p>
-          <button className="mt-4 rounded-xl bg-gold-500 px-5 py-3 text-sm font-bold text-brand-900 shadow-card hover:bg-gold-400">
-            {ar ? "إنشاء حزمة المستثمر" : "Create investor package"}
-          </button>
-        </section>
       </div>
     </div>
   );

@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.auth import UserOut, get_current_user
 from app.db import DB_ENABLED, get_db
 from app.models import Proposal
+from app.services.reporting import build_proposal_context, generate_proposal_docx, generate_proposal_pdf
 
 router = APIRouter(prefix="/proposals", tags=["proposals"])
 
@@ -115,6 +117,25 @@ def update_proposal(
     db.commit()
     db.refresh(proposal)
     return proposal
+
+
+@router.get("/{proposal_id}/export")
+def export_proposal(
+    proposal_id: int,
+    fmt: str = Query("pdf", pattern="^(pdf|docx)$"),
+    locale: str = Query("ar", pattern="^(ar|en)$"),
+    user: UserOut = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    proposal = db.get(Proposal, proposal_id)
+    if not proposal or (user.role_key != "admin" and proposal.owner_id != user.id):
+        raise HTTPException(404, "Proposal not found")
+    ctx = build_proposal_context(proposal)
+    if fmt == "pdf":
+        data, media = generate_proposal_pdf(ctx, locale), "application/pdf"
+    else:
+        data, media = generate_proposal_docx(ctx, locale), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    return Response(data, media_type=media, headers={"Content-Disposition": f'attachment; filename="proposal_{proposal.id}_{locale}.{fmt}"'})
 
 
 @router.delete("/{proposal_id}", status_code=204)

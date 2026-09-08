@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "slug": "saudi-business",
+  "product": "Saudi Business",
+  "canonicalRepo": "majaber1/saudi-business",
+  "branch": "main",
+  "productionUrl": "https://saudi-business-web.vercel.app",
+  "healthUrls": [
+    "https://saudi-business-web.vercel.app/api/deployment-health"
+  ],
+  "readmePath": "README.md",
+  "architecturePath": "docs/PRODUCT_ARCHITECTURE.md",
+  "sourcePolicy": {
+    "code": "github-main",
+    "runtime": "live-health",
+    "documentation": "repository"
+  }
+}

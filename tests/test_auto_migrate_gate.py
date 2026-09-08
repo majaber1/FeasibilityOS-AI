@@ -11,6 +11,7 @@ an exception even when the configured database is unreachable.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -49,7 +50,10 @@ print("PROBE_RESULT=" + json.dumps({{"attempted_connect": called["attempted_conn
 
 
 def _run_probe(env_overrides: dict) -> dict:
-    env = {"PATH": __import__("os").environ.get("PATH", "")}
+    # Preserve the host environment so Windows can initialize Winsock and the
+    # asyncio overlapped-I/O provider. The probe still controls every setting
+    # relevant to the migration gate through explicit overrides below.
+    env = os.environ.copy()
     env.update(env_overrides)
     script = _PROBE_SCRIPT.format(backend_dir=str(BACKEND_DIR))
     proc = subprocess.run(

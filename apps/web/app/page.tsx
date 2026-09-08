@@ -4,20 +4,26 @@ import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 
 const services = [
-  { href: "/tools/feasibility", icon: "📊", code: "01", title: { ar: "دراسة الجدوى V2", en: "Feasibility Study V2" }, desc: { ar: "محرك ذكاء اصطناعي متعدد الوكلاء", en: "Multi-agent AI decision engine" } },
-  { href: "/tools/financial", icon: "💰", code: "02", title: { ar: "التحليل المالي", en: "Financial Analysis" }, desc: { ar: "ROI و NPV و IRR وتحليل الحساسية", en: "ROI, NPV, IRR, and sensitivity analysis" } },
-  { href: "/tools/funding", icon: "🏦", code: "03", title: { ar: "مطابقة التمويل", en: "Funding Matcher" }, desc: { ar: "مطابقة شفافة مع البرامج السعودية", en: "Transparent matching with Saudi programs" } },
-  { href: "/tools/opportunities", icon: "🎯", code: "04", title: { ar: "رادار الفرص", en: "Opportunity Radar" }, desc: { ar: "فرص مصنّفة حسب القطاع والمخاطر", en: "Opportunities by sector and risk" } },
-  { href: "/tools/ideas", icon: "💡", code: "05", title: { ar: "بنك الأفكار", en: "Idea Bank" }, desc: { ar: "أفكار مشاريع رؤية 2030", en: "Vision 2030 project ideas" } },
-  { href: "/tools/proposal", icon: "📝", code: "06", title: { ar: "منشئ العروض", en: "Proposal Builder" }, desc: { ar: "عروض تجارية احترافية بالعربية والإنجليزية", en: "Professional proposals in Arabic & English" }, comingSoon: true },
+  { href: "/tools/feasibility", icon: "▦", code: "01", title: { ar: "دراسة الجدوى", en: "Feasibility Study" }, desc: { ar: "ابنِ دراسة قابلة للمراجعة مع افتراضات ونتائج مالية واضحة.", en: "Build a reviewable study with explicit assumptions and financial outputs." }, tag: { ar: "ابدأ من هنا", en: "Start here" } },
+  { href: "/tools/financial", icon: "↗", code: "02", title: { ar: "التحليل المالي", en: "Financial Analysis" }, desc: { ar: "ROI وNPV وIRR وتحليل الحساسية في مساحة قرار واحدة.", en: "ROI, NPV, IRR and sensitivity analysis in one decision workspace." }, tag: { ar: "قرار مالي", en: "Financial decision" } },
+  { href: "/tools/funding", icon: "﷼", code: "03", title: { ar: "مطابقة التمويل", en: "Funding Matcher" }, desc: { ar: "اعرف البرامج الأقرب لحالتك ولماذا، قبل تجهيز ملف التقديم.", en: "See which programs fit your case and why before preparing the application." }, tag: { ar: "تمويل سعودي", en: "Saudi funding" } },
+  { href: "/tools/qualification", icon: "✓", code: "04", title: { ar: "تأهيل الأعمال", en: "Qualification" }, desc: { ar: "قياس جاهزية المنشأة للتمويل والاستثمار والمناقصات.", en: "Measure business readiness for funding, investment and tenders." }, tag: { ar: "جاهزية", en: "Readiness" } },
+  { href: "/tools/proposal", icon: "✦", code: "05", title: { ar: "منشئ العروض", en: "Proposal Builder" }, desc: { ar: "حوّل بيانات المشروع إلى عرض واضح للممول أو المستثمر.", en: "Turn project data into a clear proposal for funders or investors." }, tag: { ar: "حزمة المستثمر", en: "Investor package" } },
+  { href: "/tools/opportunities", icon: "◎", code: "06", title: { ar: "فرص الاستثمار", en: "Opportunities" }, desc: { ar: "استكشف الفرص حسب القطاع والمخاطر والملاءمة التجارية.", en: "Explore opportunities by sector, risk and commercial fit." }, tag: { ar: "فرص", en: "Opportunities" } },
 ];
 
 const journey = [
-  { step: "1", ar: "ملف المنشأة", en: "Business Profile" },
-  { step: "2", ar: "دراسة الجدوى", en: "Feasibility Study" },
-  { step: "3", ar: "القرار المالي", en: "Financial Decision" },
-  { step: "4", ar: "التمويل", en: "Funding" },
-  { step: "5", ar: "العرض / حزمة المستثمر", en: "Proposal / Investor Package" },
+  { step: "01", ar: "عرّف مشروعك", en: "Define the business" },
+  { step: "02", ar: "اختبر الجدوى", en: "Test feasibility" },
+  { step: "03", ar: "قيّم الجاهزية", en: "Assess readiness" },
+  { step: "04", ar: "طابق التمويل", en: "Match funding" },
+  { step: "05", ar: "جهّز العرض", en: "Prepare the pitch" },
+];
+
+const stats = [
+  { ar: "6 أدوات مترابطة", en: "6 connected tools" },
+  { ar: "عربي + English", en: "Arabic + English" },
+  { ar: "سياق سعودي", en: "Saudi-first context" },
 ];
 
 export default function HomePage() {
@@ -25,135 +31,124 @@ export default function HomePage() {
   const ar = locale === "ar";
 
   return (
-    <div>
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-50 via-white to-white">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.07] [background:radial-gradient(circle_at_85%_15%,theme(colors.gold.500),transparent_45%)]" />
-        <div className="container-page relative py-20 sm:py-28">
-          <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700">
-            {t.tagline}
-          </p>
-          <h1 className="max-w-3xl text-4xl font-bold leading-[1.15] tracking-tight text-ink-900 sm:text-5xl lg:text-6xl">
-            {ar ? "من فكرة المشروع إلى جاهزية الاستثمار" : "From business idea to investment-ready"}
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink-600">
-            {ar
-              ? "منصة سعودية متكاملة تضم أدوات مستقلة لدراسة الجدوى والتحليل المالي ومطابقة التمويل وإعداد العروض — كل أداة تعمل بشكل مستقل أو مرتبطة بسياق مشروعك."
-              : "An integrated Saudi platform with independent tools for feasibility studies, financial analysis, funding matching, and proposal building — each tool works standalone or linked to your business context."}
-          </p>
-          <div className="mt-9 flex flex-wrap gap-3">
-            <Link
-              href="/tools"
-              className="rounded-lg bg-brand-600 px-6 py-3 font-medium text-white shadow-card transition hover:bg-brand-700 hover:shadow-card-hover"
-            >
-              {ar ? "استعرض الأدوات" : "Explore tools"}
-            </Link>
-            <Link
-              href="/projects"
-              className="rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-ink-800 transition hover:border-brand-500 hover:text-brand-600"
-            >
-              {ar ? "ابدأ دراسة جدوى ذكية" : "Start an AI feasibility study"}
-            </Link>
+    <div className="overflow-hidden bg-[#f7f8f5]">
+      <section className="relative isolate overflow-hidden border-b border-white/10 bg-[#062c1d] text-white">
+        <div className="absolute inset-0 -z-10 opacity-80 [background:radial-gradient(circle_at_15%_10%,rgba(201,162,39,.23),transparent_34%),radial-gradient(circle_at_85%_35%,rgba(31,157,92,.22),transparent_38%),linear-gradient(135deg,#062c1d_0%,#084a2a_55%,#052719_100%)]" />
+        <div className="absolute inset-0 -z-10 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.5)_1px,transparent_1px)] [background-size:48px_48px]" />
+
+        <div className="container-page grid items-center gap-12 py-20 lg:grid-cols-[1.15fr_.85fr] lg:py-28">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-white/90 backdrop-blur">
+              <span className="h-2 w-2 rounded-full bg-gold-400" />
+              {t.tagline}
+            </div>
+            <h1 className="mt-6 max-w-4xl text-4xl font-extrabold leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">
+              {ar ? "حوّل فكرة المشروع إلى قرار استثماري قابل للدفاع عنه" : "Turn a business idea into a defensible investment decision"}
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-8 text-white/72 sm:text-lg">
+              {ar
+                ? "سعودي بزنس يجمع دراسة الجدوى، التحليل المالي، التأهيل، مطابقة التمويل وحزمة المستثمر في رحلة واحدة — مع إبقاء كل أداة مستقلة عندما تحتاجها وحدها."
+                : "Saudi Business connects feasibility, financial analysis, qualification, funding matching and investor packaging in one journey — while keeping every tool independently usable."}
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/tools/feasibility" className="rounded-xl bg-gold-400 px-6 py-3.5 text-sm font-extrabold text-[#062c1d] shadow-[0_16px_40px_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:bg-gold-300">
+                {ar ? "ابدأ مشروعك الآن" : "Start your business case"}
+              </Link>
+              <Link href="/tools" className="rounded-xl border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15">
+                {ar ? "استعرض كل الأدوات" : "Explore all tools"}
+              </Link>
+            </div>
+            <div className="mt-10 flex flex-wrap gap-x-7 gap-y-3 border-t border-white/10 pt-6 text-xs font-semibold text-white/65">
+              {stats.map((s) => <span key={s.en}>✓ {ar ? s.ar : s.en}</span>)}
+            </div>
+          </div>
+
+          <div className="relative mx-auto w-full max-w-xl lg:mx-0">
+            <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gold-400/10 blur-3xl" />
+            <div className="rounded-[1.75rem] border border-white/15 bg-white/[0.08] p-4 shadow-2xl backdrop-blur-xl sm:p-6">
+              <div className="flex items-center justify-between border-b border-white/10 pb-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-gold-300">{ar ? "لوحة القرار" : "Decision cockpit"}</p>
+                  <h2 className="mt-2 text-xl font-bold">{ar ? "جاهزية مشروعك" : "Business readiness"}</h2>
+                </div>
+                <div className="grid h-14 w-14 place-items-center rounded-2xl border border-gold-300/20 bg-gold-300/10 text-xl font-black text-gold-300">78</div>
+              </div>
+              <div className="mt-5 space-y-3">
+                {[
+                  [ar ? "الجدوى المالية" : "Financial viability", "84%"],
+                  [ar ? "جاهزية التمويل" : "Funding readiness", "72%"],
+                  [ar ? "اكتمال البيانات" : "Data completeness", "91%"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <div className="flex items-center justify-between text-sm"><span className="text-white/75">{label}</span><strong>{value}</strong></div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-gold-400 to-emerald-400" style={{ width: value }} /></div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4"><small className="text-white/55">{ar ? "أفضل خطوة تالية" : "Best next step"}</small><strong className="mt-1 block text-sm">{ar ? "مطابقة التمويل" : "Funding match"}</strong></div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4"><small className="text-white/55">{ar ? "حالة الملف" : "Case status"}</small><strong className="mt-1 block text-sm text-emerald-300">{ar ? "قابل للتطوير" : "Actionable"}</strong></div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Journey */}
-      <section className="border-y border-slate-200 bg-slate-50">
-        <div className="container-page py-12">
-          <h2 className="text-center text-xl font-bold text-ink-900">{ar ? "رحلة المنصة" : "Platform journey"}</h2>
-          <p className="mt-2 text-center text-sm text-ink-600">{ar ? "كل خطوة مستقلة — استخدمها بالترتيب أو اختر ما تحتاجه" : "Each step is independent — use them in order or pick what you need"}</p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            {journey.map((j, i) => (
-              <div key={j.step} className="flex items-center gap-3">
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
-                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700">{j.step}</span>
-                  <span className="text-sm font-semibold text-ink-800">{ar ? j.ar : j.en}</span>
-                </div>
-                {i < journey.length - 1 && <span className="text-ink-400">→</span>}
+      <section className="border-b border-slate-200/80 bg-white">
+        <div className="container-page py-8">
+          <div className="grid gap-2 sm:grid-cols-5">
+            {journey.map((j) => (
+              <div key={j.step} className="group rounded-2xl border border-transparent p-4 transition hover:border-brand-100 hover:bg-brand-50/60">
+                <span className="text-[11px] font-black tracking-[.16em] text-brand-600">{j.step}</span>
+                <p className="mt-1 text-sm font-bold text-ink-900">{ar ? j.ar : j.en}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Services grid */}
-      <section className="container-page py-16">
-        <div className="flex items-end justify-between">
+      <section className="container-page py-16 sm:py-20">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-ink-900">{ar ? "أدوات المنصة" : "Platform tools"}</h2>
-            <p className="mt-2 text-sm text-ink-600">{ar ? "كل أداة مستقلة ويمكن استخدامها بشكل منفرد" : "Each tool is independent and can be used standalone"}</p>
+            <p className="text-xs font-black uppercase tracking-[.18em] text-brand-600">{ar ? "مساحة العمل" : "Business workspace"}</p>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-ink-900">{ar ? "كل قرار تجاري في مكانه الصحيح" : "Every business decision in the right workspace"}</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">{ar ? "استخدم أداة واحدة أو اربط الأدوات بسياق مشروعك لتنتقل من الفكرة إلى ملف جاهز للتمويل والاستثمار." : "Use one tool on its own, or connect them through your business context to move from idea to funding and investment readiness."}</p>
           </div>
-          <Link href="/tools" className="text-sm font-bold text-brand-600 hover:text-brand-700">{ar ? "عرض الكل" : "View all"}</Link>
+          <Link href="/tools" className="text-sm font-extrabold text-brand-700 hover:text-brand-800">{ar ? "عرض مركز الأدوات ←" : "Open tool center →"}</Link>
         </div>
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+
+        <div className="mt-9 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <div key={s.href} className="relative">
-              {"comingSoon" in s && s.comingSoon && (
-                <span className="absolute end-3 top-3 z-10 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-800">
-                  {ar ? "قريبًا" : "Coming soon"}
-                </span>
-              )}
-              <Link
-                href={s.href}
-                className={`group block rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-card-hover ${"comingSoon" in s && s.comingSoon ? "pointer-events-none opacity-60" : ""}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 text-2xl">{s.icon}</div>
-                  <span className="text-[10px] font-bold tracking-[0.2em] text-ink-500">{s.code}</span>
-                </div>
-                <h3 className="mt-4 text-lg font-bold text-ink-900 group-hover:text-brand-700">{ar ? s.title.ar : s.title.en}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-600">{ar ? s.desc.ar : s.desc.en}</p>
-                <span className="mt-4 inline-block text-brand-600 transition group-hover:translate-x-1 rtl:group-hover:-translate-x-1">→</span>
-              </Link>
-            </div>
+            <Link key={s.href} href={s.href} className="group relative overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,.04)] transition duration-300 hover:-translate-y-1 hover:border-brand-200 hover:shadow-[0_20px_50px_rgba(8,74,42,.11)]">
+              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-brand-500 to-transparent opacity-0 transition group-hover:opacity-100" />
+              <div className="flex items-start justify-between gap-4">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#eff8f2] text-xl font-black text-brand-700">{s.icon}</span>
+                <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold text-ink-500">{ar ? s.tag.ar : s.tag.en}</span>
+              </div>
+              <div className="mt-6 text-[10px] font-black tracking-[.18em] text-brand-500">{s.code}</div>
+              <h3 className="mt-1 text-xl font-extrabold text-ink-900 transition group-hover:text-brand-700">{ar ? s.title.ar : s.title.en}</h3>
+              <p className="mt-3 text-sm leading-7 text-ink-600">{ar ? s.desc.ar : s.desc.en}</p>
+              <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-bold text-brand-700"><span>{ar ? "فتح الأداة" : "Open tool"}</span><span className="transition group-hover:translate-x-1 rtl:group-hover:-translate-x-1">→</span></div>
+            </Link>
           ))}
         </div>
       </section>
 
-      {/* Investors */}
-      <section className="border-y border-brand-800 bg-gradient-to-br from-brand-800 via-brand-700 to-brand-900">
-        <div className="container-page flex flex-col items-start justify-between gap-6 py-14 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-white">{t.investors.title}</h2>
-            <p className="mt-2 max-w-xl text-sm text-white/80">{t.investors.body}</p>
+      <section className="container-page pb-20">
+        <div className="grid overflow-hidden rounded-[1.75rem] border border-brand-900 bg-[#073722] text-white shadow-[0_24px_70px_rgba(6,44,29,.18)] lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="p-8 sm:p-10">
+            <p className="text-xs font-black uppercase tracking-[.18em] text-gold-300">{ar ? "للممول والمستثمر" : "For funders & investors"}</p>
+            <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">{t.investors.title}</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">{t.investors.body}</p>
           </div>
-          <Link
-            href="/tools/opportunities"
-            className="shrink-0 rounded-lg bg-gold-500 px-6 py-3 font-medium text-brand-900 shadow-card transition hover:bg-gold-400"
-          >
-            {t.investors.cta}
-          </Link>
-        </div>
-      </section>
-
-      {/* Independence callout */}
-      <section className="container-page py-16">
-        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-8 sm:p-10">
-          <h2 className="text-2xl font-bold text-brand-900">{ar ? "كل أداة مستقلة" : "Every tool is independent"}</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-brand-800">
-            {ar
-              ? "لا تحتاج لإكمال دراسة الجدوى لاستخدام التحليل المالي. ولا تحتاج لنتائج التأهيل لبدء مطابقة التمويل. كل أداة تعمل بشكل مستقل — ولكن عندما تربطها بمشروعك، تتشارك السياق التجاري تلقائيًا."
-              : "You don't need to complete a feasibility study to use financial analysis. And you don't need qualification results to start funding matching. Each tool works independently — but when you link them to your business, they share context automatically."}
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/businesses" className="rounded-lg bg-brand-600 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-700">
-              {ar ? "إدارة أعمالي" : "Manage my businesses"}
-            </Link>
-            <Link href="/tools" className="rounded-lg border border-brand-400 px-5 py-3 text-sm font-semibold text-brand-800 hover:bg-brand-100">
-              {ar ? "تصفح الأدوات" : "Browse tools"}
-            </Link>
+          <div className="border-t border-white/10 p-8 lg:border-s lg:border-t-0 lg:p-10">
+            <Link href="/tools/opportunities" className="inline-flex rounded-xl bg-gold-400 px-6 py-3.5 text-sm font-extrabold text-brand-900 transition hover:bg-gold-300">{t.investors.cta}</Link>
           </div>
         </div>
-      </section>
 
-      {/* Status strip */}
-      <section className="border-b border-slate-200 bg-slate-50">
-        <div className="container-page py-10">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-            <h3 className="font-semibold text-amber-800">{t.status.title}</h3>
-            <p className="mt-1 text-sm text-amber-700">{t.status.body}</p>
-          </div>
+        <div className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-5">
+          <h3 className="font-bold text-amber-900">{t.status.title}</h3>
+          <p className="mt-1 text-sm leading-6 text-amber-800">{t.status.body}</p>
         </div>
       </section>
     </div>

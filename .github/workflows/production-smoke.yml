@@ -1,0 +1,25 @@
+name: Production Smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Wait for production and verify core journey shell
+        env:
+          PRODUCTION_URL: https://saudi-business-web.vercel.app
+          SMOKE_ATTEMPTS: "16"
+          SMOKE_DELAY_MS: "15000"
+        run: node scripts/production-smoke.mjs

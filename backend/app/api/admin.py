@@ -40,7 +40,6 @@ class DashboardStats(BaseModel):
     studies: int = 0
     ideas: int = 0
     franchises: int = 0
-    auctions: int = 0
     reports: int = 0
     multazim_requirements: int = 0
     recent_activity: List[AuditEntry] = []
@@ -92,7 +91,6 @@ def dashboard_stats(user: UserOut = Depends(require_roles("admin"))):
             studies=_count(models.FeasibilityStudy),
             ideas=_count(models.IdeaBankEntry),
             franchises=_count(models.FranchiseOpportunity),
-            auctions=_count(models.Auction),
             reports=_count(models.Report),
             multazim_requirements=_count(models.MultazimRequirement),
             recent_activity=recent,

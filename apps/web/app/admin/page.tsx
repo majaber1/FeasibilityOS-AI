@@ -52,7 +52,7 @@ export default function AdminPage() {
   if (state === "loading") return <main className="container-page py-16">{ar ? "جارٍ التحميل…" : "Loading…"}</main>;
   if (state === "denied") return <main className="container-page py-16"><h1 className="text-3xl font-bold">{ar ? "غير مصرح" : "Access denied"}</h1><p className="mt-3 text-ink-600">{ar ? "هذه الصفحة لحساب مدير المنصة فقط." : "This page is restricted to platform administrators."}</p></main>;
   if (state === "error" || !stats) return <main className="container-page py-16 text-red-700">{ar ? "تعذر تحميل بيانات الإدارة." : "Unable to load administration data."}</main>;
-  const cards = [["users", ar ? "المستخدمون" : "Users"], ["projects", ar ? "المشاريع" : "Projects"], ["studies", ar ? "الدراسات" : "Studies"], ["reports", ar ? "التقارير" : "Reports"], ["ideas", ar ? "الأفكار" : "Ideas"], ["auctions", ar ? "المزادات" : "Auctions"]] as const;
+  const cards = [["users", ar ? "المستخدمون" : "Users"], ["projects", ar ? "المشاريع" : "Projects"], ["studies", ar ? "الدراسات" : "Studies"], ["reports", ar ? "التقارير" : "Reports"], ["ideas", ar ? "الأفكار" : "Ideas"]] as const;
   const input = "rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-200";
   return <main className="min-h-screen bg-slate-50 py-12"><div className="container-page">
     <p className="text-sm font-semibold text-brand-700">SAUDI-BUISNESS</p><h1 className="mt-2 text-3xl font-bold">{ar ? "إدارة المنصة" : "Platform administration"}</h1>
