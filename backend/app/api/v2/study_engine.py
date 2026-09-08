@@ -133,7 +133,8 @@ def _save_study(study_id: str, state_dict: dict, user_id: str):
                 )
                 db.add(row)
 
-            version_num = state_dict.get("decision_version", 0) + 1
+            last_ver = db.query(StudyVersionRow).filter_by(study_id=study_id).order_by(StudyVersionRow.version.desc()).first()
+            version_num = (last_ver.version + 1) if last_ver else 1
             version_row = StudyVersionRow(
                 study_id=study_id,
                 version=version_num,
