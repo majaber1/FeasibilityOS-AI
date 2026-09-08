@@ -29,8 +29,10 @@
 
 ### Feedback
 - `Badge` — Status/category labels (success, warning, danger, info, neutral, brand, gold)
-- `EmptyState` — Empty content placeholder with CTA
-- `Stepper` — Multi-step workflow progress indicator
+- `Alert`, `LoadingState`, `ErrorState`
+- `Button`
+- `Input`, `Select`, `TextArea`, `Field`
+- `ContextBanner`, `ImportSource` — explicit optional linking, never silent merge
 
 ### Shadows
 - `shadow-card`: Subtle resting shadow

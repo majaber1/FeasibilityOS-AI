@@ -1,6 +1,6 @@
 # Saudi Business — Product Architecture
 
-Last verified against current `main`: **2026-08-26**.
+Last verified against current `main`: **2026-09-08**.
 
 ## Source-of-truth policy
 
@@ -58,13 +58,14 @@ Major tools can be entered independently and can optionally reuse shared busines
 | Service | Web route | Backend boundary | Current state |
 | --- | --- | --- | --- |
 | Feasibility Study | `/tools/feasibility` | feasibility API | Implemented |
-| Financial Analysis | `/tools/financial` | financial API | Implemented |
+| Financial Analysis | `/tools/financial` | financial API + persisted `financial_analyses` | Implemented |
 | Funding Matcher | `/tools/funding` | funding API | Implemented |
 | Business Qualification | `/tools/qualification` | qualification API | Implemented |
-| Proposal Builder | proposal workflow | proposals API | Implemented/MVP |
-| Reports | reports workflow | reports API | Implemented |
-| Investment Opportunities | opportunities workflow | opportunities API | Implemented |
-| Franchise | franchise workflow | franchises API | Catalog/service boundary |
+| Proposal Builder | `/tools/proposal` | proposals API + optional feasibility import | Implemented |
+| Reports / Investor Package | `/tools/reports` | reports API + `/investor-package` | Implemented |
+| Investment Opportunities | `/tools/opportunities` | opportunities API | Implemented |
+| Franchise | `/tools/franchise` | franchises API | Catalog/service boundary |
+| Auctions | `/tools/auctions` | none | **Not offered. Page states removal; no listings.** |
 | Funding Documents | funding/document workflow | documents API + Cloudflare R2 | Implemented; runtime configuration health-reported |
 | Leads | public/product CTAs | leads API | Implemented |
 | Admin / Metrics | protected admin | admin/metrics | Implemented |

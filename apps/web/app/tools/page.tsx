@@ -13,6 +13,8 @@ const services = [
       ar: "محرّك مالي حقيقي يحلل جدوى مشروعك ويعطيك قرارًا واضحًا مع تقرير احترافي.",
       en: "A real financial engine that analyzes your project's viability and delivers a clear decision with a professional report.",
     },
+    audience: { ar: "لروّاد الأعمال والمستشارين والبنوك", en: "For founders, consultants, and banks" },
+    workflow: { ar: "بيانات → افتراضات → نتائج → قرار → تقرير", en: "Details → assumptions → results → decision → report" },
   },
   {
     href: "/tools/financial",
@@ -23,6 +25,8 @@ const services = [
       ar: "حلل العائد والقيمة الحالية ومعدل العائد الداخلي وفترة الاسترداد ونقطة التعادل بشكل مستقل.",
       en: "Analyze ROI, NPV, IRR, payback period, and break-even independently for any scenario.",
     },
+    audience: { ar: "للمؤسس أو المحلل المالي", en: "For founders and financial analysts" },
+    workflow: { ar: "استثمار → تدفقات → مؤشرات → حساسية", en: "Investment → cash flows → metrics → sensitivity" },
   },
   {
     href: "/tools/proposal",
@@ -33,6 +37,8 @@ const services = [
       ar: "أنشئ عروضًا تجارية احترافية باللغتين وصدّرها PDF أو Word.",
       en: "Build professional business proposals in Arabic and English, export to PDF or Word.",
     },
+    audience: { ar: "للاستشاريين والشركات والمناقصات", en: "For consultants, firms, and tenders" },
+    workflow: { ar: "نوع → عميل → نطاق → تسعير → تصدير", en: "Type → client → scope → pricing → export" },
   },
   {
     href: "/tools/funding",
@@ -43,6 +49,8 @@ const services = [
       ar: "مطابقة شفّافة مع برامج التمويل السعودية حسب قطاعك ومرحلتك وجاهزيتك.",
       en: "Transparent matching with Saudi funding programs based on your sector, stage, and readiness.",
     },
+    audience: { ar: "للمنشآت الباحثة عن تمويل", en: "For businesses seeking funding" },
+    workflow: { ar: "قطاع → مرحلة → جاهزية → نتائج مع مصدر", en: "Sector → stage → readiness → sourced results" },
   },
   {
     href: "/tools/qualification",
@@ -53,6 +61,8 @@ const services = [
       ar: "اعرف مدى جاهزية منشأتك للتمويل والمناقصات والامتثال.",
       en: "Assess your business readiness for funding, tenders, and compliance.",
     },
+    audience: { ar: "لأصحاب المنشآت قبل التقديم", en: "For owners before applying" },
+    workflow: { ar: "تقييم → درجة → نواقص → خطوات تالية", en: "Assess → score → gaps → next actions" },
   },
   {
     href: "/tools/opportunities",
@@ -63,6 +73,8 @@ const services = [
       ar: "تصفّح فرصًا مصنّفة حسب القطاع والمخاطر وحجم الاستثمار.",
       en: "Browse opportunities categorized by sector, risk level, and investment size.",
     },
+    audience: { ar: "للمستثمرين والباحثين عن فرص", en: "For investors exploring deals" },
+    workflow: { ar: "فلاتر → بطاقة فرصة → مصدر التحقق", en: "Filters → opportunity card → verification source" },
   },
   {
     href: "/tools/franchise",
@@ -73,6 +85,8 @@ const services = [
       ar: "استعرض فرص الامتياز التجاري المتاحة في السوق السعودي.",
       en: "Explore franchise opportunities available in the Saudi market.",
     },
+    audience: { ar: "لمن يبحث عن علامة جاهزة", en: "For buyers of established brands" },
+    workflow: { ar: "قطاع → استثمار → تفاصيل الامتياز", en: "Sector → investment → franchise details" },
   },
   {
     href: "/tools/reports",
@@ -83,6 +97,8 @@ const services = [
       ar: "أنشئ تقارير احترافية وحزمة المستثمر من دراساتك وتحليلاتك.",
       en: "Generate professional reports and investor packages from your studies and analyses.",
     },
+    audience: { ar: "للعرض على مستثمر أو بنك", en: "For investors and banks" },
+    workflow: { ar: "اختر المخرجات → جمّع الحزمة → صدّر", en: "Select outputs → compose package → export" },
   },
   {
     href: "/tools/ideas",
@@ -93,6 +109,8 @@ const services = [
       ar: "أفكار مشاريع متوافقة مع رؤية 2030 ومصنفة حسب القطاع ومستوى الصعوبة.",
       en: "Vision 2030-aligned project ideas categorized by sector and difficulty level.",
     },
+    audience: { ar: "لمن يبدأ من فكرة", en: "For people starting from an idea" },
+    workflow: { ar: "استكشف → اختر فكرة → ابدأ دراسة", en: "Browse → pick an idea → start a study" },
   },
 ];
 
@@ -128,6 +146,8 @@ export default function ToolsPage() {
               code={s.code}
               title={ar ? s.title.ar : s.title.en}
               description={ar ? s.description.ar : s.description.en}
+              audience={ar ? s.audience.ar : s.audience.en}
+              workflow={ar ? s.workflow.ar : s.workflow.en}
             />
           ))}
         </div>

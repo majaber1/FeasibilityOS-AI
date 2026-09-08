@@ -10,4 +10,6 @@ P1: complete catalog provenance governance everywhere and improve professional A
 
 P2: broader design-system extraction. AI/RAG, government synchronization, payments, and escrow remain explicitly unimplemented and must not be claimed.
 
+Independent tool surfaces (`/tools/*`) and optional import linking shipped in the 2026-09-08 product-architecture pass. Auctions remain out of product.
+
 Demo flow: enter disclosed demo mode or register; create a project; complete feasibility inputs; review decision, metrics, risks, assumptions, and actions; run qualification; inspect funding and admin governance.

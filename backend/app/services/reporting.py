@@ -274,3 +274,62 @@ def generate_proposal_docx(ctx, locale="ar"):
         add(f"{label}: {value}")
     add("هذا العرض معلوماتي ولا يمثل التزامًا استثماريًا أو ضمانًا للعائد." if locale == "ar" else "This proposal is informational and is not an investment commitment or return guarantee.", size=8)
     buf = io.BytesIO(); doc.save(buf); return buf.getvalue()
+
+
+def generate_investor_package_pdf(ctx, locale="ar"):
+    """Compose a cover + selected existing outputs. Does not invent numbers."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+    left, right = 20 * mm, width - 20 * mm
+    y = height - 25 * mm
+
+    def draw(text, bold=False, size=11):
+        nonlocal y
+        if y < 28 * mm:
+            c.showPage()
+            y = height - 24 * mm
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        value = _dir_text(str(text or "—")[:180], locale)
+        (c.drawRightString(right, y, value) if locale == "ar" else c.drawString(left, y, value))
+        y -= 8 * mm
+
+    draw("Saudi Business | سعودي بزنس", True, 16)
+    draw("حزمة المستثمر" if locale == "ar" else "Investor Package", True, 18)
+    draw("هذا الملف يجمع مخرجات اختارها المستخدم. الربط اختياري وليس ضمانًا للاستثمار." if locale == "ar" else "This file combines outputs the user selected. Linking is optional and is not an investment guarantee.", False, 9)
+    y -= 4 * mm
+    draw("المصادر المحددة" if locale == "ar" else "Selected sources", True, 13)
+    for source in ctx.get("sources") or []:
+        draw(f"- {source.get('kind')}: {source.get('label')} (#{source.get('id')})")
+    project = ctx.get("project") or {}
+    if project:
+        y -= 3 * mm
+        draw("ملف الأعمال" if locale == "ar" else "Business profile", True, 13)
+        draw(f"{'الاسم' if locale == 'ar' else 'Name'}: {project.get('name')}")
+        draw(f"{'القطاع' if locale == 'ar' else 'Industry'}: {project.get('industry')}")
+        draw(f"{'الاستثمار' if locale == 'ar' else 'Investment'}: {project.get('investment')}")
+        draw(f"{'المرحلة' if locale == 'ar' else 'Stage'}: {project.get('stage')}")
+    study = ctx.get("study") or {}
+    if study:
+        y -= 3 * mm
+        draw("دراسة الجدوى" if locale == "ar" else "Feasibility study", True, 13)
+        draw(study.get("title"))
+        result = study.get("result") or {}
+        if result:
+            draw(f"NPV: {result.get('npv')}")
+            draw(f"IRR: {result.get('irr_percent')}")
+            draw(f"{'القرار' if locale == 'ar' else 'Verdict'}: {result.get('verdict')}")
+    proposal = ctx.get("proposal") or {}
+    if proposal:
+        y -= 3 * mm
+        draw("العرض" if locale == "ar" else "Proposal", True, 13)
+        draw(proposal.get("title"))
+        draw(proposal.get("scope") or "—")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+

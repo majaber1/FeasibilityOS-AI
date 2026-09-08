@@ -161,6 +161,25 @@ export default function DashboardPage() {
       </section>
 
       <div className="container-page space-y-7 py-8 sm:py-10">
+        <section>
+          <h2 className="text-2xl font-bold text-ink-900">{ar ? "ماذا تريد أن تنجز اليوم؟" : "What do you want to accomplish today?"}</h2>
+          <p className="mt-2 text-sm text-ink-600">{ar ? "كل خدمة مستقلة. اربطها بمشروعك فقط إذا رغبت." : "Each service is independent. Link it to a business only if you choose."}</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { href: "/tools/feasibility/new", title: ar ? "ادرس فكرة مشروع" : "Study a business idea", body: ar ? "دراسة جدوى مالية بقرار واضح" : "A feasibility study with a clear decision" },
+              { href: "/tools/financial", title: ar ? "حلّل الجدوى المالية" : "Analyze financial viability", body: ar ? "NPV و IRR والعائد والاسترداد" : "NPV, IRR, ROI and payback" },
+              { href: "/tools/proposal", title: ar ? "أنشئ عرضاً" : "Create a proposal", body: ar ? "تجاري، حكومي، أو للمستثمر" : "Commercial, government, or investor" },
+              { href: "/tools/funding", title: ar ? "ابحث عن تمويل" : "Find funding", body: ar ? "مطابقة برامج سعودية مع مصدر موثّق" : "Match Saudi programs with a cited source" },
+              { href: "/tools/qualification", title: ar ? "افحص جاهزية المنشأة" : "Check business readiness", body: ar ? "قانوني، تشغيلي، مالي، سوقي" : "Legal, operational, financial, market" },
+              { href: "/tools/opportunities", title: ar ? "استكشف الفرص" : "Explore opportunities", body: ar ? "استثمار وامتياز بتصنيف التحقق" : "Investment and franchise with verification labels" },
+            ].map((item) => (
+              <Link key={item.href} href={item.href} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:border-brand-300 hover:shadow-card-hover">
+                <h3 className="font-bold text-ink-900">{item.title}</h3>
+                <p className="mt-1 text-sm text-ink-600">{item.body}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
         {error && (
           <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <span>{ar ? "تعذر تحميل بيانات الحساب. لم نستبدلها ببيانات وهمية." : "Account data could not be loaded. It was not replaced with fabricated figures."}</span>

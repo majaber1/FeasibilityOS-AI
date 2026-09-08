@@ -4,7 +4,7 @@ Saudi-first bilingual business workspace for feasibility, financial analysis, fu
 
 ## Operational source of truth
 
-Last verified against current `main`: **2026-08-26**.
+Last verified against current `main`: **2026-09-08**.
 
 | Layer | Canonical source | Current state |
 | --- | --- | --- |

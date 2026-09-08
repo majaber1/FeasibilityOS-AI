@@ -5,8 +5,12 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { ServiceHeader } from "@/components/ui/ServiceHeader";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge } from "@/components/ui/Badge";
-import { evaluateFinancial, type FeasibilityEvalResponse } from "@/lib/api";
+import { evaluateFinancial, evaluateSensitivity, createFinancialAnalysis, getFinancialImportPreview, getToken, listStudies, type FeasibilityEvalResponse, type ImportPreview, type Study } from "@/lib/api";
 import { useProjectContext } from "@/lib/use-project-context";
+import { ContextBanner } from "@/components/ui/ContextBanner";
+import { ImportSource } from "@/components/ui/ContextBanner";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 
 function money(value: number) {
   return new Intl.NumberFormat("en-SA", { style: "currency", currency: "SAR", maximumFractionDigits: 0 }).format(value);
@@ -20,13 +24,23 @@ export default function FinancialAnalysisPage() {
   const [cashFlowsStr, setCashFlowsStr] = useState("");
   const [discountRate, setDiscountRate] = useState("10");
   const [result, setResult] = useState<FeasibilityEvalResponse | null>(null);
+  const [sensitivity, setSensitivity] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [studies, setStudies] = useState<Study[]>([]);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const { project, error: projectError } = useProjectContext();
 
   useEffect(() => {
     if (project) setInvestment(String(project.investment));
   }, [project]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    listStudies(token, project?.id).then(setStudies).catch(() => undefined);
+  }, [project?.id]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,10 +58,50 @@ export default function FinancialAnalysisPage() {
     try {
       const r = await evaluateFinancial({ investment: inv, annual_cash_flows: flows, discount_rate: dr });
       setResult(r);
-    } catch (err) {
+      const s = await evaluateSensitivity({ investment: inv, annual_cash_flows: flows, discount_rate: dr });
+      setSensitivity(s);
+    } catch {
       setError(ar ? "حدث خطأ في التحليل" : "An error occurred during analysis");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleImport(studyId: number) {
+    const token = getToken();
+    if (!token) { setError(ar ? "سجّل الدخول لاستيراد الافتراضات." : "Sign in to import assumptions."); return; }
+    setError("");
+    try {
+      const preview = await getFinancialImportPreview(token, studyId);
+      setImportPreview(preview);
+      if (preview.investment) setInvestment(String(preview.investment));
+      if (preview.annual_cash_flows?.length) setCashFlowsStr(preview.annual_cash_flows.join(", "));
+      if (preview.discount_rate) setDiscountRate(String(preview.discount_rate * 100));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleSave() {
+    const token = getToken();
+    if (!token || !result) { setError(ar ? "حلّل أولاً ثم احفظ." : "Analyze first, then save."); return; }
+    const flows = cashFlowsStr.split(",").map((s) => Number(s.trim())).filter((n) => !isNaN(n));
+    setSaving(true);
+    setError("");
+    try {
+      await createFinancialAnalysis(token, {
+        title: project ? `${ar ? "تحليل" : "Analysis"} — ${project.name}` : (ar ? "تحليل مستقل" : "Standalone analysis"),
+        investment: Number(investment),
+        annual_cash_flows: flows,
+        discount_rate: Number(discountRate) / 100,
+        project_id: project?.id,
+        feasibility_study_id: importPreview?.study_id,
+        import_meta: importPreview ? { source_record: importPreview.source_record, imported_fields: importPreview.imported_fields, last_sync: importPreview.last_sync } : {},
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -64,11 +118,27 @@ export default function FinancialAnalysisPage() {
 
       <div className="container-page space-y-8 py-8">
         {project && (
-          <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">
-            {ar ? "التحليل مرتبط بالمشروع:" : "Analysis linked to project:"} <strong>{project.name}</strong>
-          </div>
+          <ContextBanner label={ar ? "التحليل مرتبط بالمشروع:" : "Analysis linked to project:"} name={project.name} href={`/businesses/${project.id}`} />
         )}
-        {projectError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{projectError}</p>}
+        {projectError && <Alert tone="danger">{projectError}</Alert>}
+        {studies.length > 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+            <h2 className="font-bold text-ink-900">{ar ? "استيراد افتراضات دراسة الجدوى (اختياري)" : "Import feasibility assumptions (optional)"}</h2>
+            <p className="mt-1 text-sm text-ink-600">{ar ? "لن ندمج البيانات تلقائياً. اختر الدراسة ثم راجع الحقول." : "Nothing is merged automatically. Choose a study, then review the fields."}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {studies.map((s) => (
+                <button key={s.id} type="button" onClick={() => handleImport(s.id)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold hover:border-brand-500">
+                  {s.title}
+                </button>
+              ))}
+            </div>
+            {importPreview && (
+              <div className="mt-4">
+                <ImportSource locale={ar ? "ar" : "en"} sourceRecord={importPreview.source_record} fields={importPreview.imported_fields} lastSync={importPreview.last_sync} />
+              </div>
+            )}
+          </section>
+        )}
         <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
             <h2 className="text-xl font-bold text-ink-900">{ar ? "بيانات التحليل" : "Analysis inputs"}</h2>
@@ -86,6 +156,7 @@ export default function FinancialAnalysisPage() {
                   value={investment}
                   onChange={(e) => setInvestment(e.target.value)}
                   placeholder={ar ? "مثال: 500000" : "e.g. 500000"}
+                  data-testid="financial-investment"
                   className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
               </div>
@@ -99,6 +170,7 @@ export default function FinancialAnalysisPage() {
                   value={cashFlowsStr}
                   onChange={(e) => setCashFlowsStr(e.target.value)}
                   placeholder={ar ? "مثال: 100000, 150000, 200000, 250000, 300000" : "e.g. 100000, 150000, 200000, 250000, 300000"}
+                  data-testid="financial-cashflows"
                   className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 />
                 <p className="mt-1 text-xs text-ink-500">{ar ? "التدفقات النقدية الصافية لكل سنة" : "Net cash flows for each year"}</p>
@@ -121,10 +193,16 @@ export default function FinancialAnalysisPage() {
               <button
                 type="submit"
                 disabled={loading}
+                data-testid="run-financial-analysis"
                 className="w-full rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-card transition hover:bg-brand-700 disabled:opacity-50"
               >
                 {loading ? (ar ? "جارٍ التحليل..." : "Analyzing...") : (ar ? "تحليل" : "Analyze")}
               </button>
+              {result && (
+                <Button type="button" variant="secondary" disabled={saving} onClick={handleSave} data-testid="save-financial-analysis">
+                  {saving ? (ar ? "جارٍ الحفظ..." : "Saving...") : (ar ? "حفظ التحليل كخدمة مستقلة" : "Save as an independent analysis")}
+                </Button>
+              )}
             </form>
           </section>
 
@@ -146,6 +224,9 @@ export default function FinancialAnalysisPage() {
                   <KpiCard label={ar ? "معدل العائد الداخلي" : "IRR"} value={result.irr_percent !== null ? `${result.irr_percent.toFixed(1)}%` : "—"} icon="📊" />
                   <KpiCard label={ar ? "فترة الاسترداد" : "Payback"} value={result.payback_years !== null ? `${result.payback_years.toFixed(1)} ${ar ? "سنة" : "years"}` : "—"} icon="⏱️" />
                 </div>
+                {sensitivity != null && (
+                  <p className="text-xs text-ink-500">{ar ? "تم حساب تحليل الحساسية مع النتائج." : "Sensitivity analysis was calculated with these results."}</p>
+                )}
               </>
             ) : (
               <div className="flex h-full items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-12 text-center">

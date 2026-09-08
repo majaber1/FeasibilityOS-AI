@@ -7,8 +7,11 @@ import { ServiceHeader } from "@/components/ui/ServiceHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Stepper } from "@/components/ui/Stepper";
 import { Badge } from "@/components/ui/Badge";
-import { getToken, listProposals, createProposal, updateProposal, deleteProposal, exportProposal, type Proposal } from "@/lib/api";
+import { getToken, listProposals, createProposal, updateProposal, deleteProposal, exportProposal, listStudies, getProposalImportPreview, type Proposal, type Study, type ImportPreview } from "@/lib/api";
 import { useProjectContext } from "@/lib/use-project-context";
+import { ContextBanner } from "@/components/ui/ContextBanner";
+import { ImportSource } from "@/components/ui/ContextBanner";
+import { Alert } from "@/components/ui/Alert";
 
 const proposalTypes = [
   { key: "commercial", icon: "🤝", ar: "عرض تجاري", en: "Commercial Proposal" },
@@ -69,13 +72,18 @@ export default function ProposalBuilderPage() {
   const [signedIn, setSignedIn] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [error, setError] = useState("");
+  const [studies, setStudies] = useState<Study[]>([]);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const { project, error: projectError } = useProjectContext();
 
   useEffect(() => {
     const token = getToken();
     setSignedIn(Boolean(token));
     setAuthChecked(true);
-    if (token) listProposals(token).then(setProposals).catch((err) => setError(err instanceof Error ? err.message : String(err)));
+    if (token) {
+      listProposals(token).then(setProposals).catch((err) => setError(err instanceof Error ? err.message : String(err)));
+      listStudies(token).then(setStudies).catch(() => undefined);
+    }
   }, [mode]);
 
   useEffect(() => {
@@ -89,6 +97,27 @@ export default function ProposalBuilderPage() {
 
   const set = (field: keyof ProposalDraft, value: string) =>
     setDraft((prev) => ({ ...prev, [field]: value }));
+
+  async function handleImportStudy(studyId: number) {
+    const token = getToken();
+    if (!token) return;
+    setError("");
+    try {
+      const preview = await getProposalImportPreview(token, studyId);
+      setImportPreview(preview);
+      setDraft((current) => ({
+        ...current,
+        title: current.title || `${ar ? "عرض" : "Proposal"} — ${preview.project_name || preview.study_title}`,
+        price: current.price || (preview.investment ? String(preview.investment) : current.price),
+        scope: current.scope || (ar
+          ? `عرض مبني اختيارياً على دراسة الجدوى «${preview.study_title}».`
+          : `Proposal optionally based on feasibility study “${preview.study_title}”.`),
+      }));
+      setMode("new");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
 
   async function handleSave() {
     const token = getToken();
@@ -104,9 +133,11 @@ export default function ProposalBuilderPage() {
         title: draft.title || `${selectedType} proposal`,
         proposal_type: selectedType || "commercial",
         locale: ar ? "ar" : "en",
+        project_id: project?.id ?? importPreview?.project_id ?? undefined,
+        feasibility_study_id: importPreview?.study_id,
         payload: {
-          project_id: project?.id,
-          project_name: project?.name,
+          project_id: project?.id ?? importPreview?.project_id,
+          project_name: project?.name ?? importPreview?.project_name,
           client_name: draft.client_name,
           client_email: draft.client_email,
           client_company: draft.client_company,
@@ -118,6 +149,9 @@ export default function ProposalBuilderPage() {
           timeline: draft.timeline,
           validity_days: draft.validity_days,
           terms: draft.terms,
+          import_meta: importPreview
+            ? { source_record: importPreview.source_record, imported_fields: importPreview.imported_fields, last_sync: importPreview.last_sync }
+            : undefined,
         },
       };
       if (editingId) {
@@ -199,8 +233,9 @@ export default function ProposalBuilderPage() {
           ]}
         />
         <div className="container-page space-y-8 py-8">
-          {project && <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">{ar ? "العرض مرتبط بالمشروع:" : "Proposal linked to project:"} <strong>{project.name}</strong></div>}
-          {(error || projectError) && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || projectError}</p>}
+          {project && <ContextBanner label={ar ? "العرض مرتبط بالمشروع:" : "Proposal linked to project:"} name={project.name} />}
+          {importPreview && <ImportSource locale={ar ? "ar" : "en"} sourceRecord={importPreview.source_record} fields={importPreview.imported_fields} lastSync={importPreview.last_sync} />}
+          {(error || projectError) && <Alert tone="danger">{error || projectError}</Alert>}
           <Stepper steps={ar ? steps.ar : steps.en} current={currentStep} />
 
           {currentStep === 0 && (
@@ -342,6 +377,7 @@ export default function ProposalBuilderPage() {
         actions={
           <button
             onClick={() => setMode("new")}
+            data-testid="new-proposal-cta"
             className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-700"
           >
             {ar ? "عرض جديد" : "New proposal"}
@@ -350,7 +386,20 @@ export default function ProposalBuilderPage() {
       />
 
       <div className="container-page space-y-8 py-8">
-        {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
+        {studies.length > 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+            <h2 className="text-lg font-bold text-ink-900">{ar ? "استيراد من دراسة الجدوى (اختياري)" : "Import from Feasibility Study (optional)"}</h2>
+            <p className="mt-1 text-sm text-ink-600">{ar ? "لن ننشئ العرض تلقائياً. اختر الدراسة ثم أكمل بيانات العميل والنطاق." : "This does not create a proposal automatically. Choose a study, then complete client and scope details."}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {studies.map((s) => (
+                <button key={s.id} type="button" data-testid={`import-feasibility-${s.id}`} onClick={() => handleImportStudy(s.id)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold hover:border-brand-500">
+                  {s.title}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
         <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-card sm:p-8">
           <h2 className="text-xl font-bold text-ink-900">{ar ? "أنواع العروض" : "Proposal types"}</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

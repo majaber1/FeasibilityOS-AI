@@ -1014,6 +1014,34 @@ export type FeasibilityEvalResponse = {
   verdict: string;
 };
 
+export type FinancialAnalysisRecord = {
+  id: number;
+  owner_id: number;
+  project_id: number | null;
+  feasibility_study_id: number | null;
+  title: string;
+  investment: number;
+  annual_cash_flows: number[];
+  discount_rate: number;
+  result: FeasibilityEvalResponse;
+  import_meta: Record<string, unknown>;
+};
+
+export type ImportPreview = {
+  study_id: number;
+  project_id: number;
+  project_name?: string | null;
+  investment?: number | null;
+  annual_cash_flows: number[];
+  discount_rate: number;
+  imported_fields: string[];
+  source_record: string;
+  last_sync?: string | null;
+  study_title?: string;
+  industry?: string | null;
+  verdict?: string | null;
+};
+
 export function evaluateFinancial(payload: {
   investment: number;
   annual_cash_flows: number[];
@@ -1024,6 +1052,102 @@ export function evaluateFinancial(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export function evaluateSensitivity(payload: {
+  investment: number;
+  annual_cash_flows: number[];
+  discount_rate?: number;
+}) {
+  return request<unknown>("/financial/sensitivity", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listFinancialAnalyses(token: string, projectId?: number) {
+  const qs = projectId ? `?project_id=${projectId}` : "";
+  return authedRequest<FinancialAnalysisRecord[]>(`/financial/analyses${qs}`, token);
+}
+
+export function createFinancialAnalysis(token: string, payload: {
+  title?: string;
+  investment: number;
+  annual_cash_flows: number[];
+  discount_rate?: number;
+  project_id?: number;
+  feasibility_study_id?: number;
+  import_meta?: Record<string, unknown>;
+}) {
+  return authedRequest<FinancialAnalysisRecord>("/financial/analyses", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getFinancialImportPreview(token: string, studyId: number) {
+  return authedRequest<ImportPreview>(`/financial/from-study/${studyId}`, token);
+}
+
+export function getProposalImportPreview(token: string, studyId: number) {
+  return authedRequest<ImportPreview>(`/proposals/from-study/${studyId}`, token);
+}
+
+export async function downloadInvestorPackage(token: string, payload: {
+  study_id?: number;
+  proposal_id?: number;
+  project_id?: number;
+  locale: "ar" | "en";
+}) {
+  const res = await fetch(API_BASE + "/reports/investor-package", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(apiErrorMessage(data, res.statusText));
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `investor_package_${payload.locale}.pdf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function listNotifications(token: string) {
+  return authedRequest<AppNotification[]>("/notifications/", token);
+}
+
+export function markNotificationRead(token: string, id: number) {
+  return authedRequest<AppNotification>(`/notifications/${id}/read`, token, { method: "POST" });
+}
+
+export function trackAnalytics(token: string, payload: {
+  event_type: "tool_opened" | "workflow_started" | "workflow_completed" | "report_generated" | "service_linked";
+  service_key?: string;
+  entity?: string;
+  entity_id?: number;
+}) {
+  return authedRequest<{ accepted: boolean }>("/analytics/events", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type AppNotification = {
+  id: number;
+  kind: string;
+  title_en: string;
+  title_ar: string;
+  body?: string | null;
+  entity?: string | null;
+  entity_id?: number | null;
+  is_read: boolean;
+};
 
 export type FundingMatch = {
   program: string;
@@ -1228,6 +1352,7 @@ export type Entitlement = {
   plan: string;
   quota: number | null;
   used: number;
+  upgrade_required?: boolean;
 };
 
 export function listEntitlements(token: string) {

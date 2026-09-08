@@ -169,6 +169,27 @@ class FinancialResult(TimestampMixin, Base):
     study: Mapped["FeasibilityStudy"] = relationship(back_populates="results")
 
 
+class FinancialAnalysis(TimestampMixin, Base):
+    """Independent financial analysis aggregate (not buried inside a study JSON).
+
+    Optionally linked to a Project and/or FeasibilityStudy. Linking is explicit
+    and recorded in import_meta so the user can see source, fields, and time.
+    """
+
+    __tablename__ = "financial_analyses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id"), index=True)
+    feasibility_study_id: Mapped[Optional[int]] = mapped_column(ForeignKey("feasibility_studies.id"), index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default="Financial analysis")
+    investment: Mapped[float] = mapped_column(Float, nullable=False)
+    annual_cash_flows: Mapped[list] = mapped_column(JSON, default=list)
+    discount_rate: Mapped[float] = mapped_column(Float, default=0.10)
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
+    import_meta: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 class SensitivityScenario(TimestampMixin, Base):
     __tablename__ = "sensitivity_scenarios"
 

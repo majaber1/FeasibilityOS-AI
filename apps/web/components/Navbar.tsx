@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
-import { clearToken, getToken, me } from "@/lib/api";
+import { clearToken, getToken, listNotifications, me, type AppNotification } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
 export function Navbar() {
   const { t, locale, toggle } = useLanguage();
   const [signedIn, setSignedIn] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notes, setNotes] = useState<AppNotification[]>([]);
+  const [notesOpen, setNotesOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export function Navbar() {
       try {
         await me(token);
         setSignedIn(true);
+        listNotifications(token).then(setNotes).catch(() => setNotes([]));
       } catch {
         clearToken();
         setSignedIn(false);
@@ -35,6 +38,7 @@ export function Navbar() {
     { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
     { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
     { href: "/opportunities", label: t.nav.opportunities },
+    { href: "/tools/reports", label: locale === "ar" ? "التقارير" : "Reports" },
     { href: "/pricing", label: t.nav.pricing },
   ];
 
@@ -68,6 +72,31 @@ export function Navbar() {
           </button>
           {signedIn ? (
             <>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setNotesOpen((open) => !open)}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-sm text-ink-700"
+                  aria-label={locale === "ar" ? "الإشعارات" : "Notifications"}
+                >
+                  {notes.some((n) => !n.is_read) ? "●" : "○"}
+                </button>
+                {notesOpen && (
+                  <div className="absolute end-0 z-50 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-card">
+                    {notes.length === 0 ? (
+                      <p className="text-xs text-ink-500">{locale === "ar" ? "لا إشعارات بعد" : "No notifications yet"}</p>
+                    ) : (
+                      <ul className="max-h-64 space-y-2 overflow-y-auto text-xs">
+                        {notes.slice(0, 8).map((n) => (
+                          <li key={n.id} className="rounded-lg bg-slate-50 p-2 text-ink-700">
+                            {locale === "ar" ? n.title_ar : n.title_en}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
               <Link href="/account" className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-ink-700 hover:text-brand-600 sm:inline-block">
                 {locale === "ar" ? "حسابي" : "My account"}
               </Link>

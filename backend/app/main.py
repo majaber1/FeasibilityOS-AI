@@ -42,6 +42,8 @@ from app.api.opportunity_matching import router as opportunity_matching_router
 from app.api.validation import router as validation_router
 from app.api.launch import router as launch_router
 from app.api.growth import router as growth_router
+from app.api.notifications import router as notifications_router
+from app.api.analytics import router as analytics_router
 from app.api.auth import UserOut, require_roles
 from app.services.monitoring import metrics_snapshot, observe_request
 
@@ -103,6 +105,8 @@ app.include_router(verified_opportunities_router)
 app.include_router(validation_router)
 app.include_router(launch_router)
 app.include_router(growth_router)
+app.include_router(notifications_router)
+app.include_router(analytics_router)
 
 from app.db import ensure_migrations_applied, init_db  # noqa: E402
 

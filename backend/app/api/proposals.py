@@ -7,10 +7,15 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from datetime import datetime, timezone
+
 from app.api.auth import UserOut, get_current_user
 from app.db import DB_ENABLED, get_db
-from app.models import Proposal
+from app.models import Proposal, Project
+from app.services.entitlements import require_service
+from app.services.platform_events import notify, record_event
 from app.services.reporting import build_proposal_context, generate_proposal_docx, generate_proposal_pdf
+from app.services.study_access import owned_study_or_error
 
 router = APIRouter(prefix="/proposals", tags=["proposals"])
 
@@ -64,6 +69,15 @@ def create_proposal(
 ):
     if not DB_ENABLED:
         raise HTTPException(503, "Database unavailable")
+    require_service(db, user, "proposal")
+    if body.project_id:
+        project = db.get(Project, body.project_id)
+        if project is None or (user.role_key != "admin" and project.owner_id != user.id):
+            raise HTTPException(404, "Project not found")
+    if body.feasibility_study_id:
+        from app import models
+
+        owned_study_or_error(db, models, body.feasibility_study_id, user)
     proposal = Proposal(
         owner_id=user.id,
         project_id=body.project_id,
@@ -74,9 +88,67 @@ def create_proposal(
         feasibility_study_id=body.feasibility_study_id,
     )
     db.add(proposal)
+    record_event(db, user_id=user.id, event_type="workflow_completed", service_key="proposal", entity="proposal")
+    notify(
+        db,
+        user_id=user.id,
+        kind="proposal_ready",
+        title_en="Proposal saved",
+        title_ar="تم حفظ العرض",
+        entity="proposal",
+    )
     db.commit()
     db.refresh(proposal)
     return proposal
+
+
+class ImportFromStudyOut(BaseModel):
+    study_id: int
+    project_id: int
+    project_name: Optional[str] = None
+    industry: Optional[str] = None
+    investment: Optional[float] = None
+    study_title: str
+    verdict: Optional[str] = None
+    imported_fields: list[str]
+    source_record: str
+    last_sync: Optional[str] = None
+
+
+@router.get("/from-study/{study_id}", response_model=ImportFromStudyOut)
+def import_from_study(
+    study_id: int,
+    user: UserOut = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app import models
+
+    if not DB_ENABLED:
+        raise HTTPException(503, "Database unavailable")
+    study = owned_study_or_error(db, models, study_id, user)
+    project = db.get(Project, study.project_id)
+    latest = (
+        db.query(models.FinancialResult)
+        .filter(models.FinancialResult.study_id == study.id)
+        .order_by(models.FinancialResult.id.desc())
+        .first()
+    )
+    fields = ["study_title", "project_name", "industry", "investment"]
+    if latest is not None:
+        fields.append("verdict")
+    last_sync = (latest.updated_at if latest is not None else study.updated_at)
+    return ImportFromStudyOut(
+        study_id=study.id,
+        project_id=study.project_id,
+        project_name=project.name if project else None,
+        industry=project.industry if project else None,
+        investment=project.investment if project else None,
+        study_title=study.title,
+        verdict=latest.verdict if latest is not None else None,
+        imported_fields=fields,
+        source_record=f"feasibility_study:{study.id}",
+        last_sync=last_sync.isoformat() if last_sync is not None else datetime.now(timezone.utc).isoformat(),
+    )
 
 
 @router.get("/{proposal_id}", response_model=ProposalOut)

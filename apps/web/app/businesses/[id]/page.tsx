@@ -152,6 +152,23 @@ export default function BusinessDetailPage() {
             </div>
           </section>
         )}
+        {studies.length > 0 && (
+          <section>
+            <h2 className="mb-4 text-lg font-bold text-ink-900">{ar ? "الخطوة المقترحة التالية" : "Suggested next action"}</h2>
+            <div className="rounded-2xl border border-brand-200 bg-white p-5 shadow-card">
+              <p className="text-sm text-ink-700">
+                {completedStudies.length
+                  ? (ar ? "ادرس التمويل أو ابنِ عرض المستثمر باستخدام نتائج الجدوى — الربط اختياري." : "Review funding or build an investor proposal from the feasibility results — linking is optional.")
+                  : (ar ? "أكمل دراسة الجدوى للحصول على قرار مالي واضح." : "Complete the feasibility study to get a clear financial decision.")}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link href={`/tools/funding?business=${id}`} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{ar ? "مطابقة التمويل" : "Funding match"}</Link>
+                <Link href={`/tools/proposal?business=${id}`} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold">{ar ? "منشئ العروض" : "Proposal"}</Link>
+                <Link href={`/tools/reports?business=${id}`} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold">{ar ? "حزمة المستثمر" : "Investor package"}</Link>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

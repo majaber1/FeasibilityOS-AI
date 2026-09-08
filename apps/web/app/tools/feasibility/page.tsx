@@ -41,8 +41,9 @@ export default function FeasibilityServicePage() {
         breadcrumb={[{ label: ar ? "الأدوات" : "Tools", href: "/tools" }]}
         actions={
           <Link
-            href="/projects"
+            href="/tools/feasibility/new"
             className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-700"
+            data-testid="new-feasibility-cta"
           >
             {ar ? "دراسة جديدة" : "New study"}
           </Link>
@@ -83,7 +84,7 @@ export default function FeasibilityServicePage() {
             <p className="mt-2 text-sm text-ink-600">{ar ? "أو ابدأ دراسة جديدة بدون حساب." : "Or start a new study without an account."}</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Link href="/login" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-ink-700 hover:border-brand-500">{ar ? "تسجيل الدخول" : "Sign in"}</Link>
-              <Link href="/feasibility/new" className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-700">{ar ? "ابدأ دراسة جديدة" : "Start a new study"}</Link>
+              <Link href="/tools/feasibility/new" className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-700">{ar ? "ابدأ دراسة جديدة" : "Start a new study"}</Link>
             </div>
           </div>
         ) : loading ? (
@@ -96,7 +97,7 @@ export default function FeasibilityServicePage() {
             title={ar ? "لا توجد دراسات بعد" : "No studies yet"}
             description={ar ? "ابدأ أول دراسة جدوى لمشروعك." : "Start your first feasibility study."}
             actionLabel={ar ? "دراسة جديدة" : "New study"}
-            actionHref="/projects"
+            actionHref="/tools/feasibility/new"
           />
         ) : (
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">

@@ -9,6 +9,8 @@ export type ServiceCardProps = {
   title: string;
   description: string;
   stats?: string;
+  audience?: string;
+  workflow?: string;
   status?: "available" | "coming_soon" | "upgrade";
   statusLabel?: string;
 };
@@ -20,6 +22,8 @@ export function ServiceCard({
   title,
   description,
   stats,
+  audience,
+  workflow,
   status = "available",
   statusLabel,
 }: ServiceCardProps) {
@@ -41,6 +45,8 @@ export function ServiceCard({
       </div>
       <h3 className="mt-4 text-lg font-bold text-ink-900 group-hover:text-brand-700">{title}</h3>
       <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-600">{description}</p>
+      {audience && <p className="mt-3 text-xs font-medium text-ink-500">{audience}</p>}
+      {workflow && <p className="mt-1 text-xs text-ink-500">{workflow}</p>}
       {stats && <p className="mt-3 text-xs font-medium text-ink-500">{stats}</p>}
       <div className="mt-4 flex items-center justify-between">
         {status === "upgrade" ? (

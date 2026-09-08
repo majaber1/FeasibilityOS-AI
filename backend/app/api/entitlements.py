@@ -24,13 +24,14 @@ class EntitlementOut(BaseModel):
     plan: str
     quota: Optional[int]
     used: int
+    upgrade_required: bool = False
 
     model_config = {"from_attributes": True}
 
 
 def _demo_entitlements() -> list[EntitlementOut]:
     return [
-        EntitlementOut(service_key=s, enabled=True, plan="starter", quota=None, used=0)
+        EntitlementOut(service_key=s, enabled=True, plan="starter", quota=None, used=0, upgrade_required=False)
         for s in SERVICES
     ]
 
@@ -53,8 +54,18 @@ def list_entitlements(
         return _demo_entitlements()
 
     existing_keys = {r.service_key for r in records}
-    result = [EntitlementOut.model_validate(r) for r in records]
+    result = [
+        EntitlementOut(
+            service_key=r.service_key,
+            enabled=r.enabled,
+            plan=r.plan,
+            quota=r.quota,
+            used=r.used,
+            upgrade_required=(not r.enabled) or (r.quota is not None and r.used >= r.quota),
+        )
+        for r in records
+    ]
     for s in SERVICES:
         if s not in existing_keys:
-            result.append(EntitlementOut(service_key=s, enabled=True, plan="starter", quota=None, used=0))
+            result.append(EntitlementOut(service_key=s, enabled=True, plan="starter", quota=None, used=0, upgrade_required=False))
     return result

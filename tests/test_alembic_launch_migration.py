@@ -47,7 +47,7 @@ def test_alembic_single_head_and_revision_chain():
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
     assert len(heads) == 1, f"Expected exactly 1 migration head, found: {heads}"
-    assert heads[0] in ("0022_launch_actuals_os", "0023_growth_os", "0024_wave6_integrity"), f"Expected head to be 0022, 0023, or 0024, got {heads[0]}"
+    assert heads[0] in ("0022_launch_actuals_os", "0023_growth_os", "0024_wave6_integrity", "0025_independent_financial_analyses"), f"Expected head to be 0022, 0023, 0024, or 0025, got {heads[0]}"
 
     rev_0022 = script.get_revision("0022_launch_actuals_os")
     assert rev_0022.down_revision == "0021_validation_os"

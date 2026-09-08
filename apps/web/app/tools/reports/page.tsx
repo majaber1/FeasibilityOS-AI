@@ -5,28 +5,46 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ServiceHeader } from "@/components/ui/ServiceHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getToken, listStudies, reportDownloadUrl, type Study } from "@/lib/api";
+import { getToken, listStudies, listProposals, reportDownloadUrl, downloadInvestorPackage, type Study, type Proposal } from "@/lib/api";
 import { useProjectContext } from "@/lib/use-project-context";
+import { ContextBanner } from "@/components/ui/ContextBanner";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 
 const reportTypes = [
   { key: "feasibility", icon: "📊", ar: "تقرير دراسة الجدوى", en: "Feasibility Report" },
+  { key: "executive", icon: "📌", ar: "ملخص تنفيذي", en: "Executive Summary" },
+  { key: "proposal", icon: "📝", ar: "عرض", en: "Proposal" },
+  { key: "investor", icon: "💼", ar: "حزمة المستثمر", en: "Investor Package" },
+  { key: "funding", icon: "🏦", ar: "تقرير جاهزية التمويل", en: "Funding Readiness Report" },
+  { key: "qualification", icon: "✅", ar: "تقرير التأهيل", en: "Qualification Report" },
 ];
 
 export default function ReportsServicePage() {
   const { locale } = useLanguage();
   const ar = locale === "ar";
   const [studies, setStudies] = useState<Study[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState("");
+  const [packStudy, setPackStudy] = useState("");
+  const [packProposal, setPackProposal] = useState("");
+  const [includeProject, setIncludeProject] = useState(true);
   const { project, error: projectError } = useProjectContext();
 
   useEffect(() => {
     const token = getToken();
     if (!token) { setLoading(false); return; }
     setSignedIn(true);
-    listStudies(token, project?.id)
-      .then(setStudies)
+    Promise.all([
+      listStudies(token, project?.id),
+      listProposals(token).catch(() => []),
+    ])
+      .then(([s, p]) => {
+        setStudies(s);
+        setProposals(p);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
   }, [project?.id]);
@@ -56,6 +74,22 @@ export default function ReportsServicePage() {
     }
   }
 
+  async function composePackage() {
+    const token = getToken();
+    if (!token) return;
+    setError("");
+    try {
+      await downloadInvestorPackage(token, {
+        study_id: packStudy ? Number(packStudy) : undefined,
+        proposal_id: packProposal ? Number(packProposal) : undefined,
+        project_id: includeProject && project ? project.id : undefined,
+        locale: ar ? "ar" : "en",
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   const completed = studies.filter((s) => s.status === "completed");
 
   return (
@@ -68,8 +102,8 @@ export default function ReportsServicePage() {
       />
 
       <div className="container-page space-y-8 py-8">
-        {project && <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">{ar ? "تقارير المشروع:" : "Project reports:"} <strong>{project.name}</strong></div>}
-        {(error || projectError) && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || projectError}</p>}
+        {project && <ContextBanner label={ar ? "تقارير المشروع:" : "Project reports:"} name={project.name} />}
+        {(error || projectError) && <Alert tone="danger">{error || projectError}</Alert>}
         <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-card sm:p-8">
           <h2 className="text-xl font-bold text-ink-900">{ar ? "أنواع التقارير" : "Report types"}</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -96,7 +130,7 @@ export default function ReportsServicePage() {
             title={ar ? "لا توجد تقارير جاهزة" : "No reports ready"}
             description={ar ? "أكمل دراسة جدوى لتتمكن من تصدير التقرير." : "Complete a feasibility study to export a report."}
             actionLabel={ar ? "بدء دراسة" : "Start a study"}
-            actionHref="/feasibility/new"
+            actionHref="/tools/feasibility/new"
           />
         ) : (
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
@@ -127,6 +161,40 @@ export default function ReportsServicePage() {
                 </div>
               ))}
             </div>
+          </section>
+        )}
+
+        {signedIn && !loading && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+            <h2 className="text-lg font-bold text-ink-900">{ar ? "حزمة المستثمر" : "Investor package"}</h2>
+            <p className="mt-2 text-sm text-ink-600">
+              {ar
+                ? "اختر المخرجات الموجودة. لن ندمج خدمات لم تحددها، ولن نبتكر بيانات."
+                : "Select existing outputs. Unselected services are not combined, and no figures are invented."}
+            </p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-ink-700">
+                {ar ? "دراسة الجدوى" : "Feasibility study"}
+                <select value={packStudy} onChange={(e) => setPackStudy(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" data-testid="package-study">
+                  <option value="">{ar ? "بدون" : "None"}</option>
+                  {studies.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-medium text-ink-700">
+                {ar ? "عرض" : "Proposal"}
+                <select value={packProposal} onChange={(e) => setPackProposal(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" data-testid="package-proposal">
+                  <option value="">{ar ? "بدون" : "None"}</option>
+                  {proposals.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="mt-4 flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={includeProject} onChange={(e) => setIncludeProject(e.target.checked)} disabled={!project} />
+              {ar ? "تضمين ملف الأعمال الحالي" : "Include the current business profile"}
+            </label>
+            <Button type="button" className="mt-5" onClick={composePackage} data-testid="compose-investor-package">
+              {ar ? "تجميع الحزمة" : "Compose package"}
+            </Button>
           </section>
         )}
       </div>

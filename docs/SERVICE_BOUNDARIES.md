@@ -30,13 +30,14 @@ apps/web/app/tools/<service>/    — Frontend pages
 |---------|--------|---------------|-----------------|
 | Projects | `/projects` | Yes | No |
 | Feasibility | `/feasibility` | Yes | No |
-| Financial | `/financial` | No | `/evaluate`, `/sensitivity` |
+| Financial | `/financial` | Mixed | `/evaluate`, `/sensitivity` public; `/analyses` authenticated |
 | Funding | `/funding` | No | `/match` |
-| Proposals | `/proposals` | Yes | No |
+| Proposals | `/proposals` | Yes | `/from-study/{id}` preview |
 | Qualification | `/api/qualification` | Yes | No |
 | Opportunities | `/opportunities` | No | List/filter |
 | Franchises | `/franchises` | No | List |
-| Auctions | `/auctions` | No | List |
-| Reports | `/reports` | Yes | No |
-| Entitlements | `/entitlements` | Yes | No |
-| Leads | `/leads` | No | Submit |
+| Auctions | — | — | **Removed from the product. `/tools/auctions` explains this; there is no catalog API.** |
+| Reports | `/reports` | Yes | `/investor-package` |
+| Notifications | `/notifications` | Yes | No |
+| Analytics | `/analytics` | Yes | Allowlisted event types only |
+| Entitlements | `/entitlements` | Yes | Demo provider enables tools; no fake checkout |
