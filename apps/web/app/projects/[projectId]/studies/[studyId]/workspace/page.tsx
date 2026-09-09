@@ -86,6 +86,7 @@ export default function StudyWorkspacePage() {
     try {
       const res = await fetch(`${API_BASE}/api/v2/studies`, {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -99,6 +100,14 @@ export default function StudyWorkspacePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to create study");
       setStudy(data);
+      if (data.error) {
+        setError(data.error);
+        setMessages((prev) => [
+          ...prev,
+          { role: "system", content: ar ? "تعذر تحليل المشروع. يمكنك إعادة المحاولة." : "The AI could not analyze the project. You can retry." },
+        ]);
+        return;
+      }
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: ar ? "تم إنشاء الدراسة. جارٍ تحليل مشروعك..." : "Study created. Analyzing your project..." },
@@ -133,6 +142,7 @@ export default function StudyWorkspacePage() {
     try {
       const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/message`, {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -145,6 +155,10 @@ export default function StudyWorkspacePage() {
       setStudy((prev) =>
         prev ? { ...prev, phase: data.phase, profile: data.profile ?? prev.profile, next_action: data.next_action, error: data.error } : prev
       );
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
 
       if (data.response) {
         const cleaned = data.response.replace(/```json[\s\S]*?```/g, "").trim();
