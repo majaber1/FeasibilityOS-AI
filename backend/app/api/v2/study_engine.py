@@ -251,6 +251,50 @@ class StudyApprovalRequest(BaseModel):
     feedback: Optional[str] = None
 
 
+def _normalize_profile_label(value: str | None, *, fallback: str) -> str:
+    cleaned = (value or "").strip()
+    if not cleaned or cleaned.lower() in {"unknown", "n/a", "na", "none", "null", "-", "غير معروف"}:
+        return fallback
+    return cleaned
+
+
+def _finalize_profile_confirmation(state):
+    """Confirm Profile means: proceed even if gaps remain; AI estimates the rest later."""
+    from langchain_core.messages import AIMessage
+
+    state.profile_confirmed = True
+    gaps: list[str] = []
+    if state.profile:
+        state.profile.stage = _normalize_profile_label(state.profile.stage, fallback="idea")
+        state.profile.decision_goal = _normalize_profile_label(
+            state.profile.decision_goal, fallback="feasibility"
+        )
+        gaps = list(state.profile.missing_information or [])
+        # Stop blocking the gate; later agents use conversation + estimates.
+        state.profile.missing_information = []
+
+    if gaps:
+        lang = getattr(state, "language", "en")
+        if lang == "ar":
+            note = (
+                "تم تأكيد ملف المشروع. سيكمل الذكاء الاصطناعي الأدلة والافتراضات "
+                "باستخدام تقديرات واضحة للعناصر الناقصة التالية:\n- "
+                + "\n- ".join(gaps)
+            )
+        else:
+            note = (
+                "Profile confirmed. AI will continue into evidence and assumptions, "
+                "using explicit estimates for these remaining gaps:\n- "
+                + "\n- ".join(gaps)
+            )
+        state.messages.append(AIMessage(content=note))
+
+    state.phase = "EVIDENCE_REVIEW"
+    state.next_action = "review_evidence"
+    state.error = None
+    return state
+
+
 def _import_engine():
     try:
         from ai_engine.models.study_state import StudyState
@@ -499,6 +543,16 @@ async def approve_stage(
 
     setattr(state, flag_field, True)
     state.phase_history.append(f"{stage}_approved")
+
+    # Advance phase BEFORE running the next agent. Otherwise the orchestrator
+    # re-routes to the same gate agent (e.g. discovery) and Confirm appears stuck,
+    # especially when missing_information is still non-empty.
+    if stage == "profile":
+        state = _finalize_profile_confirmation(state)
+    elif stage == "evidence":
+        state.phase = "ASSUMPTIONS_REVIEW"
+    elif stage == "assumptions":
+        state.phase = "READY_FOR_ANALYSIS"
 
     try:
         state = await run_study_step(state)

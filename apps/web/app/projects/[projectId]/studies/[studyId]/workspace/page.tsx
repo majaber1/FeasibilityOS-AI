@@ -264,6 +264,7 @@ export default function StudyWorkspacePage() {
     const token = getToken();
     if (!token) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/approve/${stage}`, {
         method: "POST",
@@ -274,7 +275,13 @@ export default function StudyWorkspacePage() {
         body: JSON.stringify({ approved: true }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed");
+      if (!res.ok) {
+        const detail = data.detail;
+        const message = Array.isArray(detail)
+          ? detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join("; ")
+          : detail || "Failed";
+        throw new Error(message);
+      }
       applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
       setMessages((prev) => [
         ...prev,
@@ -337,6 +344,11 @@ export default function StudyWorkspacePage() {
           {missing.length > 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-900">
               <p className="font-semibold">{ar ? "معلومات ناقصة" : "Missing information"}</p>
+              <p className="mt-1 text-[11px] text-amber-800">
+                {ar
+                  ? "يمكنك الإجابة في المحادثة، أو اضغط «تأكيد ومتابعة» ليكمل الذكاء الاصطناعي بتقديرات واضحة."
+                  : "Answer in chat, or click “Confirm & continue” and AI will proceed with explicit estimates."}
+              </p>
               <ul className="mt-1 list-disc ps-4">
                 {missing.map((item) => (
                   <li key={item}>{item}</li>
@@ -418,8 +430,19 @@ export default function StudyWorkspacePage() {
       {(study?.phase === "NEEDS_INFORMATION" || study?.phase === "EVIDENCE_REVIEW" || study?.phase === "ASSUMPTIONS_REVIEW") && (
         <div className="mb-3 flex gap-2">
           {study.phase === "NEEDS_INFORMATION" && (
-            <button onClick={() => approveStage("profile")} disabled={loading} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-              {ar ? "تأكيد الملف الشخصي" : "Confirm Profile"}
+            <button
+              onClick={() => approveStage("profile")}
+              disabled={loading}
+              data-testid="confirm-profile-btn"
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {missing.length > 0
+                ? ar
+                  ? "تأكيد ومتابعة — الذكاء الاصطناعي سيقدّر الباقي"
+                  : "Confirm & continue — AI will estimate the rest"
+                : ar
+                  ? "تأكيد الملف الشخصي"
+                  : "Confirm Profile"}
             </button>
           )}
           {study.phase === "EVIDENCE_REVIEW" && (

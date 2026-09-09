@@ -20,7 +20,12 @@ SYSTEM_PROMPT_AR = """
 5. اكتشف المعلومات الناقصة
 
 قواعد صارمة:
-- لا تخترع أرقاماً
+- فضّل استنتاج المرحلة (فكرة/MVP/تشغيل/توسع) وهدف القرار
+  (استثمار/تمويل/جدوى/توسع) من وصف المشروع عندما يكون واضحاً.
+  لا تُرجع "unknown" لهذه الحقول إذا كان النص يدل عليها.
+- ضع في missing_information فقط الفجوات الحقيقية (التسعير، العملاء، CAC، التكاليف).
+  لا توقف التصنيف بسبب المرحلة/هدف القرار إذا أمكن استنتاجهما.
+- لا تخترع أرقاماً مالية دقيقة في هذه المرحلة
 - لا تعطِ توصية مالية قبل اكتمال البيانات
 - إذا لم تفهم المشروع، اسأل قبل التصنيف
 - أجب دائماً بالعربية ما لم يكتب المستخدم بالإنجليزية
@@ -49,7 +54,12 @@ Steps:
 5. Identify missing information
 
 Strict rules:
-- Never invent numbers
+- Prefer inferring stage (idea/mvp/operational/expansion) and decision_goal
+  (investment/funding/feasibility/expansion) from the description when clear.
+  Avoid returning "unknown" for those fields when the text already implies them.
+- Put only true blockers in missing_information (pricing, customers, CAC, costs).
+  Do not block on stage/decision_goal when they can be inferred.
+- Never invent precise financial numbers in this step
 - Never give a financial recommendation before data is complete
 - If you don't understand the project, ask before classifying
 - Reply in English if user writes in English
@@ -127,6 +137,13 @@ ARCHETYPE_QUESTIONS = {
 
 
 def run_discovery(state: StudyState) -> StudyState:
+    # Confirm Profile already accepted the profile — do not re-gate on missing fields.
+    if state.profile_confirmed:
+        state.phase = "EVIDENCE_REVIEW"
+        state.next_action = "review_evidence"
+        state.error = None
+        return state
+
     lang = state.language
     system_prompt = SYSTEM_PROMPT_AR if lang == "ar" else SYSTEM_PROMPT_EN
     llm = get_llm("questions")
@@ -154,13 +171,21 @@ def run_discovery(state: StudyState) -> StudyState:
 
     profile_data = _extract_json(response_text)
     if profile_data:
+        stage = str(profile_data.get("stage") or "").strip() or "unknown"
+        decision_goal = str(profile_data.get("decision_goal") or "").strip() or "unknown"
+        # Prefer inferred labels over blank/unknown when description already implies them.
+        if stage.lower() in {"unknown", "n/a", "na", "none", ""}:
+            stage = "idea"
+        if decision_goal.lower() in {"unknown", "n/a", "na", "none", ""}:
+            decision_goal = "feasibility"
+
         state.profile = ProjectProfile(
             archetype=profile_data.get("archetype", "unknown"),
             sector=profile_data.get("sector", ""),
-            stage=profile_data.get("stage", ""),
-            decision_goal=profile_data.get("decision_goal", ""),
+            stage=stage,
+            decision_goal=decision_goal,
             language=lang,
-            missing_information=profile_data.get("missing_information", []),
+            missing_information=profile_data.get("missing_information", []) or [],
             recommended_model=profile_data.get("recommended_model", ""),
         )
         if state.profile.missing_information:
