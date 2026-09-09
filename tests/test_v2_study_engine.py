@@ -304,6 +304,60 @@ class TestV2StudyAPI:
         body = r.json()
         assert body["study_id"] == study_id
         assert body["phase"] == "DRAFT"
+        # Workspace needs the filled payloads, not only counts.
+        assert "claims" in body and isinstance(body["claims"], list)
+        assert "assumptions" in body and isinstance(body["assumptions"], list)
+        assert "messages" in body and isinstance(body["messages"], list)
+        assert "financial_results" in body
+        assert "decision_conditions" in body
+
+    def test_get_study_returns_persisted_ai_fill(self):
+        headers = _auth("get_filled")
+        create = client.post("/api/v2/studies", json={
+            "project_id": "proj_filled", "language": "en",
+        }, headers=headers)
+        study_id = create.json()["study_id"]
+
+        from app.api.v2 import study_engine as se
+        db = app_db.SessionLocal()
+        try:
+            row = db.query(se.StudyStateRow).filter_by(study_id=study_id).first()
+            assert row is not None
+            row.phase = "READY_FOR_ANALYSIS"
+            row.profile_json = {
+                "archetype": "services",
+                "sector": "Ride-hailing",
+                "stage": "idea",
+                "decision_goal": "investment",
+                "missing_information": [],
+                "language": "en",
+                "recommended_model": "general_v1",
+            }
+            row.claims_json = [
+                {"statement": "Avg trip 40 SAR", "source_type": "user_input", "confidence": 0.9},
+            ]
+            row.assumptions_json = [
+                {"key": "Initial investment", "value": "5000000 SAR", "source": "user", "confidence": "confirmed"},
+            ]
+            row.messages_json = [
+                {"type": "human", "content": "Build Uper Ride"},
+                {"type": "ai", "content": "Profile complete.\n```json\n{\"ok\": true}\n```"},
+            ]
+            row.financial_results_json = {"npv": 123, "irr": 0.2, "payback_months": 18, "capex": 5000000}
+            db.commit()
+        finally:
+            db.close()
+
+        r = client.get(f"/api/v2/studies/{study_id}", headers=headers)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["claims_count"] == 1
+        assert body["claims"][0]["statement"] == "Avg trip 40 SAR"
+        assert body["assumptions_count"] == 1
+        assert body["assumptions"][0]["key"] == "Initial investment"
+        assert body["financial_results"]["capex"] == 5000000
+        assert body["messages"][0]["role"] == "user"
+        assert body["messages"][1]["role"] == "assistant"
 
     def test_get_study_not_found(self):
         headers = _auth("get_404")
