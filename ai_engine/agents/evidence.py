@@ -90,15 +90,43 @@ def run_evidence(state: StudyState) -> StudyState:
     if evidence_data:
         from ..models.study_state import Claim
 
+        allowed = {"official", "user_input", "document", "ai_assumption", "unverified"}
+        aliases = {
+            "derived": "ai_assumption",
+            "calculated": "ai_assumption",
+            "estimate": "ai_assumption",
+            "estimated": "ai_assumption",
+            "assumption": "ai_assumption",
+            "ai": "ai_assumption",
+            "user": "user_input",
+            "input": "user_input",
+            "manual": "user_input",
+            "gov": "official",
+            "government": "official",
+            "regulation": "official",
+            "regulatory": "official",
+            "file": "document",
+            "doc": "document",
+            "unknown": "unverified",
+            "other": "unverified",
+        }
+
         claims = []
         for c in evidence_data.get("claims", []):
+            raw_type = str(c.get("source_type") or "unverified").strip().lower()
+            source_type = raw_type if raw_type in allowed else aliases.get(raw_type, "unverified")
+            try:
+                confidence = float(c.get("confidence", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                confidence = 0.0
             claims.append(Claim(
-                statement=c.get("statement", ""),
-                source_type=c.get("source_type", "unverified"),
-                confidence=c.get("confidence", 0.0),
+                statement=c.get("statement", "") or "",
+                source_type=source_type,
+                confidence=max(0.0, min(1.0, confidence)),
                 source_url=c.get("source_url"),
             ))
         state.claims = claims
+        state.error = None
 
         if evidence_data.get("evidence_sufficient", False):
             state.phase = "ASSUMPTIONS_REVIEW"
