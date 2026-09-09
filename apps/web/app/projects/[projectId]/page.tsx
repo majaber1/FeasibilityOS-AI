@@ -80,5 +80,23 @@ export default function ProjectWorkspacePage({ params }: { params: Promise<{ pro
     ) : (
       <button type="button" onClick={() => setEditing(true)} data-testid="edit-project-profile" className="mt-4 rounded-lg border px-4 py-2 text-sm">{locale === "ar" ? "تعديل معلومات المشروع" : "Edit project information"}</button>
     )}
-    <div className="mt-7">{study ? <Link href={`/projects/${project.id}/studies/${study.id}`} data-testid="continue-existing-study" className="inline-flex rounded-lg bg-brand-600 px-5 py-3 font-medium text-white">{study.status === "completed" ? (locale === "ar" ? "عرض القرار" : "View decision") : (locale === "ar" ? "متابعة الدراسة" : "Continue study")}</Link> : <button onClick={() => void startStudy()} disabled={creating} data-testid="start-study-btn" className="rounded-lg bg-brand-600 px-5 py-3 font-medium text-white disabled:opacity-60">{creating ? (locale === "ar" ? "جارٍ الإنشاء..." : "Creating...") : (locale === "ar" ? "ابدأ الدراسة" : "Start study")}</button>}</div></section></main>;
+    <div className="mt-7 flex flex-wrap gap-3">
+      <Link
+        href={`/projects/${project.id}/studies/new/workspace`}
+        data-testid="open-ai-study-workspace"
+        className="inline-flex rounded-lg bg-brand-600 px-5 py-3 font-medium text-white"
+      >
+        {locale === "ar" ? "دراسة جدوى بالذكاء الاصطناعي" : "AI feasibility study"}
+      </Link>
+      {study ? (
+        <Link href={`/projects/${project.id}/studies/${study.id}`} data-testid="continue-existing-study" className="inline-flex rounded-lg border px-5 py-3 font-medium text-ink-800">
+          {study.status === "completed" ? (locale === "ar" ? "عرض القرار (V1)" : "View decision (V1)") : (locale === "ar" ? "متابعة الدراسة (V1)" : "Continue study (V1)")}
+        </Link>
+      ) : (
+        <button onClick={() => void startStudy()} disabled={creating} data-testid="start-study-btn" className="rounded-lg border px-5 py-3 font-medium text-ink-800 disabled:opacity-60">
+          {creating ? (locale === "ar" ? "جارٍ الإنشاء..." : "Creating...") : (locale === "ar" ? "دراسة يدوية (V1)" : "Manual study (V1)")}
+        </button>
+      )}
+    </div>
+    </section></main>;
 }

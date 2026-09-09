@@ -265,8 +265,9 @@ def _import_engine():
 
 def _state_from_record(record: dict):
     from ai_engine.models.study_state import StudyState
-    state_data = record["state"]
-    msgs = state_data.pop("messages", [])
+    # Copy so we do not mutate the cached/persisted record when popping messages.
+    state_data = dict(record["state"])
+    msgs = state_data.pop("messages", []) or []
     state = StudyState(**state_data)
     for m in msgs:
         if isinstance(m, dict):
@@ -282,6 +283,90 @@ def _state_from_record(record: dict):
                 from langchain_core.messages import HumanMessage
                 state.messages.append(HumanMessage(content=content))
     return state
+
+
+def _public_messages(raw_messages) -> list[dict]:
+    """Normalize persisted / LangChain messages for the workspace UI."""
+    out: list[dict] = []
+    for msg in raw_messages or []:
+        if isinstance(msg, dict):
+            mtype = msg.get("type") or msg.get("role") or "human"
+            content = msg.get("content", "")
+        elif hasattr(msg, "type") and hasattr(msg, "content"):
+            mtype = msg.type
+            content = msg.content
+        else:
+            continue
+        if not content:
+            continue
+        if mtype in ("ai", "assistant"):
+            role = "assistant"
+        elif mtype in ("system",):
+            role = "system"
+        else:
+            role = "user"
+        out.append({"role": role, "content": str(content)})
+    return out
+
+
+def _study_payload(study_id: str, record: dict, *, response: str | None = None) -> dict:
+    """Full study payload so the UI can show AI-filled information."""
+    s = record["state"] if "state" in record else record
+    claims = s.get("claims") or []
+    assumptions = s.get("assumptions") or []
+    profile = s.get("profile")
+    payload = {
+        "study_id": study_id,
+        "project_id": s.get("project_id"),
+        "phase": s.get("phase"),
+        "profile": profile,
+        "claims": claims,
+        "assumptions": assumptions,
+        "claims_count": len(claims),
+        "assumptions_count": len(assumptions),
+        "financial_results": s.get("financial_results"),
+        "verdict": s.get("verdict"),
+        "decision_rationale": s.get("decision_rationale"),
+        "decision_conditions": s.get("decision_conditions") or [],
+        "decision_risks": s.get("decision_risks") or [],
+        "messages": _public_messages(s.get("messages")),
+        "next_action": s.get("next_action"),
+        "error": s.get("error"),
+        "created_at": record.get("created_at"),
+        "updated_at": record.get("updated_at"),
+    }
+    if response is not None:
+        payload["response"] = response
+    return payload
+
+
+def _payload_from_state(study_id: str, state, *, response: str | None = None, record_meta: dict | None = None) -> dict:
+    claims = [c.model_dump() if hasattr(c, "model_dump") else c for c in (state.claims or [])]
+    assumptions = [a.model_dump() if hasattr(a, "model_dump") else a for a in (state.assumptions or [])]
+    profile = state.profile.model_dump() if state.profile and hasattr(state.profile, "model_dump") else state.profile
+    payload = {
+        "study_id": study_id,
+        "project_id": state.project_id,
+        "phase": state.phase,
+        "profile": profile,
+        "claims": claims,
+        "assumptions": assumptions,
+        "claims_count": len(claims),
+        "assumptions_count": len(assumptions),
+        "financial_results": state.financial_results,
+        "verdict": state.verdict,
+        "decision_rationale": state.decision_rationale,
+        "decision_conditions": state.decision_conditions or [],
+        "decision_risks": state.decision_risks or [],
+        "messages": _public_messages(state.messages),
+        "next_action": state.next_action,
+        "error": state.error,
+        "created_at": (record_meta or {}).get("created_at"),
+        "updated_at": (record_meta or {}).get("updated_at"),
+    }
+    if response is not None:
+        payload["response"] = response
+    return payload
 
 
 @router.post("")
@@ -310,13 +395,13 @@ async def create_study(req: StudyCreateRequest, user=Depends(get_current_user)):
 
     _save_study(study_id, state.model_dump(), user_id)
 
-    return {
-        "study_id": study_id,
-        "phase": state.phase,
-        "profile": state.profile.model_dump() if state.profile else None,
-        "next_action": state.next_action,
-        "error": state.error,
-    }
+    last_ai_message = None
+    for msg in reversed(state.messages):
+        if hasattr(msg, "type") and msg.type == "ai":
+            last_ai_message = msg.content
+            break
+
+    return _payload_from_state(study_id, state, response=last_ai_message)
 
 
 @router.get("/{study_id}")
@@ -326,21 +411,7 @@ async def get_study(study_id: str, user=Depends(get_current_user)):
     if not record:
         raise HTTPException(status_code=404, detail="Study not found")
 
-    s = record["state"]
-    profile = s.get("profile")
-    return {
-        "study_id": study_id,
-        "phase": s.get("phase"),
-        "profile": profile,
-        "claims_count": len(s.get("claims", [])),
-        "assumptions_count": len(s.get("assumptions", [])),
-        "verdict": s.get("verdict"),
-        "decision_rationale": s.get("decision_rationale"),
-        "next_action": s.get("next_action"),
-        "error": s.get("error"),
-        "created_at": record.get("created_at"),
-        "updated_at": record.get("updated_at"),
-    }
+    return _study_payload(study_id, record)
 
 
 @router.post("/{study_id}/message")
@@ -373,13 +444,7 @@ async def send_message(study_id: str, req: StudyMessageRequest, user=Depends(get
             last_ai_message = msg.content
             break
 
-    return {
-        "phase": state.phase,
-        "response": last_ai_message,
-        "profile": state.profile.model_dump() if state.profile else None,
-        "next_action": state.next_action,
-        "error": state.error,
-    }
+    return _payload_from_state(study_id, state, response=last_ai_message, record_meta=record)
 
 
 @router.post("/{study_id}/approve/{stage}")
@@ -426,7 +491,11 @@ async def approve_stage(
             from langchain_core.messages import HumanMessage
             state.messages.append(HumanMessage(content=req.feedback))
         _save_study(study_id, state.model_dump(), user_id)
-        return {"phase": state.phase, "message": "Feedback recorded. Continue the conversation."}
+        return _payload_from_state(
+            study_id,
+            state,
+            record_meta=record,
+        ) | {"message": "Feedback recorded. Continue the conversation."}
 
     setattr(state, flag_field, True)
     state.phase_history.append(f"{stage}_approved")
@@ -438,11 +507,7 @@ async def approve_stage(
 
     _save_study(study_id, state.model_dump(), user_id)
 
-    return {
-        "phase": state.phase,
-        "next_action": state.next_action,
-        "error": state.error,
-    }
+    return _payload_from_state(study_id, state, record_meta=record)
 
 
 @router.get("")
