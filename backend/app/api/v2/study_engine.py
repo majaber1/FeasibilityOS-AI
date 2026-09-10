@@ -259,8 +259,8 @@ def _normalize_profile_label(value: str | None, *, fallback: str) -> str:
 
 
 def _finalize_profile_confirmation(state):
-    """Confirm Profile means: proceed even if gaps remain; AI estimates the rest later."""
-    from langchain_core.messages import AIMessage
+    """Confirm Profile means: proceed even if gaps remain; AI must fill estimates next."""
+    from langchain_core.messages import AIMessage, HumanMessage
 
     state.profile_confirmed = True
     gaps: list[str] = []
@@ -273,25 +273,47 @@ def _finalize_profile_confirmation(state):
         # Stop blocking the gate; later agents use conversation + estimates.
         state.profile.missing_information = []
 
+    lang = getattr(state, "language", "en")
     if gaps:
-        lang = getattr(state, "language", "en")
+        gap_lines = "\n".join(f"- {g}" for g in gaps)
         if lang == "ar":
             note = (
-                "تم تأكيد ملف المشروع. سيكمل الذكاء الاصطناعي الأدلة والافتراضات "
-                "باستخدام تقديرات واضحة للعناصر الناقصة التالية:\n- "
-                + "\n- ".join(gaps)
+                "تم تأكيد ملف المشروع. سأملأ الآن الأدلة والافتراضات "
+                "بتقديرات صريحة وواضحة للعناصر الناقصة التالية:\n"
+                + gap_lines
+            )
+            instruct = (
+                "تم تأكيد الملف. املأ الأدلة الآن. لكل عنصر ناقص أدناه، أنشئ claim "
+                "من نوع ai_assumption بقيمة تقديرية واقعية للسوق السعودي، مع ذكر أنها تقدير:\n"
+                + gap_lines
+                + "\nثم اضبط evidence_sufficient=true إذا أصبحت التقديرات كافية للمتابعة."
             )
         else:
             note = (
-                "Profile confirmed. AI will continue into evidence and assumptions, "
-                "using explicit estimates for these remaining gaps:\n- "
-                + "\n- ".join(gaps)
+                "Profile confirmed. I will now fill evidence and assumptions "
+                "with explicit estimates for these remaining gaps:\n"
+                + gap_lines
+            )
+            instruct = (
+                "Profile confirmed. Fill evidence now. For each missing item below, create an "
+                "ai_assumption claim with a realistic Saudi-market estimate and label it as an estimate:\n"
+                + gap_lines
+                + "\nThen set evidence_sufficient=true if these estimates are enough to continue."
             )
         state.messages.append(AIMessage(content=note))
+        # Seed the next agent turn with an explicit fill request.
+        state.messages.append(HumanMessage(content=instruct))
+    else:
+        if lang == "ar":
+            state.messages.append(AIMessage(content="تم تأكيد الملف. المتابعة إلى جمع الأدلة."))
+        else:
+            state.messages.append(AIMessage(content="Profile confirmed. Continuing to evidence collection."))
 
     state.phase = "EVIDENCE_REVIEW"
     state.next_action = "review_evidence"
+    # Clear any prior LLM failure so the orchestrator routes to evidence, not error_handler.
     state.error = None
+    state.blocking_reason = None
     return state
 
 

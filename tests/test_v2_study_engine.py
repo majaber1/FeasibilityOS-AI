@@ -450,6 +450,65 @@ class TestV2StudyAPI:
         assert body["profile"]["missing_information"] == []
         assert any("estimate" in (m.get("content") or "").lower() or "gaps" in (m.get("content") or "").lower()
                    for m in body.get("messages", []) if m.get("role") == "assistant")
+        assert body.get("claims_count", 0) >= 1
+        assert len(body.get("claims") or []) >= 1
+
+    def test_approve_profile_fills_claims_when_groq_missing(self):
+        """Confirm must still populate Evidence claims when GROQ_API_KEY is absent."""
+        headers = _auth("approve_nogroq")
+        create = client.post("/api/v2/studies", json={
+            "project_id": "proj_nogroq", "language": "en",
+        }, headers=headers)
+        study_id = create.json()["study_id"]
+
+        from app.api.v2 import study_engine as se
+        from app import db as app_db
+        from unittest.mock import patch
+
+        db = app_db.SessionLocal()
+        try:
+            row = db.query(se.StudyStateRow).filter_by(study_id=study_id).first()
+            assert row is not None
+            row.phase = "NEEDS_INFORMATION"
+            row.profile_json = {
+                "archetype": "services",
+                "sector": "Ride-hailing",
+                "stage": "unknown",
+                "decision_goal": "unknown",
+                "missing_information": [
+                    "Current project stage",
+                    "Revenue model and pricing",
+                    "Expected CAC",
+                ],
+                "language": "en",
+                "recommended_model": "services_v1",
+            }
+            row.profile_confirmed = False
+            row.messages_json = [
+                {"type": "human", "content": "Uber-like ride hailing in Riyadh"},
+                {"type": "ai", "content": "Need more information."},
+            ]
+            db.commit()
+        finally:
+            db.close()
+
+        with patch(
+            "ai_engine.agents.evidence.get_llm",
+            side_effect=ValueError("GROQ_API_KEY is not set"),
+        ):
+            r = client.post(
+                f"/api/v2/studies/{study_id}/approve/profile",
+                json={"approved": True},
+                headers=headers,
+            )
+
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["phase"] == "EVIDENCE_REVIEW"
+        assert body.get("error") in (None, "", False)
+        assert body.get("claims_count", 0) >= 3
+        assert all(c.get("source_type") == "ai_assumption" for c in body.get("claims") or [])
+        assert body["profile"]["missing_information"] == []
 
     def test_approve_invalid_stage_400(self):
         headers = _auth("approve_invalid")
