@@ -75,7 +75,9 @@ def _playbook(archetype: str) -> dict:
 
 
 def run_funding(state: StudyState) -> StudyState:
-    """Produce readiness + intelligent funding package; remain on FUNDING_READY."""
+    """Produce readiness + intelligent funding package and a material persisted report."""
+    from .report_builder import build_report
+
     archetype = state.profile.archetype if state.profile else "unknown"
     book = _playbook(archetype)
     verdict = state.verdict or "INSUFFICIENT_EVIDENCE"
@@ -105,25 +107,25 @@ def run_funding(state: StudyState) -> StudyState:
         "assumptions_version": int(getattr(state, "assumptions_version", 0) or 0),
     }
 
+    report = build_report(state, funding_package=funding_package)
     report_outline = {
-        "title": f"Feasibility Report — {archetype}",
+        "title": report["title"],
         "sections": [
-            "Executive summary & verdict",
-            "Project profile & archetype",
-            "Evidence basis",
-            "Assumptions (versioned)",
-            "Financial model (NPV / IRR / payback)",
-            "Risk register & mitigations",
+            "Evidence",
+            "Assumptions",
+            "Calculations",
+            "Risks",
             "Decision rationale",
             "Funding readiness & recommended instruments",
-            "Next diligence checklist",
         ],
+        "section_order": report["section_order"],
         "verdict": verdict,
         "assumptions_version": funding_package["assumptions_version"],
         "decision_version": state.decision_version,
         "archetype": archetype,
         "readiness_status": readiness_status,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "has_full_report": True,
     }
 
     if state.financial_results is None:
@@ -132,6 +134,7 @@ def run_funding(state: StudyState) -> StudyState:
         **dict(state.financial_results),
         "funding_package": funding_package,
         "report_outline": report_outline,
+        "report": report,
     }
 
     lines = [
@@ -144,8 +147,12 @@ def run_funding(state: StudyState) -> StudyState:
         "### Do not use for this archetype",
         *[f"- {x}" for x in book["avoid"]],
         "",
-        "## Report outline",
-        *[f"- {s}" for s in report_outline["sections"]],
+        "## Feasibility Report (persisted)",
+        f"- Evidence items: {len(report['sections']['evidence']['items'])}",
+        f"- Assumptions: {len(report['sections']['assumptions']['items'])}",
+        f"- Calculations: {report['sections']['calculations']['summary']}",
+        f"- Risks: {len(report['sections']['risks']['items'])}",
+        f"- Decision: {report['sections']['decision_rationale']['verdict']}",
     ]
     from langchain_core.messages import AIMessage
 

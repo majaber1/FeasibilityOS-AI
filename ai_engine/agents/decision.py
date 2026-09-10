@@ -144,6 +144,11 @@ def run_decision(state: StudyState) -> StudyState:
         state.decision_conditions = decision_data.get("conditions", [])
         state.decision_risks = decision_data.get("key_risks", state.decision_risks)
         state.decision_version += 1
+        # Insufficient evidence overrides firm investment verdicts when claim
+        # confidence is below threshold (or evidence volume is too low).
+        from .report_builder import apply_evidence_verdict_override
+
+        apply_evidence_verdict_override(state)
         # After a verdict is issued, advance into funding readiness.
         state.phase = "FUNDING_READY"
 

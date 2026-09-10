@@ -28,6 +28,27 @@ type Assumption = {
   high?: string | null;
 };
 
+type ReportSection = {
+  title?: string;
+  summary?: string;
+  items?: unknown[];
+  metrics?: Record<string, unknown>;
+  verdict?: string | null;
+  rationale?: string | null;
+  conditions?: string[];
+  decision_version?: number;
+};
+
+type FeasibilityReport = {
+  title?: string;
+  generated_at?: string;
+  verdict?: string | null;
+  section_order?: string[];
+  sections?: Record<string, ReportSection>;
+  evidence_confidence_mean?: number | null;
+  evidence_confidence_threshold?: number;
+};
+
 type StudyInfo = {
   study_id: string;
   phase: string;
@@ -43,6 +64,8 @@ type StudyInfo = {
   claims_count?: number;
   assumptions_count?: number;
   financial_results?: Record<string, unknown> | null;
+  report?: FeasibilityReport | null;
+  report_outline?: Record<string, unknown> | null;
   verdict: string | null;
   decision_rationale: string | null;
   decision_conditions?: string[];
@@ -62,6 +85,7 @@ const PHASE_LABELS: Record<string, { ar: string; en: string }> = {
   ANALYZED: { ar: "تم التحليل", en: "Analyzed" },
   DECISION_READY: { ar: "القرار جاهز", en: "Decision Ready" },
   FUNDING_READY: { ar: "جاهز للتمويل", en: "Funding Ready" },
+  REPORT_READY: { ar: "التقرير جاهز", en: "Report Ready" },
 };
 
 const VERDICT_COLORS: Record<string, string> = {
@@ -327,6 +351,13 @@ export default function StudyWorkspacePage() {
   const claims = study?.claims || [];
   const assumptions = study?.assumptions || [];
   const financial = study?.financial_results || null;
+  const report =
+    study?.report ||
+    ((financial && typeof financial === "object" && "report" in financial
+      ? (financial.report as FeasibilityReport)
+      : null) ??
+      null);
+  const reportSections = report?.sections || null;
   const missing = study?.profile?.missing_information || [];
 
   return (
@@ -396,6 +427,95 @@ export default function StudyWorkspacePage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {reportSections && (
+        <div
+          className="mb-3 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3"
+          data-testid="feasibility-report-panel"
+        >
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink-900">
+              {report?.title || (ar ? "تقرير الجدوى" : "Feasibility Report")}
+            </h2>
+            {report?.verdict && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${VERDICT_COLORS[report.verdict] ?? "bg-slate-100"}`}
+                data-testid="report-verdict"
+              >
+                {report.verdict}
+              </span>
+            )}
+          </div>
+          {typeof report?.evidence_confidence_mean === "number" && (
+            <p className="mb-2 text-[11px] text-ink-500" data-testid="report-evidence-confidence">
+              Evidence confidence mean: {report.evidence_confidence_mean.toFixed(2)}
+              {typeof report.evidence_confidence_threshold === "number"
+                ? ` (threshold ${report.evidence_confidence_threshold.toFixed(2)})`
+                : ""}
+            </p>
+          )}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="report-sections">
+            {(report?.section_order || Object.keys(reportSections)).map((key) => {
+              const section = reportSections[key];
+              if (!section) return null;
+              return (
+                <section
+                  key={key}
+                  className="rounded-lg bg-slate-50 p-2 text-xs text-ink-700"
+                  data-testid={`report-section-${key}`}
+                >
+                  <h3 className="font-semibold text-ink-900">{section.title || key}</h3>
+                  {section.summary && <p className="mt-1 text-[11px] text-ink-500">{section.summary}</p>}
+                  {section.verdict && (
+                    <p className="mt-1 font-medium" data-testid="report-decision-verdict">
+                      Verdict: {section.verdict}
+                    </p>
+                  )}
+                  {section.rationale && (
+                    <p className="mt-1 whitespace-pre-wrap text-[11px]">{section.rationale}</p>
+                  )}
+                  {section.metrics && (
+                    <ul className="mt-1 space-y-0.5 text-[11px]">
+                      {Object.entries(section.metrics)
+                        .filter(([, v]) => v != null && typeof v !== "object")
+                        .slice(0, 6)
+                        .map(([k, v]) => (
+                          <li key={k}>
+                            {k}: {String(v)}
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                  {Array.isArray(section.items) && section.items.length > 0 && (
+                    <ul className="mt-1 max-h-28 list-disc space-y-1 overflow-y-auto ps-4 text-[11px]">
+                      {section.items.slice(0, 8).map((item, idx) => (
+                        <li key={idx}>
+                          {typeof item === "string"
+                            ? item
+                            : typeof item === "object" && item !== null
+                              ? "statement" in item
+                                ? String((item as Claim).statement)
+                                : "key" in item
+                                  ? `${(item as Assumption).key}: ${(item as Assumption).value}`
+                                  : JSON.stringify(item).slice(0, 120)
+                              : String(item)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {(section.conditions || []).length > 0 && (
+                    <ul className="mt-1 list-disc ps-4 text-[11px] text-ink-600">
+                      {section.conditions!.map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            })}
+          </div>
         </div>
       )}
 
