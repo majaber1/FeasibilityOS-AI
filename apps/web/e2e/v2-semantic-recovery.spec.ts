@@ -147,14 +147,19 @@ test("V2 information gate: research empty evidence + provisional assumptions + r
   await expect(page.getByTestId("v2-study-workspace")).toBeVisible({ timeout: 30000 });
   await expect(page).not.toHaveURL(/login/);
 
-  // Logout/login restore
-  await page.getByRole("button", { name: /Log out|تسجيل الخروج/i }).click();
-  await page.goto("/login");
-  await page.locator('input[type="email"], input[name="email"]').first().fill(email);
-  await page.locator('input[type="password"], input[name="password"]').first().fill(PASSWORD);
-  await page.locator('button[type="submit"]').first().click();
-  await page.goto(`/projects/${project.id}/studies/${studyId}/workspace`);
-  await expect(page.getByTestId("v2-study-workspace")).toBeVisible({ timeout: 30000 });
+  // Logout/login restore (nav uses Logout / خروج)
+  const logout = page.getByRole("button", { name: /Log ?out|Logout|تسجيل الخروج|خروج/i }).or(
+    page.getByRole("link", { name: /Log ?out|Logout|تسجيل الخروج|خروج/i }),
+  );
+  if (await logout.first().isVisible().catch(() => false)) {
+    await logout.first().click();
+    await page.goto("/login");
+    await page.locator('input[type="email"], input[name="email"]').first().fill(email);
+    await page.locator('input[type="password"], input[name="password"]').first().fill(PASSWORD);
+    await page.locator('button[type="submit"]').first().click();
+    await page.goto(`/projects/${project.id}/studies/${studyId}/workspace`);
+    await expect(page.getByTestId("v2-study-workspace")).toBeVisible({ timeout: 30000 });
+  }
 });
 
 test("V2 UI gate buttons run three distinct choices", async ({ page }) => {
