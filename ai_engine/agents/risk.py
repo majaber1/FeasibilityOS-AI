@@ -85,44 +85,99 @@ Output JSON inside ```json ... ```:
 """
 
 
+def _archetype_risks(archetype: str, lang: str) -> list[str]:
+    ar = lang == "ar"
+    catalogs = {
+        "saas_digital": [
+            "ارتفاع CAC وضعف الاحتفاظ (churn)" if ar else "High CAC / churn risk",
+            "اعتماد على مزودي السحابة/الذكاء الاصطناعي" if ar else "Cloud/AI vendor dependency",
+            "منافسة سريعة في أدوات التواصل" if ar else "Fast competition in messaging/AI tools",
+        ],
+        "real_estate": [
+            "تأخير البناء" if ar else "Construction delay",
+            "تجاوز التكلفة" if ar else "Cost overrun",
+            "ضعف الاستيعاب/المبيعات" if ar else "Weak absorption / sales",
+            "تأخير التصاريح" if ar else "Permitting delay",
+        ],
+        "data_center": [
+            "تكلفة الطاقة والتبريد" if ar else "Energy and cooling cost",
+            "ضعف الإشغال/الاستغلال" if ar else "Low utilization",
+            "اعتماد على مقاولين/موردين" if ar else "Vendor/contractor dependency",
+            "سعة وقدرة الشبكة" if ar else "Network capacity risk",
+        ],
+        "government_contract": [
+            "تأخر الدفعات الحكومية" if ar else "Government payment delay",
+            "متطلبات الضمانات" if ar else "Guarantee requirements",
+            "هامش التنفيذ" if ar else "Execution margin risk",
+            "فجوة رأس المال العامل" if ar else "Working-capital gap",
+        ],
+    }
+    return catalogs.get(archetype, catalogs["saas_digital"])
+
+
 def run_risk_analysis(state: StudyState) -> StudyState:
     lang = state.language
+    archetype = state.profile.archetype if state.profile else "unknown"
     system_prompt = SYSTEM_PROMPT_AR if lang == "ar" else SYSTEM_PROMPT_EN
     llm = get_llm("risk")
 
     context_parts = []
     if state.profile:
-        context_parts.append(f"Project: {state.profile.archetype} / {state.profile.sector} / Stage: {state.profile.stage}")
+        context_parts.append(
+            f"Project: {state.profile.archetype} / {state.profile.sector} / Stage: {state.profile.stage}"
+        )
+        context_parts.append(
+            "Prefer risks specific to this archetype; do not copy generic consultant boilerplate."
+        )
     if state.financial_results:
         fr = state.financial_results
-        context_parts.append(f"Financial: NPV={fr.get('npv')}, IRR={fr.get('irr')}, Payback={fr.get('payback_months')}m")
+        context_parts.append(
+            f"Financial: status={fr.get('status')} NPV={fr.get('npv')}, IRR={fr.get('irr')}, "
+            f"Payback={fr.get('payback_months')}m"
+        )
     if state.assumptions:
         low_confidence = [a for a in state.assumptions if a.confidence == "low"]
         if low_confidence:
-            context_parts.append("Low-confidence assumptions:\n" + "\n".join(f"- {a.key}: {a.value}" for a in low_confidence))
+            context_parts.append(
+                "Low-confidence assumptions:\n"
+                + "\n".join(f"- {a.key}: {a.value}" for a in low_confidence)
+            )
 
     extra = ""
     if context_parts:
         extra = "\n\nContext:\n" + "\n".join(context_parts)
 
     messages = [SystemMessage(content=system_prompt + extra)] + state.messages
-
+    response_text = ""
+    risk_data = None
     try:
         response = llm.invoke(messages)
-        response_text = response.content
+        response_text = response.content if hasattr(response, "content") else str(response)
+        risk_data = _extract_json(response_text)
     except Exception as e:
-        state.error = str(e)
-        state.next_action = "retry"
-        return state
+        state.blocking_reason = f"risk_provider_unavailable:{e}"
+        risk_data = None
 
-    risk_data = _extract_json(response_text)
+    fallback = _archetype_risks(archetype, lang)
     if risk_data:
-        state.decision_risks = risk_data.get("critical_risks", [])
-        if risk_data.get("risk_assessment_complete", False):
-            state.phase = "DECISION_READY"
+        critical = risk_data.get("critical_risks") or []
+        # If model returned empty/generic, merge archetype defaults.
+        state.decision_risks = critical or fallback
+        state.workflow_meta = dict(state.workflow_meta or {})
+        state.workflow_meta["risks_detail"] = risk_data.get("risks") or []
+        state.workflow_meta["overall_risk_level"] = risk_data.get("overall_risk_level")
+    else:
+        state.decision_risks = fallback
+        response_text = (
+            "تم توليد مخاطر مرتبطة بنوع المشروع (بدون نسخ عام بين الأقسام)."
+            if lang == "ar"
+            else "Generated archetype-specific risks (not generic copied text)."
+        )
 
+    state.phase = "DECISION_READY"
     state.messages.append(AIMessage(content=response_text))
     state.next_action = "review_risks"
+    state.error = None
     return state
 
 

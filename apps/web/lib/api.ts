@@ -189,6 +189,45 @@ export function listStudies(token: string, projectId?: number) {
   return authedRequest<Study[]>("/feasibility/" + qs, token);
 }
 
+/** V2 AI Study sessions (LangGraph / study_states_v2). */
+export type V2StudySummary = {
+  study_id: string;
+  project_id?: string | null;
+  phase?: string | null;
+  archetype?: string | null;
+  verdict?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export function listV2Studies(token: string) {
+  return authedRequest<{ studies: V2StudySummary[] }>("/api/v2/studies", token).then(
+    (body) => body.studies ?? [],
+  );
+}
+
+/** Map V2 workflow phase → projects-page primary CTA key. */
+export function v2StudyPrimaryAction(
+  phase: string | null | undefined,
+): "startStudy" | "continueStudy" | "reviewAssumptions" | "continueFinancial" | "reviewDecision" {
+  switch (phase) {
+    case "ASSUMPTIONS_REVIEW":
+      return "reviewAssumptions";
+    case "READY_FOR_ANALYSIS":
+    case "ANALYZED":
+      return "continueFinancial";
+    case "DECISION_READY":
+    case "FUNDING_READY":
+      return "reviewDecision";
+    case "DRAFT":
+    case "UNDERSTANDING":
+    case "NEEDS_INFORMATION":
+    case "EVIDENCE_REVIEW":
+    default:
+      return phase ? "continueStudy" : "startStudy";
+  }
+}
+
 export function getStudy(token: string, studyId: number) {
   return authedRequest<Study>("/feasibility/" + studyId, token);
 }

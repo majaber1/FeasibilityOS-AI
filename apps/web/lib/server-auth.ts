@@ -8,6 +8,15 @@ export function backendUrl(path: string) {
   return `${origin}/${path.replace(/^\//, "")}`;
 }
 
+/** Headers for server-side calls to BACKEND_API_URL (Preview SSO bypass optional). */
+export function backendUpstreamHeaders(init?: HeadersInit): Headers {
+  const headers = new Headers(init);
+  const protectionBypass = process.env.BACKEND_PROTECTION_BYPASS?.trim();
+  if (protectionBypass) headers.set("x-vercel-protection-bypass", protectionBypass);
+  if (!headers.has("x-request-id")) headers.set("x-request-id", crypto.randomUUID());
+  return headers;
+}
+
 export function isSafeBrowserMutation(request: NextRequest) {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return true;
   const fetchSite = request.headers.get("sec-fetch-site");

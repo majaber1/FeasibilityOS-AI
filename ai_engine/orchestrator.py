@@ -11,6 +11,8 @@ from .agents.assumption import run_assumptions
 from .agents.financial_analyst import run_financial_analysis
 from .agents.risk import run_risk_analysis
 from .agents.decision import run_decision
+from .agents.funding import run_funding
+from .agents.report import run_report
 
 PHASE_TRANSITIONS = {
     "DRAFT": "discovery",
@@ -21,7 +23,7 @@ PHASE_TRANSITIONS = {
     "READY_FOR_ANALYSIS": "financial",
     "ANALYZED": "risk",
     "DECISION_READY": "decision",
-    "FUNDING_READY": END,
+    "FUNDING_READY": "funding",
 }
 
 
@@ -47,6 +49,8 @@ def build_graph() -> StateGraph:
     graph.add_node("financial", run_financial_analysis)
     graph.add_node("risk", run_risk_analysis)
     graph.add_node("decision", run_decision)
+    graph.add_node("funding", run_funding)
+    graph.add_node("report", run_report)
     graph.add_node("error_handler", error_handler)
 
     graph.set_conditional_entry_point(route_by_phase)
@@ -57,6 +61,8 @@ def build_graph() -> StateGraph:
     graph.add_edge("financial", END)
     graph.add_edge("risk", END)
     graph.add_edge("decision", END)
+    graph.add_edge("funding", END)
+    graph.add_edge("report", END)
     graph.add_edge("error_handler", END)
 
     return graph

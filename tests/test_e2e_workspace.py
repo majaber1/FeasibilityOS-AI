@@ -216,8 +216,8 @@ class TestApprovalGates:
         }, headers=headers)
         sid = create_r.json()["study_id"]
 
-        r = client.post(f"/api/v2/studies/{sid}/approve/profile", json={
-            "approved": True,
+        r = client.post(f"/api/v2/studies/{sid}/information-gate", json={
+            "choice": "research",
         }, headers=headers)
         assert r.status_code == 400
         assert "phase" in r.json()["detail"].lower() or "DRAFT" in r.json()["detail"]
@@ -261,14 +261,14 @@ class TestApprovalGates:
 
     def test_approve_study_not_found_404(self):
         headers, _ = _register_and_login("gate5")
-        r = client.post("/api/v2/studies/study_nonexistent/approve/profile", json={
-            "approved": True,
+        r = client.post("/api/v2/studies/study_nonexistent/information-gate", json={
+            "choice": "research",
         }, headers=headers)
         assert r.status_code == 404
 
     def test_approve_unauthenticated_401(self):
-        r = client.post("/api/v2/studies/study_x/approve/profile", json={
-            "approved": True,
+        r = client.post("/api/v2/studies/study_x/information-gate", json={
+            "choice": "research",
         })
         assert r.status_code == 401
 
@@ -323,8 +323,8 @@ class TestUserIsolation:
         }, headers=headers_a)
         sid = create_r.json()["study_id"]
 
-        r = client.post(f"/api/v2/studies/{sid}/approve/profile", json={
-            "approved": True,
+        r = client.post(f"/api/v2/studies/{sid}/information-gate", json={
+            "choice": "research",
         }, headers=headers_b)
         assert r.status_code == 404
 
@@ -442,8 +442,8 @@ class TestPhaseProgression:
         sid = self._create_study(headers)
         self._set_phase(sid, "NEEDS_INFORMATION", profile_confirmed=False)
 
-        r = client.post(f"/api/v2/studies/{sid}/approve/profile", json={
-            "approved": True,
+        r = client.post(f"/api/v2/studies/{sid}/information-gate", json={
+            "choice": "research",
         }, headers=headers)
         assert r.status_code == 200
 
@@ -542,12 +542,12 @@ class TestRejectionFlow:
         headers, _ = _register_and_login("rej1")
         sid = self._create_and_set_phase(headers, "NEEDS_INFORMATION")
 
-        r = client.post(f"/api/v2/studies/{sid}/approve/profile", json={
-            "approved": False,
-            "feedback": "Need more detail on target market",
+        r = client.post(f"/api/v2/studies/{sid}/information-gate", json={
+            "choice": "manual",
         }, headers=headers)
         assert r.status_code == 200
         assert r.json()["phase"] == "NEEDS_INFORMATION"
+        assert r.json()["gate_choice"] == "manual"
 
     def test_reject_evidence_keeps_phase(self):
         headers, _ = _register_and_login("rej2")
