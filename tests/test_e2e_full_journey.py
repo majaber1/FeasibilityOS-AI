@@ -113,7 +113,7 @@ EVIDENCE_RESPONSE = """I've analyzed the evidence provided:
     },
     {
       "statement": "المنافسون الرئيسيون: Monday.com, Asana, محلي: Mostaql",
-      "source_type": "ai_assumption",
+      "source_type": "user_input", "source_title": "user",
       "confidence": 0.6,
       "source_url": null
     }
@@ -421,8 +421,8 @@ class TestPhaseByPhaseProgression:
             profile_confirmed=False,
         )
 
-        r = client.post(f"/api/v2/studies/{sid}/approve/profile", json={
-            "approved": True,
+        r = client.post(f"/api/v2/studies/{sid}/information-gate", json={
+            "choice": "research",
         }, headers=headers)
         assert r.status_code == 200
 
@@ -589,7 +589,7 @@ class TestCompletePipeline:
 
         # Step 2: Approve profile → moves to evidence
         _set_study_state(sid, phase="NEEDS_INFORMATION")
-        r = client.post(f"/api/v2/studies/{sid}/approve/profile", json={"approved": True}, headers=headers)
+        r = client.post(f"/api/v2/studies/{sid}/information-gate", json={"choice": "research"}, headers=headers)
         assert r.status_code == 200
 
         # Step 3: Evidence agent fills claims

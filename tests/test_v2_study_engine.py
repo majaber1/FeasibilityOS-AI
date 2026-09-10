@@ -382,13 +382,13 @@ class TestV2StudyAPI:
         }, headers=headers)
         study_id = create.json()["study_id"]
 
-        r = client.post(f"/api/v2/studies/{study_id}/approve/profile", json={
-            "approved": True,
+        r = client.post(f"/api/v2/studies/{study_id}/information-gate", json={
+            "choice": "research",
         }, headers=headers)
         assert r.status_code == 400
 
     def test_approve_profile_advances_with_missing_information(self):
-        """Confirm Profile must leave NEEDS_INFORMATION even when gaps remain."""
+        """Research gate leaves NEEDS_INFORMATION and runs source-backed evidence path."""
         headers = _auth("approve_gaps")
         create = client.post("/api/v2/studies", json={
             "project_id": "proj_gaps", "language": "en",
@@ -427,7 +427,7 @@ class TestV2StudyAPI:
             db.close()
 
         evidence_json = """```json
-{"claims":[{"statement":"Saudi enterprises need compliance tooling","source_type":"user_input","confidence":0.8}],"gaps":[],"evidence_sufficient":true}
+{"claims":[{"statement":"User described an AI compliance platform for Saudi enterprises","source_type":"user_input","source_title":"user chat","confidence":0.8}],"gaps":[],"evidence_sufficient":true,"evidence_status":"available"}
 ```"""
 
         with patch("ai_engine.agents.evidence.get_llm") as mock_get_llm:
@@ -436,8 +436,8 @@ class TestV2StudyAPI:
             mock_get_llm.return_value = mock_llm
 
             r = client.post(
-                f"/api/v2/studies/{study_id}/approve/profile",
-                json={"approved": True},
+                f"/api/v2/studies/{study_id}/information-gate",
+                json={"choice": "research"},
                 headers=headers,
             )
 
@@ -448,13 +448,11 @@ class TestV2StudyAPI:
         assert body["profile"]["stage"] != "unknown"
         assert body["profile"]["decision_goal"] != "unknown"
         assert body["profile"]["missing_information"] == []
-        assert any("estimate" in (m.get("content") or "").lower() or "gaps" in (m.get("content") or "").lower()
-                   for m in body.get("messages", []) if m.get("role") == "assistant")
         assert body.get("claims_count", 0) >= 1
-        assert len(body.get("claims") or []) >= 1
+        assert all(c.get("source_type") != "ai_assumption" for c in body.get("claims") or [])
 
     def test_approve_profile_fills_claims_when_groq_missing(self):
-        """Confirm must still populate Evidence claims when GROQ_API_KEY is absent."""
+        """Provider failure must NOT fabricate Evidence; provisional path uses Assumptions."""
         headers = _auth("approve_nogroq")
         create = client.post("/api/v2/studies", json={
             "project_id": "proj_nogroq", "language": "en",
@@ -496,19 +494,50 @@ class TestV2StudyAPI:
             "ai_engine.agents.evidence.get_llm",
             side_effect=ValueError("GROQ_API_KEY is not set"),
         ):
+            research = client.post(
+                f"/api/v2/studies/{study_id}/information-gate",
+                json={"choice": "research"},
+                headers=headers,
+            )
+        assert research.status_code == 200, research.text
+        research_body = research.json()
+        assert research_body["phase"] == "EVIDENCE_REVIEW"
+        assert research_body.get("claims_count", 0) == 0
+        assert research_body.get("evidence_status") in {"empty", "degraded"}
+
+        # Reset to NEEDS_INFORMATION for provisional path proof
+        db = app_db.SessionLocal()
+        try:
+            row = db.query(se.StudyStateRow).filter_by(study_id=study_id).first()
+            row.phase = "NEEDS_INFORMATION"
+            row.profile_json["missing_information"] = [
+                "Current project stage",
+                "Revenue model and pricing",
+                "Expected CAC",
+            ]
+            row.claims_json = []
+            row.assumptions_json = []
+            db.commit()
+        finally:
+            db.close()
+
+        with patch(
+            "ai_engine.agents.assumption.get_llm",
+            side_effect=ValueError("GROQ_API_KEY is not set"),
+        ):
             r = client.post(
-                f"/api/v2/studies/{study_id}/approve/profile",
-                json={"approved": True},
+                f"/api/v2/studies/{study_id}/information-gate",
+                json={"choice": "provisional"},
                 headers=headers,
             )
 
         assert r.status_code == 200, r.text
         body = r.json()
-        assert body["phase"] == "EVIDENCE_REVIEW"
+        assert body["phase"] == "ASSUMPTIONS_REVIEW"
         assert body.get("error") in (None, "", False)
-        assert body.get("claims_count", 0) >= 3
-        assert all(c.get("source_type") == "ai_assumption" for c in body.get("claims") or [])
-        assert body["profile"]["missing_information"] == []
+        assert body.get("claims_count", 0) == 0
+        assert body.get("assumptions_count", 0) >= 3
+        assert all(a.get("origin") == "provisional_estimate" for a in body.get("assumptions") or [])
 
     def test_approve_invalid_stage_400(self):
         headers = _auth("approve_invalid")
@@ -525,8 +554,8 @@ class TestV2StudyAPI:
 
     def test_approve_study_not_found_404(self):
         headers = _auth("approve_404")
-        r = client.post("/api/v2/studies/study_missing/approve/profile", json={
-            "approved": True,
+        r = client.post("/api/v2/studies/study_missing/information-gate", json={
+            "choice": "research",
         }, headers=headers)
         assert r.status_code == 404
 
