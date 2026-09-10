@@ -1,0 +1,105 @@
+{
+  "generated_at": "2026-09-10T23:15:19.776308+00:00",
+  "challenge": {
+    "uber": {
+      "ok": true,
+      "assumptions_version_changed": true,
+      "financial_recalculated": true,
+      "decision_updated": true,
+      "before": {
+        "npv": -12170907.43,
+        "verdict": "INSUFFICIENT_EVIDENCE",
+        "assumptions_version": 0,
+        "decision_version": 3,
+        "phase": "REPORT_READY"
+      },
+      "after": {
+        "npv": -4057142.86,
+        "verdict": null,
+        "assumptions_version": 1,
+        "decision_version": 3,
+        "phase": "ANALYZED",
+        "error": null,
+        "analysis_complete": true
+      },
+      "assumption_key": "take_rate",
+      "steps_phases": {
+        "challenge": "READY_FOR_ANALYSIS",
+        "financial": "ANALYZED",
+        "risk": "ANALYZED",
+        "decision": "ANALYZED"
+      }
+    }
+  },
+  "funding": {
+    "uber": {
+      "ok": false,
+      "phase_final": "REPORT_READY",
+      "differentiation": {
+        "expected_hit": true,
+        "forbidden_hit": true,
+        "readiness_status": "NOT_READY",
+        "instruments": [
+          "Angel / venture seed",
+          "Venture debt (later)",
+          "Corporate strategic investment",
+          "Govtech / mobility innovation grants"
+        ],
+        "avoid": [
+          "real-estate development finance",
+          "Wafi off-plan escrow",
+          "infra project finance"
+        ],
+        "has_report_outline": true,
+        "archetype": "services"
+      }
+    },
+    "residential": {
+      "ok": false,
+      "phase_final": "REPORT_READY",
+      "differentiation": {
+        "expected_hit": true,
+        "forbidden_hit": true,
+        "readiness_status": "NOT_READY",
+        "instruments": [
+          "Development / construction facility",
+          "Off-plan escrow / Wafi-aligned collections",
+          "Mezzanine / preferred equity",
+          "Mortgage take-out facilitation"
+        ],
+        "avoid": [
+          "SaaS venture rounds",
+          "angel SAFE for software",
+          "hyperscaler colo prepay structures"
+        ],
+        "has_report_outline": true,
+        "archetype": "real_estate"
+      }
+    },
+    "datacenter": {
+      "ok": false,
+      "phase_final": "REPORT_READY",
+      "differentiation": {
+        "expected_hit": true,
+        "forbidden_hit": true,
+        "readiness_status": "NOT_READY",
+        "instruments": [
+          "Infrastructure / project finance",
+          "Strategic hyperscaler / colo pre-leases",
+          "Infrastructure equity funds",
+          "Green / energy-efficiency facilities"
+        ],
+        "avoid": [
+          "consumer mortgage products",
+          "early-stage SaaS seed",
+          "short-term working-capital only"
+        ],
+        "has_report_outline": true,
+        "archetype": "data_center"
+      }
+    }
+  },
+  "challenge_pass": true,
+  "funding_pass": false,
+  "funding_diff_pass": false
+}

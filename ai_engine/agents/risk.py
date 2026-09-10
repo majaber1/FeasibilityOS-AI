@@ -123,8 +123,9 @@ def run_risk_analysis(state: StudyState) -> StudyState:
 
     risk_data = _extract_json(response_text)
     if risk_data:
-        state.decision_risks = risk_data.get("critical_risks", [])
-        if risk_data.get("risk_assessment_complete", False):
+        state.decision_risks = risk_data.get("critical_risks", []) or risk_data.get("risks", [])
+        # Advance when risks are present even if the model omits the completion flag.
+        if risk_data.get("risk_assessment_complete", False) or state.decision_risks:
             state.phase = "DECISION_READY"
 
     state.messages.append(AIMessage(content=response_text))
