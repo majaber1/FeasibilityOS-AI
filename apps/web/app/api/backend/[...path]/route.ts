@@ -16,12 +16,14 @@ async function proxy(request: NextRequest) {
   const rest = request.nextUrl.pathname.slice(PREFIX.length);
   const target = new URL(backendUrl(rest));
   request.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
-  const headers = backendUpstreamHeaders();
+  const headers = new Headers();
   request.headers.forEach((value, key) => {
     if (!HOP_BY_HOP.has(key.toLowerCase()) && key.toLowerCase() !== "cookie") headers.set(key, value);
   });
   const session = request.cookies.get(SESSION_COOKIE)?.value;
   if (session) headers.set("authorization", `Bearer ${session}`);
+  // Apply after request headers so Preview SSO bypass is not overwritten.
+  backendUpstreamHeaders(headers).forEach((value, key) => headers.set(key, value));
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.arrayBuffer();
   const upstream = await fetch(target, { method: request.method, headers, body, cache: "no-store", redirect: "manual" });
   const responseHeaders = new Headers();
