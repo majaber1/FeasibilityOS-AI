@@ -46,6 +46,48 @@ GROQ_FAST = DEFAULT_GROQ_FAST
 GROQ_SMART = DEFAULT_GROQ_SMART
 
 
+class _FallbackChatModel:
+    """Prefer the task model; on Groq daily token (TPD) 429, retry with FAST.
+
+    Risk/decision normally use GROQ_MODEL_PRIMARY (120b). When that tier is
+    exhausted, fall back to GROQ_MODEL_FAST (20b) so studies can still complete.
+    """
+
+    def __init__(self, primary, fallback):
+        self._primary = primary
+        self._fallback = fallback
+        self._use_fallback = False
+
+    def _is_rate_limit(self, exc: Exception) -> bool:
+        text = str(exc).lower()
+        return (
+            "429" in text
+            or "rate_limit" in text
+            or "tokens per day" in text
+            or "tpd" in text
+        )
+
+    def invoke(self, *args, **kwargs):
+        model = self._fallback if self._use_fallback else self._primary
+        try:
+            return model.invoke(*args, **kwargs)
+        except Exception as exc:
+            if self._use_fallback or not self._is_rate_limit(exc):
+                raise
+            self._use_fallback = True
+            return self._fallback.invoke(*args, **kwargs)
+
+    async def ainvoke(self, *args, **kwargs):
+        model = self._fallback if self._use_fallback else self._primary
+        try:
+            return await model.ainvoke(*args, **kwargs)
+        except Exception as exc:
+            if self._use_fallback or not self._is_rate_limit(exc):
+                raise
+            self._use_fallback = True
+            return await self._fallback.ainvoke(*args, **kwargs)
+
+
 def get_llm(task: str = "general"):
     from langchain_groq import ChatGroq
 
@@ -53,12 +95,25 @@ def get_llm(task: str = "general"):
     if not api_key:
         raise ValueError("GROQ_API_KEY is not set")
 
-    return ChatGroq(
-        model=_model_for_task(task),
+    primary_id = _model_for_task(task)
+    fast_id = resolve_groq_model(os.getenv("GROQ_MODEL_FAST", DEFAULT_GROQ_FAST))
+
+    primary = ChatGroq(
+        model=primary_id,
         api_key=api_key,
         temperature=0.1,
         max_tokens=2000,
     )
+    if primary_id == fast_id:
+        return primary
+
+    fallback = ChatGroq(
+        model=fast_id,
+        api_key=api_key,
+        temperature=0.1,
+        max_tokens=2000,
+    )
+    return _FallbackChatModel(primary, fallback)
 
 
 def get_langfuse():

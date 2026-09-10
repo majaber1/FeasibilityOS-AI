@@ -108,7 +108,10 @@ def run_risk_analysis(state: StudyState) -> StudyState:
         extra = "\n\nContext:\n" + "\n".join(context_parts)
     extra += risk_prompt_block(archetype, lang)
 
-    messages = [SystemMessage(content=system_prompt + extra)] + state.messages
+    # Prefer structured context over full chat history to stay within TPM limits
+    # on Groq fallback models after primary (120b) TPD exhaustion.
+    recent = list(state.messages[-2:]) if state.messages else []
+    messages = [SystemMessage(content=system_prompt + extra)] + recent
 
     try:
         response = llm.invoke(messages)

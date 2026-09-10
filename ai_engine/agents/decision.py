@@ -123,7 +123,11 @@ def run_decision(state: StudyState) -> StudyState:
     if context_parts:
         extra = "\n\nFull Context:\n" + "\n".join(context_parts)
 
-    messages = [SystemMessage(content=system_prompt + extra)] + state.messages
+    # Decision context is already complete in `extra`. Do NOT append the full
+    # chat history — long Uber-like threads exceed Groq TPM on fallback models
+    # (gpt-oss-20b ~8k TPM) and block verdict generation (413 request too large).
+    recent = list(state.messages[-2:]) if state.messages else []
+    messages = [SystemMessage(content=system_prompt + extra)] + recent
 
     try:
         response = llm.invoke(messages)

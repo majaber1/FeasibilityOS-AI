@@ -391,7 +391,7 @@ def run_financial_analysis(state: StudyState) -> StudyState:
     explain_prompt = explain_prompt.replace("{{", "{").replace("}}", "}")
 
     try:
-        response = llm.invoke([SystemMessage(content=explain_prompt)] + state.messages)
+        response = llm.invoke([SystemMessage(content=explain_prompt)])
         response_text = response.content
     except Exception as e:
         state.error = None

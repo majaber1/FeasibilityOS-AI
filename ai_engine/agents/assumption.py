@@ -95,8 +95,14 @@ def run_assumptions(state: StudyState) -> StudyState:
     if context_parts:
         extra = "\n\nContext:\n" + "\n".join(context_parts)
     extra += assumption_prompt_block(archetype, lang)
+    extra += (
+        "\n\nIMPORTANT: every assumption field (key, value, source, confidence, low, base, high) "
+        "MUST be a JSON string, even when numeric (e.g. \"900000000\")."
+    )
 
-    messages = [SystemMessage(content=system_prompt + extra)] + state.messages
+    # Truncate chat history — long discovery threads exceed Groq 20b TPM (413).
+    recent = list(state.messages[-2:]) if state.messages else []
+    messages = [SystemMessage(content=system_prompt + extra)] + recent
 
     try:
         response = llm.invoke(messages)
@@ -110,16 +116,24 @@ def run_assumptions(state: StudyState) -> StudyState:
     if assumption_data:
         from ..models.study_state import Assumption
 
+        def _as_str(v):
+            if v is None:
+                return None
+            return v if isinstance(v, str) else str(v)
+
         assumptions = []
         for a in assumption_data.get("assumptions", []):
+            conf = _as_str(a.get("confidence") or "low") or "low"
+            if conf not in {"confirmed", "medium", "low"}:
+                conf = "low"
             assumptions.append(Assumption(
-                key=a.get("key", ""),
-                value=a.get("value", ""),
-                source=a.get("source", ""),
-                confidence=a.get("confidence", "low"),
-                low=a.get("low"),
-                base=a.get("base"),
-                high=a.get("high"),
+                key=_as_str(a.get("key")) or "",
+                value=_as_str(a.get("value")) or "",
+                source=_as_str(a.get("source")) or "",
+                confidence=conf,
+                low=_as_str(a.get("low")),
+                base=_as_str(a.get("base")),
+                high=_as_str(a.get("high")),
             ))
         state.assumptions = assumptions
 
