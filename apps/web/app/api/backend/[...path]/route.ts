@@ -16,14 +16,19 @@ async function proxy(request: NextRequest) {
   const rest = request.nextUrl.pathname.slice(PREFIX.length);
   const target = new URL(backendUrl(rest));
   request.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
-  const headers = new Headers();
+
+  // Build upstream headers from scratch. Do not forward inbound Vercel
+  // protection headers (they belong to this web deployment, not the AI API).
+  const headers = backendUpstreamHeaders();
   request.headers.forEach((value, key) => {
-    if (!HOP_BY_HOP.has(key.toLowerCase()) && key.toLowerCase() !== "cookie") headers.set(key, value);
+    const lower = key.toLowerCase();
+    if (HOP_BY_HOP.has(lower) || lower === "cookie") return;
+    if (lower.startsWith("x-vercel-")) return;
+    headers.set(key, value);
   });
   const session = request.cookies.get(SESSION_COOKIE)?.value;
   if (session) headers.set("authorization", `Bearer ${session}`);
-  // Apply after request headers so Preview SSO bypass is not overwritten.
-  backendUpstreamHeaders(headers).forEach((value, key) => headers.set(key, value));
+
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.arrayBuffer();
   const upstream = await fetch(target, { method: request.method, headers, body, cache: "no-store", redirect: "manual" });
   const responseHeaders = new Headers();
