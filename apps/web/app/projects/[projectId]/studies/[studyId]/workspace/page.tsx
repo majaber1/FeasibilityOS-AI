@@ -141,7 +141,8 @@ export default function StudyWorkspacePage() {
     }
     setHydrating(true);
     fetch(`${API_BASE}/api/v2/studies/${studyId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: "same-origin",
+      headers: studyFetchHeaders(token),
     })
       .then(async (r) => {
         const data = await r.json();
