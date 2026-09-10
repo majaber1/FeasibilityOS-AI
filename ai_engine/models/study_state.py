@@ -12,12 +12,38 @@ StudyPhase = Literal[
 
 ProjectArchetype = Literal[
     "saas_digital", "real_estate", "data_center",
-    "retail", "industrial", "services", "franchise", "unknown"
+    "retail", "industrial", "services", "franchise",
+    "government_contract", "unknown"
 ]
 
 DecisionVerdict = Literal[
-    "GO", "GO_WITH_CONDITIONS", "DEFER", "NO_GO", "INSUFFICIENT_EVIDENCE"
+    "GO", "GO_WITH_CONDITIONS", "NEED_MORE_VALIDATION", "DEFER", "NO_GO", "INSUFFICIENT_EVIDENCE"
 ]
+
+QuestionType = Literal[
+    "YES_NO",
+    "SINGLE_SELECT",
+    "MULTI_SELECT",
+    "NUMBER",
+    "CURRENCY",
+    "PERCENTAGE",
+    "DATE",
+    "FILE_UPLOAD",
+    "SHORT_TEXT",
+    "LONG_TEXT",
+]
+
+
+class DiscoveryQuestion(BaseModel):
+    id: str
+    prompt: str
+    question_type: QuestionType = "SHORT_TEXT"
+    options: List[str] = Field(default_factory=list)
+    required: bool = True
+    unit: Optional[str] = None
+    field_key: Optional[str] = None
+    answer: Optional[str | list[str] | float | int | bool] = None
+    answered: bool = False
 
 # Evidence may only use source-backed types. AI estimates are NEVER Evidence.
 EvidenceSourceType = Literal["official", "user_input", "document", "unverified"]
@@ -26,6 +52,7 @@ AssumptionOrigin = Literal[
     "user",
     "evidence_derived",
     "provisional_estimate",
+    "platform_derived",
 ]
 
 GateChoice = Literal["manual", "research", "provisional"]
@@ -46,6 +73,7 @@ class ProjectProfile(BaseModel):
     language: Literal["ar", "en"] = "ar"
     missing_information: List[str] = []
     recommended_model: str = ""
+    structured_answers: dict = Field(default_factory=dict)
 
 
 class Assumption(BaseModel):
@@ -60,6 +88,7 @@ class Assumption(BaseModel):
     status: Literal["draft", "approved", "rejected"] = "draft"
     rationale: Optional[str] = None
     critical: bool = False
+    previous_values: List[dict] = Field(default_factory=list)
 
 
 class Claim(BaseModel):
@@ -115,6 +144,7 @@ class StudyState(BaseModel):
     decision_version: int = 0
 
     workflow_meta: dict = Field(default_factory=dict)
+    discovery_questions: List[DiscoveryQuestion] = Field(default_factory=list)
 
     next_action: Optional[str] = None
     blocking_reason: Optional[str] = None
@@ -187,8 +217,8 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     },
     "READY_FOR_ANALYSIS": {"READY_FOR_ANALYSIS", "ANALYZED", "ASSUMPTIONS_REVIEW"},
     "ANALYZED": {"ANALYZED", "DECISION_READY"},
-    "DECISION_READY": {"DECISION_READY", "FUNDING_READY"},
-    "FUNDING_READY": {"FUNDING_READY"},
+    "DECISION_READY": {"DECISION_READY", "FUNDING_READY", "ANALYZED"},
+    "FUNDING_READY": {"FUNDING_READY", "DECISION_READY"},
 }
 
 

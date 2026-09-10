@@ -224,11 +224,13 @@ class TestOrchestratorRouting:
             "READY_FOR_ANALYSIS": "financial",
             "ANALYZED": "risk",
             "DECISION_READY": "decision",
-            "FUNDING_READY": END,
+            "FUNDING_READY": "funding",
         }
         for phase, expected_node in expected.items():
             state = StudyState(study_id="s1", project_id="p1", user_id="u1", phase=phase)
             assert route_by_phase(state) == expected_node, f"Phase {phase} should route to {expected_node}"
+
+        assert PHASE_TRANSITIONS["FUNDING_READY"] == "funding"
 
     def test_error_routes_to_error_handler(self):
         from ai_engine.orchestrator import route_by_phase

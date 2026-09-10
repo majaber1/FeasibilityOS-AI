@@ -108,6 +108,31 @@ def _provisional_assumptions(state: StudyState) -> list[Assumption]:
     """Deterministic provisional assumptions — NEVER written as Evidence claims."""
     sector = state.profile.sector if state.profile and state.profile.sector else "project"
     assumptions: list[Assumption] = []
+    answers = (state.profile.structured_answers if state.profile else {}) or {}
+    for key, value in answers.items():
+        if value is None or value == "" or value == []:
+            continue
+        if isinstance(value, bool):
+            rendered = "yes" if value else "no"
+        elif isinstance(value, list):
+            rendered = ", ".join(str(v) for v in value)
+        else:
+            rendered = str(value)
+        assumptions.append(
+            Assumption(
+                key=str(key)[:80],
+                value=rendered,
+                source="structured_discovery_answer",
+                confidence="medium",
+                origin="user",
+                status="draft",
+                base=rendered,
+                rationale="Captured from structured discovery answers; treated as editable assumption.",
+                critical=True,
+            )
+        )
+    if assumptions:
+        return assumptions
     for gap in _gap_list(state):
         key = gap[:80]
         assumptions.append(

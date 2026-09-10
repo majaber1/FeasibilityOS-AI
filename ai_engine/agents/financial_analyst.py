@@ -164,7 +164,16 @@ def _assumption_lookup(state: StudyState) -> dict[str, float]:
 def _deterministic_extract(state: StudyState) -> dict | None:
     """Build capex/revenues/costs from structured assumptions when LLM extraction fails."""
     vals = _assumption_lookup(state)
-    if not vals:
+    answers = (state.profile.structured_answers if state.profile else {}) or {}
+    archetype = state.profile.archetype if state.profile else "unknown"
+
+    # Merge numeric structured answers into lookup (discovery → finance bridge).
+    for key, raw in answers.items():
+        num = _parse_number(raw if not isinstance(raw, bool) else None)
+        if num is not None:
+            vals[str(key).lower()] = num
+
+    if not vals and not answers:
         return None
 
     def first(*needles: str) -> float | None:
@@ -173,49 +182,126 @@ def _deterministic_extract(state: StudyState) -> dict | None:
                 return value
         return None
 
-    capex = first("initial investment", "capex", "seed", "استثمار", "رأس المال")
-    atv = first("average trip", "atv", "ticket", "قيمة الرحلة", "متوسط")
-    take_rate = first("take-rate", "take rate", "commission", "عمولة")
-    rides = first("monthly rides", "rides/mo", "rides per month", "رحلات")
-    fixed_opex = first("fixed opex", "monthly fixed", "opex", "تشغيل")
-    variable = first("variable cost", "per ride", "تكلفة متغيرة")
+    capex = first(
+        "initial investment",
+        "capex",
+        "seed",
+        "استثمار",
+        "رأس المال",
+        "development_cost",
+        "funding_goal",
+        "remaining_construction_cost",
+        "required_funding",
+    )
     discount = first("discount rate", "معدل الخصم") or 0.12
-
-    if take_rate is not None and take_rate > 1:
-        take_rate = take_rate / 100.0
     if discount is not None and discount > 1:
         discount = discount / 100.0
 
     annual_revenues = None
     annual_costs = None
 
-    if atv is not None and take_rate is not None and rides is not None:
+    # --- Archetype-specific deterministic models ---
+    if archetype == "saas_digital":
+        price = first("subscription_price", "price", "pricing", "سعر")
+        customers = first("year1_customers", "customers", "عملاء")
+        cac = first("cac", "acquisition")
+        churn = first("churn", "تسرب") or 0
+        cloud = first("cloud", "ai_cost", "cloud_ai_cost") or 0
+        team = first("team", "team_cost", "تطوير") or 0
+        if price is not None and customers is not None:
+            # Monthly SaaS: price * customers * 12, light growth, churn drag
+            churn_f = (churn / 100.0) if churn > 1 else float(churn)
+            y1 = price * customers * 12 * max(0.0, 1.0 - churn_f * 6)
+            annual_revenues = [y1, y1 * 1.5, y1 * 1.5 * 1.4]
+            opex_m = (cac or 0) * (customers / 12.0) + cloud + team
+            annual_costs = [opex_m * 12, opex_m * 12 * 1.2, opex_m * 12 * 1.3]
+            if capex is None:
+                capex = first("development_cost") or (team * 12 if team else 0) or (customers * (cac or 0))
+
+    elif archetype == "real_estate":
+        units = first("units", "number_of_units", "وحدات")
+        price = first("selling_price", "rental_price", "سعر")
+        remaining = first("remaining_construction_cost", "required_funding")
+        incurred = first("cost_incurred", "cost")
+        if units is not None and price is not None:
+            # Sell-through over 3 years: 40/35/25
+            gross = units * price
+            annual_revenues = [gross * 0.4, gross * 0.35, gross * 0.25]
+            build = remaining or 0
+            annual_costs = [build * 0.5, build * 0.35, build * 0.15]
+            if capex is None:
+                capex = (incurred or 0) + (remaining or 0)
+
+    elif archetype == "data_center":
+        racks = first("rack", "rack_capacity")
+        util = first("utilization", "اشغال") or 0.6
+        if util > 1:
+            util = util / 100.0
+        rev_rack = first("revenue", "rack_revenue") or 15000  # SAR/rack/mo placeholder only if user gave racks
+        opex = first("opex") or 0
+        capex_ans = first("capex")
+        if racks is not None:
+            monthly = racks * rev_rack * util
+            annual_revenues = [monthly * 12, monthly * 12 * 1.15, monthly * 12 * 1.25]
+            annual_costs = [
+                (opex or monthly * 0.45) * 12,
+                (opex or monthly * 0.45) * 12 * 1.1,
+                (opex or monthly * 0.45) * 12 * 1.15,
+            ]
+            if capex is None:
+                capex = capex_ans
+
+    elif archetype == "government_contract":
+        award = first("award_value", "contract_value", "قيمة")
+        margin = first("expected_margin", "margin", "هامش") or 10
+        if margin > 1:
+            margin = margin / 100.0
+        exec_cost = first("execution_costs", "execution")
+        if award is not None:
+            # Recognize revenue over contract years (assume 2–3)
+            annual_revenues = [award * 0.4, award * 0.35, award * 0.25]
+            cost_total = exec_cost if exec_cost is not None else award * (1 - margin)
+            annual_costs = [cost_total * 0.45, cost_total * 0.35, cost_total * 0.2]
+            if capex is None:
+                capex = first("cash_flow_gap", "financing_need") or cost_total * 0.2
+
+    # Legacy marketplace / rideshare extraction
+    atv = first("average trip", "atv", "ticket", "قيمة الرحلة", "متوسط")
+    take_rate = first("take-rate", "take rate", "commission", "عمولة")
+    rides = first("monthly rides", "rides/mo", "rides per month", "رحلات")
+    fixed_opex = first("fixed opex", "monthly fixed", "opex", "تشغيل")
+    variable = first("variable cost", "per ride", "تكلفة متغيرة")
+
+    if take_rate is not None and take_rate > 1:
+        take_rate = take_rate / 100.0
+
+    if annual_revenues is None and atv is not None and take_rate is not None and rides is not None:
         monthly_revenue = atv * take_rate * rides
-        # Simple ramp: Y1 base, Y2 +40%, Y3 +40% again
         annual_revenues = [
             monthly_revenue * 12,
             monthly_revenue * 12 * 1.4,
             monthly_revenue * 12 * 1.4 * 1.3,
         ]
+        monthly_cost = (fixed_opex or 0) + (variable or 0) * rides
+        annual_costs = [monthly_cost * 12, monthly_cost * 12 * 1.2, monthly_cost * 12 * 1.3]
 
-    if fixed_opex is not None:
-        var = variable or 0.0
-        ride_count = rides or 0.0
-        monthly_cost = fixed_opex + (var * ride_count)
-        annual_costs = [
-            monthly_cost * 12,
-            monthly_cost * 12 * 1.15,
-            monthly_cost * 12 * 1.25,
-        ]
+    if annual_revenues is None:
+        rev = first("annual revenue", "revenue_y1", "year1_revenue", "إيراد")
+        if rev is not None:
+            annual_revenues = [rev, rev * 1.2, rev * 1.4]
+    if annual_costs is None:
+        cost = first("annual cost", "annual opex", "cost_y1", "تكاليف")
+        if cost is not None:
+            annual_costs = [cost, cost * 1.1, cost * 1.15]
 
-    if capex is None and annual_revenues is None and annual_costs is None:
+    if capex is None and annual_revenues is None:
         return None
 
     return {
         "capex": capex,
         "annual_revenues": annual_revenues,
         "annual_costs": annual_costs,
-        "discount_rate": discount if discount is not None else 0.12,
+        "discount_rate": discount,
     }
 
 
@@ -283,14 +369,81 @@ def run_financial_analysis(state: StudyState) -> StudyState:
     extracted = _extract_financials_from_assumptions(state)
 
     if not extracted:
-        state.error = "Could not extract financial data from assumptions." if lang == "en" else "لم يتم استخراج البيانات المالية من الافتراضات."
-        state.next_action = "retry"
+        missing = []
+        keys = {(a.key or "").lower() for a in (state.assumptions or [])}
+        for needle, label in (
+            ("capex", "capex/initial_investment"),
+            ("revenue", "revenue"),
+            ("cost", "opex/costs"),
+            ("customer", "customers"),
+            ("price", "pricing"),
+        ):
+            if not any(needle in k for k in keys):
+                missing.append(label)
+        state.financial_results = {
+            "status": "MODEL_INCOMPLETE",
+            "reason": "INSUFFICIENT_DATA",
+            "missing_data": missing or ["financial_assumptions"],
+            "analysis_complete": False,
+            "npv": None,
+            "irr": None,
+            "payback_months": None,
+            "scenarios": {},
+        }
+        state.verdict = "NEED_MORE_VALIDATION"
+        state.phase = "ANALYZED"
+        state.next_action = "complete_financial_inputs"
+        msg = (
+            "Financial model incomplete — missing required inputs: "
+            + ", ".join(state.financial_results["missing_data"])
+            if lang == "en"
+            else "النموذج المالي غير مكتمل — المدخلات الناقصة: "
+            + ", ".join(state.financial_results["missing_data"])
+        )
+        state.messages.append(AIMessage(content=msg))
+        state.error = None
         return state
 
-    capex = extracted.get("capex") or 0
-    revenues = extracted.get("annual_revenues") or [0, 0, 0]
-    costs = extracted.get("annual_costs") or [0, 0, 0]
+    capex = extracted.get("capex")
+    revenues = extracted.get("annual_revenues")
+    costs = extracted.get("annual_costs")
     discount_rate = extracted.get("discount_rate") or 0.12
+
+    # Incomplete when revenue/cash-flow cannot be formed — do not fake NPV=-CAPEX.
+    if not revenues or all((r or 0) == 0 for r in revenues):
+        missing = ["annual_revenues"]
+        if capex is None:
+            missing.insert(0, "capex")
+        if not costs:
+            missing.append("annual_costs")
+        state.financial_results = {
+            "status": "MODEL_INCOMPLETE",
+            "reason": "INSUFFICIENT_DATA",
+            "missing_data": missing,
+            "analysis_complete": False,
+            "capex": capex,
+            "npv": None,
+            "irr": None,
+            "payback_months": None,
+            "scenarios": {},
+        }
+        state.verdict = "NEED_MORE_VALIDATION"
+        state.phase = "ANALYZED"
+        state.next_action = "complete_financial_inputs"
+        msg = (
+            "Financial model incomplete — cannot compute ROI/NPV without revenue/cash-flow. Missing: "
+            + ", ".join(missing)
+            if lang == "en"
+            else "النموذج المالي غير مكتمل — لا يمكن حساب العائد/صافي القيمة الحالية بدون إيرادات. الناقص: "
+            + ", ".join(missing)
+        )
+        state.messages.append(AIMessage(content=msg))
+        state.error = None
+        return state
+
+    capex = float(capex or 0)
+    revenues = list(revenues or [0, 0, 0])
+    costs = list(costs or [0, 0, 0])
 
     # Normalize lengths to 3 years
     while len(revenues) < 3:
@@ -316,6 +469,9 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         "irr": base["irr"],
         "payback_months": base["payback_months"],
         "scenarios": {
+            "BASE": {"npv": base["npv"], "irr": base["irr"], "payback_months": base["payback_months"]},
+            "UPSIDE": {"npv": optimistic["npv"], "irr": optimistic["irr"], "payback_months": optimistic["payback_months"]},
+            "DOWNSIDE": {"npv": conservative["npv"], "irr": conservative["irr"], "payback_months": conservative["payback_months"]},
             "optimistic": {"npv": optimistic["npv"], "irr": optimistic["irr"]},
             "base": {"npv": base["npv"], "irr": base["irr"]},
             "conservative": {"npv": conservative["npv"], "irr": conservative["irr"]},

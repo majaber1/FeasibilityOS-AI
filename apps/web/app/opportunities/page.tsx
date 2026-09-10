@@ -467,12 +467,12 @@ export default function OpportunitiesPage() {
                 </span>
               </div>
               <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                {ar ? "الفرص الاستثمارية والامتياز التجاري المعتمد" : "Verified Opportunities & Franchise Hub"}
+                {ar ? "رادار الفرص" : "Opportunity Radar"}
               </h1>
               <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-600 sm:text-sm">
                 {ar
-                  ? "بوابة استكشاف ومطابقة الفرص الاستثمارية وحزم الامتياز التجاري في المملكة العربية السعودية، مبنية على وثائق الجهات الرسمية المنشورة دون أرقام مفبركة أو نقاط ترجيح اصطناعية."
-                  : "Explore verified business and franchise opportunities across Saudi Arabia backed by authoritative official sources without synthetic scores."}
+                  ? "استكشف فرص الاستثمار، الامتياز التجاري، وبنك الأفكار — ثم حوّل الفرصة إلى دراسة قرار."
+                  : "Explore investment opportunities, franchises, and the idea bank — then turn an opportunity into a decision study."}
               </p>
             </div>
 
@@ -517,23 +517,25 @@ export default function OpportunitiesPage() {
               activeTab === "all" ? "bg-slate-900 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100"
             }`}
           >
-            {ar ? "جميع الفرص والامتياز" : "All Opportunities"}
+            {ar ? "بنك الأفكار" : "Idea Bank"}
           </button>
           <button
             onClick={() => setActiveTab("BUSINESS_OPPORTUNITY")}
             className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
               activeTab === "BUSINESS_OPPORTUNITY" ? "bg-slate-900 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100"
             }`}
+            data-testid="radar-investment-tab"
           >
-            {ar ? "الفرص التجارية والصناعية" : "Business Opportunities"}
+            {ar ? "فرص استثمارية" : "Investment Opportunities"}
           </button>
           <button
             onClick={() => setActiveTab("FRANCHISE")}
             className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
               activeTab === "FRANCHISE" ? "bg-slate-900 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100"
             }`}
+            data-testid="radar-franchise-tab"
           >
-            {ar ? "فرص الامتياز التجاري (الفرانشايز)" : "Franchise Brands"}
+            {ar ? "فرص الامتياز" : "Franchise Opportunities"}
           </button>
           <button
             data-testid="my-fit-tab"

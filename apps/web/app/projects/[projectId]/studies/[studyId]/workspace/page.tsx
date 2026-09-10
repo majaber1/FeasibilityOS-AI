@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 import { getToken, API_BASE } from "@/lib/api";
+import { DiscoveryQuestionsPanel, type DiscoveryQuestion } from "@/components/study/DiscoveryQuestionsPanel";
 
 type Message = {
   role: "user" | "assistant" | "system";
@@ -42,22 +43,26 @@ type StudyInfo = {
     stage: string;
     decision_goal: string;
     missing_information?: string[];
+    structured_answers?: Record<string, unknown>;
   } | null;
   gate_choice?: "manual" | "research" | "provisional" | string | null;
   evidence_status?: "not_started" | "empty" | "degraded" | "available" | string | null;
   blocking_reason?: string | null;
   claims?: Claim[];
   assumptions?: Assumption[];
+  discovery_questions?: DiscoveryQuestion[];
+  financial_results?: Record<string, unknown> | null;
+  decision_risks?: string[];
+  decision_conditions?: string[];
+  decision_rationale?: string | null;
+  verdict?: string | null;
   claims_count?: number;
   assumptions_count?: number;
-  financial_results?: Record<string, unknown> | null;
-  verdict: string | null;
-  decision_rationale: string | null;
-  decision_conditions?: string[];
-  decision_risks?: string[];
   messages?: Message[];
-  next_action: string | null;
-  error: string | null;
+  response?: string;
+  error?: string | null;
+  next_action?: string | null;
+  workflow_meta?: Record<string, unknown> | null;
 };
 
 type ItemAction =
@@ -83,6 +88,7 @@ const PHASE_LABELS: Record<string, { ar: string; en: string }> = {
 const VERDICT_COLORS: Record<string, string> = {
   GO: "bg-emerald-100 text-emerald-800",
   GO_WITH_CONDITIONS: "bg-amber-100 text-amber-800",
+  NEED_MORE_VALIDATION: "bg-orange-100 text-orange-800",
   DEFER: "bg-blue-100 text-blue-800",
   NO_GO: "bg-red-100 text-red-800",
   INSUFFICIENT_EVIDENCE: "bg-slate-100 text-slate-800",
@@ -92,6 +98,7 @@ const ORIGIN_LABELS: Record<string, { ar: string; en: string }> = {
   provisional_estimate: { ar: "تقدير مؤقت", en: "Provisional estimate" },
   evidence_derived: { ar: "مستنتج من الأدلة", en: "Evidence-derived" },
   user: { ar: "من المستخدم", en: "User-provided" },
+  platform_derived: { ar: "مشتق من المنصة", en: "Platform-derived" },
 };
 
 function stripJsonFences(text: string): string {
@@ -488,7 +495,7 @@ export default function StudyWorkspacePage() {
     }
   }
 
-  async function approveStage(stage: "evidence" | "assumptions") {
+  async function approveStage(stage: "evidence" | "assumptions" | "decision") {
     if (!study || loading) return;
     const token = getToken();
     if (!token) {
@@ -524,6 +531,39 @@ export default function StudyWorkspacePage() {
       ]);
       if (data.error) setError(data.error);
       else setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function postStudyAction(path: string, body?: Record<string, unknown>) {
+    if (!study || loading) return;
+    const token = getToken();
+    if (!token) {
+      setError(ar ? "الرجاء تسجيل الدخول" : "Please sign in");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/${path}`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: studyFetchHeaders(token),
+        body: JSON.stringify(body || {}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const detail = data.detail;
+        throw new Error(
+          Array.isArray(detail)
+            ? detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join("; ")
+            : detail || "Failed",
+        );
+      }
+      applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -603,9 +643,29 @@ export default function StudyWorkspacePage() {
   }
 
   const phaseLabel = study?.phase ? (PHASE_LABELS[study.phase]?.[locale] ?? study.phase) : "";
+  const pendingQuestions = (study?.discovery_questions || []).filter(
+    (q) => q.required !== false && !q.answered,
+  );
+  const showInformationGate =
+    study?.phase === "NEEDS_INFORMATION" && pendingQuestions.length === 0;
+  const fundingMeta = (study?.workflow_meta?.funding || null) as
+    | {
+        score_percent?: number;
+        blockers?: string[];
+        blocker_labels?: Record<string, string>;
+        matches?: { name?: string; name_ar?: string; score_percent?: number; reasons?: string[] }[];
+        use_of_funds_hints?: string[];
+      }
+    | null;
+  const reportMeta = study?.workflow_meta?.report as Record<string, unknown> | undefined;
+  const financialIncomplete = Boolean(
+    financial &&
+      (financial.status === "MODEL_INCOMPLETE" || financial.reason === "INSUFFICIENT_DATA"),
+  );
+  const scenarios = (financial?.scenarios || {}) as Record<string, Record<string, unknown>>;
 
   return (
-    <main className="container-page flex h-[calc(100vh-4rem)] flex-col py-4" data-testid="v2-study-workspace">
+    <main className="container-page flex min-h-[calc(100vh-4rem)] flex-col py-4" data-testid="v2-study-workspace">
       <header className="mb-4 flex items-center justify-between">
         <div>
           <Link href={`/projects`} className="text-sm text-brand-600 hover:underline">
@@ -635,6 +695,45 @@ export default function StudyWorkspacePage() {
         )}
       </header>
 
+      {study && (
+        <section
+          className="mb-4 grid gap-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 md:grid-cols-4"
+          data-testid="study-status-strip"
+        >
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-ink-500">{ar ? "نوع المشروع" : "Project type"}</p>
+            <p className="text-sm font-semibold text-ink-900" data-testid="study-archetype">
+              {study.profile?.archetype || "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-ink-500">{ar ? "المرحلة الحالية" : "Current phase"}</p>
+            <p className="text-sm font-semibold text-ink-900">{phaseLabel || study.phase}</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-ink-500">{ar ? "الإجراء الحالي" : "Current action"}</p>
+            <p className="text-sm font-semibold text-ink-900" data-testid="study-next-action">
+              {study.next_action || "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-ink-500">{ar ? "العوائق" : "Blockers"}</p>
+            <p className="text-sm font-semibold text-ink-900">
+              {study.blocking_reason ||
+                (financialIncomplete
+                  ? ar
+                    ? "نموذج مالي ناقص"
+                    : "Incomplete financial model"
+                  : pendingQuestions.length
+                    ? ar
+                      ? `${pendingQuestions.length} أسئلة مطلوبة`
+                      : `${pendingQuestions.length} required questions`
+                    : "—")}
+            </p>
+          </div>
+        </section>
+      )}
+
       {study?.profile && (
         <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs" data-testid="study-profile-panel">
           <div className="mb-2 flex flex-wrap gap-2">
@@ -661,17 +760,43 @@ export default function StudyWorkspacePage() {
                   ? "المسار المفضّل: إنشاء مسودة دراسة بالذكاء الاصطناعي (بحث عن مصادر). التقدير المؤقت احتياطي؛ الإكمال اليدوي اختياري للبيانات السرية أو غير المتاحة."
                   : "Preferred path: Generate AI Study Draft (research sources). Provisional estimates are a fallback; manual completion is optional for confidential or unavailable data."}
               </p>
-              <ul className="mt-1 list-disc ps-4">
-                {missing.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
             </div>
           )}
         </div>
       )}
 
-      {study?.phase === "NEEDS_INFORMATION" && (
+      {!!(study?.discovery_questions && study.discovery_questions.length) &&
+        (study.phase === "NEEDS_INFORMATION" || study.phase === "UNDERSTANDING") && (
+          <DiscoveryQuestionsPanel
+            key={`${study.study_id}-${study.discovery_questions.length}-${study.discovery_questions.filter((q) => q.answered).length}`}
+            questions={study.discovery_questions}
+            ar={ar}
+            loading={loading}
+            onSubmit={async (answers) => {
+              const token = getToken();
+              if (!token || !study) return;
+              setLoading(true);
+              setError(null);
+              try {
+                const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/answer-questions`, {
+                  method: "POST",
+                  credentials: "same-origin",
+                  headers: studyFetchHeaders(token),
+                  body: JSON.stringify({ answers }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Failed to save answers");
+                applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+              } finally {
+                setLoading(false);
+              }
+            }}
+          />
+        )}
+
+      {showInformationGate && (
         <div className="mb-3 flex flex-col gap-2" data-testid="information-gate-buttons">
           <button
             type="button"
@@ -727,7 +852,7 @@ export default function StudyWorkspacePage() {
       {showFilledPanels && (
         <div
           ref={filledPanelsRef}
-          className="mb-3 grid max-h-72 gap-3 overflow-y-auto md:grid-cols-2 xl:grid-cols-3"
+          className="mb-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3"
           data-testid="ai-filled-panels"
         >
           <section className="rounded-xl border border-slate-200 bg-white p-3" data-testid="claims-panel">
@@ -837,18 +962,94 @@ export default function StudyWorkspacePage() {
           )}
 
           {(financial || study?.verdict || study?.decision_rationale) && (
-            <section className="rounded-xl border border-slate-200 bg-white p-3" data-testid="decision-panel">
+            <section className="rounded-xl border border-slate-200 bg-white p-3 md:col-span-2 xl:col-span-3" data-testid="decision-panel">
               <h2 className="text-sm font-semibold text-ink-900">
                 {ar ? "التحليل والقرار" : "Analysis & decision"}
               </h2>
-              {financial && (
-                <div className="mt-2 space-y-1 text-xs text-ink-700">
+              {financialIncomplete && (
+                <div
+                  className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950"
+                  data-testid="financial-incomplete"
+                >
+                  <p className="font-semibold">
+                    {String(financial?.status || "MODEL_INCOMPLETE")} — {String(financial?.reason || "INSUFFICIENT_DATA")}
+                  </p>
+                  <ul className="mt-1 list-disc ps-4">
+                    {((financial?.missing_data as string[]) || []).map((m) => (
+                      <li key={m}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {financial && !financialIncomplete && (
+                <div className="mt-2 grid gap-2 text-xs text-ink-700 sm:grid-cols-4" data-testid="financial-metrics">
                   {"npv" in financial && <p>NPV: {String(financial.npv)}</p>}
                   {"irr" in financial && <p>IRR: {String(financial.irr)}</p>}
                   {"payback_months" in financial && (
                     <p>Payback (months): {String(financial.payback_months)}</p>
                   )}
                   {"capex" in financial && <p>CAPEX: {String(financial.capex)}</p>}
+                </div>
+              )}
+              {Object.keys(scenarios).length > 0 && (
+                <div className="mt-3" data-testid="scenarios-panel">
+                  <h3 className="text-xs font-semibold text-ink-800">{ar ? "السيناريوهات" : "Scenarios"}</h3>
+                  <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                    {["BASE", "UPSIDE", "DOWNSIDE", "base", "optimistic", "conservative"]
+                      .filter((k, i, arr) => scenarios[k] && arr.indexOf(k) === i)
+                      .filter((k) => {
+                        // Prefer BASE/UPSIDE/DOWNSIDE when present
+                        if (scenarios.BASE && ["base", "optimistic", "conservative"].includes(k)) return false;
+                        return true;
+                      })
+                      .map((key) => (
+                        <div key={key} className="rounded-lg bg-slate-50 p-2 text-xs">
+                          <p className="font-semibold">{key}</p>
+                          <p>NPV: {String(scenarios[key]?.npv ?? "—")}</p>
+                          <p>IRR: {String(scenarios[key]?.irr ?? "—")}</p>
+                        </div>
+                      ))}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      data-testid="scenario-challenge-customers"
+                      disabled={loading}
+                      onClick={() =>
+                        void postStudyAction("scenario-challenge", {
+                          revenue_multiplier: 0.7,
+                          note: ar ? "خفض عدد العملاء 30%" : "Cut customers 30%",
+                        })
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      {ar ? "خفض العملاء 30%" : "Customers −30%"}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="scenario-challenge-cost"
+                      disabled={loading}
+                      onClick={() =>
+                        void postStudyAction("scenario-challenge", {
+                          cost_multiplier: 1.15,
+                          note: ar ? "تكلفة البناء ارتفعت 15%" : "Construction cost +15%",
+                        })
+                      }
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      {ar ? "تكلفة +15%" : "Cost +15%"}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {(study?.decision_risks || []).length > 0 && (
+                <div className="mt-3" data-testid="risks-panel">
+                  <h3 className="text-xs font-semibold text-ink-800">{ar ? "المخاطر" : "Risks"}</h3>
+                  <ul className="mt-1 list-disc ps-4 text-xs text-ink-700">
+                    {study!.decision_risks!.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
               {study?.decision_rationale && (
@@ -860,6 +1061,69 @@ export default function StudyWorkspacePage() {
                     <li key={c}>{c}</li>
                   ))}
                 </ul>
+              )}
+              {study?.phase === "DECISION_READY" && study.verdict && (
+                <button
+                  type="button"
+                  data-testid="approve-decision"
+                  disabled={loading || ["INSUFFICIENT_EVIDENCE", "NEED_MORE_VALIDATION"].includes(study.verdict)}
+                  onClick={() => void approveStage("decision")}
+                  className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {ar ? "الموافقة على القرار والمتابعة للتمويل" : "Approve decision & continue to funding"}
+                </button>
+              )}
+            </section>
+          )}
+
+          {(fundingMeta || study?.phase === "FUNDING_READY") && (
+            <section className="rounded-xl border border-slate-200 bg-white p-3 md:col-span-2" data-testid="funding-panel">
+              <h2 className="text-sm font-semibold text-ink-900">
+                {ar ? "التمويل الذكي" : "Intelligent Funding"}
+              </h2>
+              {fundingMeta ? (
+                <div className="mt-2 space-y-2 text-xs text-ink-700">
+                  <p data-testid="funding-score">
+                    {ar ? "جاهزية مفسَّرة" : "Explained readiness"}: {fundingMeta.score_percent ?? 0}%
+                  </p>
+                  {(fundingMeta.blockers || []).length > 0 && (
+                    <ul className="list-disc ps-4 text-amber-800">
+                      {(fundingMeta.blockers || []).map((b) => (
+                        <li key={b}>{fundingMeta.blocker_labels?.[b] || b}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {(fundingMeta.use_of_funds_hints || []).length > 0 && (
+                    <p>
+                      {ar ? "استخدام التمويل" : "Use of funds"}:{" "}
+                      {(fundingMeta.use_of_funds_hints || []).join(" · ")}
+                    </p>
+                  )}
+                  <ul className="space-y-1">
+                    {(fundingMeta.matches || []).slice(0, 4).map((m) => (
+                      <li key={`${m.name}-${m.score_percent}`} className="rounded bg-slate-50 p-2">
+                        <p className="font-medium">{ar ? m.name_ar || m.name : m.name}</p>
+                        <p className="text-[11px] text-ink-500">{m.score_percent}% — {(m.reasons || [])[0]}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-ink-500">{ar ? "جارٍ تجهيز التمويل..." : "Preparing funding..."}</p>
+              )}
+              <button
+                type="button"
+                data-testid="generate-report"
+                disabled={loading}
+                onClick={() => void postStudyAction("generate-report")}
+                className="mt-3 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {ar ? "إنشاء التقرير النهائي" : "Generate final report"}
+              </button>
+              {reportMeta && (
+                <p className="mt-2 text-xs text-emerald-700" data-testid="report-ready">
+                  {ar ? "ملخص التقرير جاهز من حالة الدراسة المحفوظة." : "Report summary ready from persisted study state."}
+                </p>
               )}
             </section>
           )}
@@ -873,6 +1137,7 @@ export default function StudyWorkspacePage() {
               type="button"
               onClick={() => void approveStage("evidence")}
               disabled={loading || claims.length === 0}
+              data-testid="approve-evidence"
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               {ar ? "الموافقة على الأدلة" : "Approve Evidence"}
@@ -883,6 +1148,7 @@ export default function StudyWorkspacePage() {
               type="button"
               onClick={() => void approveStage("assumptions")}
               disabled={loading || assumptions.length === 0}
+              data-testid="approve-assumptions"
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               {ar ? "الموافقة على الافتراضات" : "Approve Assumptions"}

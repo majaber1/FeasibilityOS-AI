@@ -125,6 +125,11 @@ def _load_study(study_id: str, user_id: str) -> dict | None:
 
 def _save_study(study_id: str, state_dict: dict, user_id: str):
     state_dict = _sanitize_state_dict(state_dict)
+    # Persist structured discovery questions inside workflow_meta (no new column).
+    meta = dict(state_dict.get("workflow_meta") or {})
+    if state_dict.get("discovery_questions") is not None:
+        meta["discovery_questions"] = state_dict.get("discovery_questions") or []
+        state_dict["workflow_meta"] = meta
     now = datetime.now(timezone.utc).isoformat()
     db = _get_db_session()
     if db is not None:
@@ -322,6 +327,53 @@ class ItemActionRequest(BaseModel):
     note: Optional[str] = None
 
 
+class AnswerQuestionsRequest(BaseModel):
+    answers: list[dict] = Field(
+        default_factory=list,
+        description="[{id, value}] structured discovery answers",
+    )
+
+
+class ScenarioChallengeRequest(BaseModel):
+    revenue_multiplier: Optional[float] = 1.0
+    cost_multiplier: Optional[float] = 1.0
+    delay_months: Optional[float] = 0
+    occupancy: Optional[float] = None
+    note: Optional[str] = None
+
+
+async def _advance_pipeline(state, run_study_step, *, max_steps: int = 4):
+    """Run orchestrator steps until a human gate or idle (no duplicate engines)."""
+    for _ in range(max_steps):
+        before = (
+            state.phase,
+            state.verdict,
+            bool(state.financial_results),
+            len(state.decision_risks or []),
+        )
+        try:
+            state = await run_study_step(state)
+        except Exception as e:
+            state.error = f"AI service error: {e}"
+            break
+        if state.error:
+            break
+        # Stop once decision is presented for human review.
+        if state.phase == "DECISION_READY" and state.verdict and state.next_action == "present_decision":
+            break
+        if state.phase == "FUNDING_READY" and (state.workflow_meta or {}).get("funding"):
+            break
+        after = (
+            state.phase,
+            state.verdict,
+            bool(state.financial_results),
+            len(state.decision_risks or []),
+        )
+        if after == before:
+            break
+    return state
+
+
 def _normalize_profile_label(value: str | None, *, fallback: str) -> str:
     cleaned = (value or "").strip()
     if not cleaned or cleaned.lower() in {"unknown", "n/a", "na", "none", "null", "-", "غير معروف"}:
@@ -392,6 +444,9 @@ def _state_from_record(record: dict):
     # Legacy rows may lack new fields.
     state_data.setdefault("evidence_status", "not_started")
     state_data.setdefault("workflow_meta", {})
+    meta = state_data.get("workflow_meta") or {}
+    if not state_data.get("discovery_questions") and isinstance(meta, dict):
+        state_data["discovery_questions"] = meta.get("discovery_questions") or []
     state = StudyState(**state_data)
     for m in msgs:
         if isinstance(m, dict):
@@ -477,6 +532,10 @@ def _payload_from_state(
         "blocking_reason": state.blocking_reason,
         "error": state.error,
         "workflow_meta": state.workflow_meta or {},
+        "discovery_questions": [
+            q.model_dump() if hasattr(q, "model_dump") else q
+            for q in (state.discovery_questions or [])
+        ],
         "created_at": (record_meta or {}).get("created_at"),
         "updated_at": (record_meta or {}).get("updated_at"),
     }
@@ -565,6 +624,31 @@ async def send_message(study_id: str, req: StudyMessageRequest, user=Depends(get
             break
 
     return _payload_from_state(study_id, state, response=last_ai_message, record_meta=record)
+
+
+@router.post("/{study_id}/answer-questions")
+async def answer_questions(
+    study_id: str,
+    req: AnswerQuestionsRequest,
+    user=Depends(get_current_user),
+):
+    """Persist structured discovery answers (not freeform chat Markdown)."""
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    state = _state_from_record(record)
+    if state.phase not in {"NEEDS_INFORMATION", "UNDERSTANDING", "DRAFT"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"answer-questions only allowed during discovery (now {state.phase})",
+        )
+    from ai_engine.agents.discovery import apply_structured_answers
+
+    state = apply_structured_answers(state, req.answers or [])
+    _save_study(study_id, state.model_dump(), user_id)
+    return _payload_from_state(study_id, state, record_meta=record)
 
 
 @router.post("/{study_id}/information-gate")
@@ -717,6 +801,7 @@ async def approve_stage(
     valid_stages = {
         "evidence": ("EVIDENCE_REVIEW", "evidence_approved"),
         "assumptions": ("ASSUMPTIONS_REVIEW", "assumptions_approved"),
+        "decision": ("DECISION_READY", None),
     }
     if stage not in valid_stages:
         raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}")
@@ -732,17 +817,23 @@ async def approve_stage(
         raise HTTPException(status_code=400, detail="No assumptions to confirm.")
 
     if stage == "assumptions" and req.approved:
+        # Option A: bulk-approve eligible DRAFT critical/provisional assumptions.
+        # Rejected items remain blockers and must be replaced/edited/regenerated.
+        for a in state.assumptions:
+            is_critical = bool(getattr(a, "critical", False)) or getattr(a, "origin", None) == "provisional_estimate"
+            if is_critical and getattr(a, "status", "draft") == "draft":
+                a.status = "approved"  # type: ignore[attr-defined]
         critical = [
             a for a in state.assumptions
             if getattr(a, "critical", False) or getattr(a, "origin", None) == "provisional_estimate"
         ]
-        unapproved = [a for a in critical if getattr(a, "status", "draft") != "approved"]
-        if unapproved:
+        blocked = [a for a in critical if getattr(a, "status", "draft") != "approved"]
+        if blocked:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Critical assumptions require user approval before continuing "
-                    f"({len(unapproved)} still draft/rejected)."
+                    f"Cannot continue: {len(blocked)} critical assumption(s) are rejected. "
+                    "Edit, regenerate, or replace them before approving."
                 ),
             )
 
@@ -751,6 +842,16 @@ async def approve_stage(
             status_code=400,
             detail="No source-backed evidence to approve. Use research again or provisional assumptions.",
         )
+
+    if stage == "decision" and not req.approved:
+        if req.feedback:
+            from langchain_core.messages import HumanMessage
+
+            state.messages.append(HumanMessage(content=req.feedback))
+        _save_study(study_id, state.model_dump(), user_id)
+        return _payload_from_state(study_id, state, record_meta=record) | {
+            "message": "Decision feedback recorded."
+        }
 
     if not req.approved:
         if req.feedback:
@@ -762,16 +863,28 @@ async def approve_stage(
             "message": "Feedback recorded. Continue the conversation."
         }
 
-    setattr(state, flag_field, True)
+    if flag_field:
+        setattr(state, flag_field, True)
     state.phase_history.append(f"{stage}_approved")
 
     if stage == "evidence":
         _set_phase(state, "ASSUMPTIONS_REVIEW", actor=user_id, reason="approve_evidence")
     elif stage == "assumptions":
         _set_phase(state, "READY_FOR_ANALYSIS", actor=user_id, reason="approve_assumptions")
+    elif stage == "decision":
+        if state.verdict in {None, "INSUFFICIENT_EVIDENCE", "NEED_MORE_VALIDATION"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot proceed to funding while decision is incomplete or insufficient.",
+            )
+        _set_phase(state, "FUNDING_READY", actor=user_id, reason="approve_decision")
 
     try:
-        state = await run_study_step(state)
+        if stage == "assumptions":
+            # Financial → risk → decision without dead-ending after one node.
+            state = await _advance_pipeline(state, run_study_step, max_steps=4)
+        else:
+            state = await run_study_step(state)
     except Exception as e:
         state.error = f"AI service error: {e}"
 
@@ -819,6 +932,18 @@ async def item_action(
         if target == "claim":
             item.statement = req.value
         else:
+            history = list(getattr(item, "previous_values", None) or [])
+            history.append(
+                {
+                    "value": item.value,
+                    "low": getattr(item, "low", None),
+                    "base": getattr(item, "base", None),
+                    "high": getattr(item, "high", None),
+                    "status": getattr(item, "status", None),
+                    "at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            item.previous_values = history[-50:]  # type: ignore[attr-defined]
             item.value = req.value
         item.status = "draft"
     elif action == "approve":
@@ -843,6 +968,16 @@ async def item_action(
                 detail="Regenerate is not allowed for Evidence without a research pass "
                 "(would risk synthetic Evidence). Use information-gate choice=research.",
             )
+        history = list(getattr(item, "previous_values", None) or [])
+        history.append(
+            {
+                "value": item.value,
+                "status": getattr(item, "status", None),
+                "at": datetime.now(timezone.utc).isoformat(),
+                "reason": "regenerate",
+            }
+        )
+        item.previous_values = history[-50:]  # type: ignore[attr-defined]
         # Mark for provisional regenerate of a single assumption.
         item.status = "draft"
         item.origin = "provisional_estimate"  # type: ignore[attr-defined]
@@ -860,6 +995,111 @@ async def item_action(
         state.assumptions[req.index] = item
 
     state.phase_history.append(f"item_action:{target}:{action}:{req.index}")
+    _save_study(study_id, state.model_dump(), user_id)
+    return _payload_from_state(study_id, state, record_meta=record)
+
+
+@router.post("/{study_id}/scenario-challenge")
+async def scenario_challenge(
+    study_id: str,
+    req: ScenarioChallengeRequest,
+    user=Depends(get_current_user),
+):
+    """User challenge → deterministic recalculation of BASE/UPSIDE/DOWNSIDE."""
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    if record.get("phase") not in {
+        "ANALYZED",
+        "DECISION_READY",
+        "FUNDING_READY",
+        "READY_FOR_ANALYSIS",
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail=f"scenario-challenge not allowed in phase {record.get('phase')}",
+        )
+    state = _state_from_record(record)
+    from ai_engine.agents.scenarios import apply_scenario_challenge
+
+    state = apply_scenario_challenge(
+        state,
+        {
+            "revenue_multiplier": req.revenue_multiplier,
+            "cost_multiplier": req.cost_multiplier,
+            "delay_months": req.delay_months,
+            "occupancy": req.occupancy,
+            "note": req.note,
+        },
+    )
+    # Material challenges should refresh decision if already decided.
+    if state.phase in {"DECISION_READY", "FUNDING_READY"} and state.financial_results:
+        _, run_study_step = _import_engine()
+        state.phase = "DECISION_READY"
+        state.verdict = None
+        try:
+            state = await run_study_step(state)
+        except Exception as e:
+            state.error = f"AI service error: {e}"
+    _save_study(study_id, state.model_dump(), user_id)
+    return _payload_from_state(study_id, state, record_meta=record)
+
+
+@router.post("/{study_id}/generate-report")
+async def generate_report(study_id: str, user=Depends(get_current_user)):
+    """Build report snapshot from persisted V2 study state."""
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    state = _state_from_record(record)
+    from ai_engine.agents.report import run_report
+
+    state = run_report(state)
+    _save_study(study_id, state.model_dump(), user_id)
+    return _payload_from_state(study_id, state, record_meta=record)
+
+
+@router.get("/{study_id}/report.pdf")
+async def download_report_pdf(study_id: str, user=Depends(get_current_user)):
+    """Arabic/English PDF from V2 state via existing reportlab generator."""
+    from fastapi.responses import Response
+
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    state = _state_from_record(record)
+    from ai_engine.agents.report import build_v2_report_context
+    from app.services.reporting import generate_pdf
+
+    ctx = build_v2_report_context(state)
+    # Ensure report snapshot exists
+    from ai_engine.agents.report import run_report
+
+    state = run_report(state)
+    _save_study(study_id, state.model_dump(), user_id)
+    data = generate_pdf(ctx, locale=state.language)
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="study-{study_id}.pdf"',
+        },
+    )
+
+
+@router.post("/{study_id}/advance")
+async def advance_study(study_id: str, user=Depends(get_current_user)):
+    """Continue pipeline when not at a human gate (no dead ends)."""
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    _, run_study_step = _import_engine()
+    state = _state_from_record(record)
+    state = await _advance_pipeline(state, run_study_step, max_steps=4)
     _save_study(study_id, state.model_dump(), user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
