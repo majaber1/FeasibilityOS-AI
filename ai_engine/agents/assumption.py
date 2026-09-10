@@ -5,6 +5,7 @@ import re
 
 from langchain_core.messages import AIMessage, SystemMessage
 
+from ..archetypes import assumption_prompt_block
 from ..config import get_llm
 from ..models.study_state import StudyState
 
@@ -83,6 +84,7 @@ def run_assumptions(state: StudyState) -> StudyState:
     llm = get_llm("assumptions")
 
     context_parts = []
+    archetype = state.profile.archetype if state.profile else "unknown"
     if state.profile:
         context_parts.append(f"Project: {state.profile.archetype} / {state.profile.sector}")
     if state.claims:
@@ -92,6 +94,7 @@ def run_assumptions(state: StudyState) -> StudyState:
     extra = ""
     if context_parts:
         extra = "\n\nContext:\n" + "\n".join(context_parts)
+    extra += assumption_prompt_block(archetype, lang)
 
     messages = [SystemMessage(content=system_prompt + extra)] + state.messages
 

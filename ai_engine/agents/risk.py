@@ -5,6 +5,7 @@ import re
 
 from langchain_core.messages import AIMessage, SystemMessage
 
+from ..archetypes import risk_prompt_block
 from ..config import get_llm
 from ..models.study_state import StudyState
 
@@ -91,6 +92,7 @@ def run_risk_analysis(state: StudyState) -> StudyState:
     llm = get_llm("risk")
 
     context_parts = []
+    archetype = state.profile.archetype if state.profile else "unknown"
     if state.profile:
         context_parts.append(f"Project: {state.profile.archetype} / {state.profile.sector} / Stage: {state.profile.stage}")
     if state.financial_results:
@@ -104,6 +106,7 @@ def run_risk_analysis(state: StudyState) -> StudyState:
     extra = ""
     if context_parts:
         extra = "\n\nContext:\n" + "\n".join(context_parts)
+    extra += risk_prompt_block(archetype, lang)
 
     messages = [SystemMessage(content=system_prompt + extra)] + state.messages
 

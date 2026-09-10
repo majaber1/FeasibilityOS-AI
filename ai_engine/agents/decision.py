@@ -5,6 +5,7 @@ import re
 
 from langchain_core.messages import AIMessage, SystemMessage
 
+from ..archetypes import recommended_model_for, risk_themes_for
 from ..config import get_llm
 from ..models.study_state import StudyState
 
@@ -88,10 +89,15 @@ def run_decision(state: StudyState) -> StudyState:
 
     context_parts = []
     if state.profile:
+        archetype = state.profile.archetype
         context_parts.append(
-            f"Project: {state.profile.archetype} / {state.profile.sector} / "
-            f"Stage: {state.profile.stage} / Goal: {state.profile.decision_goal}"
+            f"Project: {archetype} / {state.profile.sector} / "
+            f"Stage: {state.profile.stage} / Goal: {state.profile.decision_goal} / "
+            f"Model: {state.profile.recommended_model or recommended_model_for(archetype)}"
         )
+        themes = risk_themes_for(archetype)
+        if themes:
+            context_parts.append("Decision must reflect archetype-specific risks: " + "; ".join(themes))
     if state.claims:
         claims_text = "\n".join(f"- {c.statement} ({c.source_type}, conf: {c.confidence})" for c in state.claims[:10])
         context_parts.append(f"Evidence:\n{claims_text}")
