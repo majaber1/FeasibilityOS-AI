@@ -64,6 +64,8 @@ type StudyInfo = {
   claims_count?: number;
   assumptions_count?: number;
   financial_results?: Record<string, unknown> | null;
+  assumptions_version?: number;
+  assumptions_history?: Array<Record<string, unknown>>;
   report?: FeasibilityReport | null;
   report_outline?: Record<string, unknown> | null;
   verdict: string | null;
@@ -385,6 +387,20 @@ export default function StudyWorkspacePage() {
         )}
       </header>
 
+      {!getToken() && (
+        <div
+          className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          data-testid="workspace-auth-required"
+        >
+          {ar
+            ? "يلزم تسجيل الدخول لفتح مساحة عمل الدراسة مباشرة. "
+            : "Sign in is required to open this study workspace URL directly. "}
+          <Link href="/login" className="font-semibold underline">
+            {ar ? "تسجيل الدخول" : "Sign in"}
+          </Link>
+        </div>
+      )}
+
       {study?.profile && (
         <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs" data-testid="study-profile-panel">
           <div className="mb-2 flex flex-wrap gap-2">
@@ -516,6 +532,59 @@ export default function StudyWorkspacePage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {((study?.assumptions_history || []).length > 0 ||
+        (financial && typeof financial === "object" && financial.financial_change)) && (
+        <div
+          className="mb-3 rounded-xl border border-slate-200 bg-white p-3 text-xs"
+          data-testid="assumption-history-panel"
+        >
+          <h2 className="text-sm font-semibold text-ink-900">
+            {ar ? "تفسير تغيّر NPV وإصدارات الافتراضات" : "NPV change & assumption versions"}
+          </h2>
+          <p className="mt-1 text-[11px] text-ink-500" data-testid="assumptions-version-label">
+            {ar ? "إصدار الافتراضات الحالي:" : "Current assumptions version:"}{" "}
+            {study?.assumptions_version ?? 0}
+          </p>
+          {financial &&
+            typeof financial === "object" &&
+            financial.financial_change &&
+            typeof financial.financial_change === "object" && (
+              <div className="mt-2 rounded-lg bg-slate-50 p-2" data-testid="npv-change-explanation">
+                <p className="font-medium text-ink-800">
+                  NPV: {String((financial.financial_change as Record<string, unknown>).previous_npv ?? "—")}
+                  {" → "}
+                  {String((financial as Record<string, unknown>).npv ?? (financial.financial_change as Record<string, unknown>).npv ?? "—")}
+                  {(financial.financial_change as Record<string, unknown>).npv_delta != null
+                    ? ` (Δ ${String((financial.financial_change as Record<string, unknown>).npv_delta)})`
+                    : ""}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-[11px] text-ink-600">
+                  {String((financial.financial_change as Record<string, unknown>).explanation || "")}
+                </p>
+              </div>
+            )}
+          <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto" data-testid="assumption-history-list">
+            {[...(study?.assumptions_history || [])].slice().reverse().map((entry, idx) => (
+              <li key={idx} className="rounded-lg bg-slate-50 p-2">
+                <p className="font-medium">
+                  v{String(entry.version ?? "?")}
+                  {entry.kind ? ` · ${String(entry.kind)}` : ""}
+                  {entry.npv_at_version != null ? ` · NPV ${String(entry.npv_at_version)}` : ""}
+                </p>
+                {Array.isArray(entry.changed_keys) && entry.changed_keys.length > 0 && (
+                  <p className="text-[11px] text-ink-500">
+                    Changed: {(entry.changed_keys as unknown[]).map(String).join(", ")}
+                  </p>
+                )}
+                {entry.note ? (
+                  <p className="mt-1 text-[11px] text-ink-600 whitespace-pre-wrap">{String(entry.note)}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

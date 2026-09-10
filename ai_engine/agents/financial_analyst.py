@@ -419,6 +419,66 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         computed["warnings"] = []
         state.financial_results = computed
 
+
+    # Record NPV against the active assumptions version for auditability (display only).
+    try:
+        from datetime import datetime, timezone
+        fr = state.financial_results if isinstance(state.financial_results, dict) else {}
+        cur_v = int(getattr(state, "assumptions_version", 0) or 0)
+        history = list(getattr(state, "assumptions_history", None) or [])
+        prev_npv = None
+        for entry in reversed(history):
+            if entry.get("npv_at_version") is not None and int(entry.get("version") or -1) < cur_v:
+                prev_npv = entry.get("npv_at_version")
+                break
+        change = {
+            "assumptions_version": cur_v,
+            "npv": fr.get("npv"),
+            "irr": fr.get("irr"),
+            "payback_months": fr.get("payback_months"),
+            "previous_npv": prev_npv,
+            "npv_delta": (None if prev_npv is None or fr.get("npv") is None
+                         else float(fr.get("npv")) - float(prev_npv)),
+            "changed_keys": (history[-1].get("changed_keys") if history else []),
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "explanation": (
+                f"NPV recalculated under assumptions_version={cur_v}."
+                + (f" Prior NPV at earlier version was {prev_npv}." if prev_npv is not None else "")
+                + (f" Changed keys: {', '.join((history[-1].get('changed_keys') or [])[:12])}."
+                   if history and history[-1].get("changed_keys") else "")
+            ),
+        }
+        fr = {**fr, "financial_change": change}
+        # Also stamp the newest history row that matches this version once results exist.
+        if history and int(history[-1].get("version") or -1) == cur_v - 0:
+            # current version's results; keep prior rows' npv_at_version intact
+            pass
+        # Append a results marker tied to current version (does not alter calc inputs).
+        history.append({
+            "version": cur_v,
+            "recorded_at": change["recorded_at"],
+            "assumptions": [
+                {
+                    "key": a.key,
+                    "value": a.value,
+                    "source": a.source,
+                    "confidence": a.confidence,
+                    "low": a.low,
+                    "base": a.base,
+                    "high": a.high,
+                }
+                for a in (state.assumptions or [])
+            ],
+            "npv_at_version": fr.get("npv"),
+            "changed_keys": change.get("changed_keys") or [],
+            "note": change["explanation"],
+            "kind": "financial_results",
+        })
+        state.assumptions_history = history[-20:]
+        state.financial_results = fr
+    except Exception:
+        pass
+
     state.error = None
     state.phase = "ANALYZED"
     state.messages.append(AIMessage(content=response_text))

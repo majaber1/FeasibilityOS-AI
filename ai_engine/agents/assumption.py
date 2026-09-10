@@ -148,15 +148,49 @@ def run_assumptions(state: StudyState) -> StudyState:
                 base=_as_str(a.get("base")),
                 high=_as_str(a.get("high")),
             ))
+        prev_items = list(state.assumptions or [])
         prev_sig = [
-            (a.key, a.value, a.base) for a in (state.assumptions or [])
-        ] if state.assumptions else []
+            (a.key, a.value, a.base) for a in prev_items
+        ] if prev_items else []
         new_sig = [(a.key, a.value, a.base) for a in assumptions]
         changed = new_sig != prev_sig
 
-        state.assumptions = assumptions
         if changed or state.assumptions_version == 0:
-            state.assumptions_version = int(state.assumptions_version or 0) + 1
+            from datetime import datetime, timezone
+
+            prev_version = int(state.assumptions_version or 0)
+            prev_npv = None
+            if state.financial_results and isinstance(state.financial_results, dict):
+                prev_npv = state.financial_results.get("npv")
+            changed_keys = sorted({k for k, _, _ in set(new_sig) ^ set(prev_sig)})
+            history = list(getattr(state, "assumptions_history", None) or [])
+            history.append({
+                "version": prev_version,
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
+                "assumptions": [
+                    {
+                        "key": a.key,
+                        "value": a.value,
+                        "source": a.source,
+                        "confidence": a.confidence,
+                        "low": a.low,
+                        "base": a.base,
+                        "high": a.high,
+                    }
+                    for a in prev_items
+                ],
+                "npv_at_version": prev_npv,
+                "changed_keys": changed_keys,
+                "note": (
+                    "Assumptions updated; prior financial results invalidated for recalculation."
+                    if prev_items else
+                    "Initial assumptions version recorded."
+                ),
+            })
+            state.assumptions_history = history[-20:]  # keep last 20
+
+            state.assumptions = assumptions
+            state.assumptions_version = prev_version + 1
             # Invalidate downstream so challenge/recalc must rebuild the model.
             state.financial_results = None
             state.financial_snapshot_id = None
@@ -164,6 +198,8 @@ def run_assumptions(state: StudyState) -> StudyState:
             state.decision_rationale = None
             state.decision_conditions = []
             state.decision_risks = []
+        else:
+            state.assumptions = assumptions
 
         if assumption_data.get("assumptions_complete", False):
             state.phase = "READY_FOR_ANALYSIS"

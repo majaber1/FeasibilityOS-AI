@@ -68,6 +68,8 @@ class StudyState(BaseModel):
     assumptions: List[Assumption] = []
     assumptions_approved: bool = False
     assumptions_version: int = 0
+    # Snapshots of prior assumption sets so NPV changes can be explained.
+    assumptions_history: List[dict] = []
 
     financial_snapshot_id: Optional[str] = None
     financial_results: Optional[dict] = None

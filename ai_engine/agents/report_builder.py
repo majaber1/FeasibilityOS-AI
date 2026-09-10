@@ -58,11 +58,27 @@ def apply_evidence_verdict_override(state: StudyState) -> StudyState:
     return state
 
 
+def _recommendation_for(verdict: str | None) -> str:
+    mapping = {
+        "GO": "Proceed with investment subject to normal diligence.",
+        "GO_WITH_CONDITIONS": "Proceed only after stated conditions are met and re-checked.",
+        "DEFER": "Defer the investment decision until material gaps are closed.",
+        "NO_GO": "Do not proceed with the investment under current assumptions and evidence.",
+        "INSUFFICIENT_EVIDENCE": (
+            "Do not issue a firm investment verdict yet — gather higher-confidence evidence "
+            "and re-run analysis."
+        ),
+    }
+    return mapping.get(verdict or "INSUFFICIENT_EVIDENCE", mapping["INSUFFICIENT_EVIDENCE"])
+
+
 def build_report(state: StudyState, *, funding_package: dict | None = None) -> dict[str, Any]:
-    """Material report with separated Evidence / Assumptions / Calculations / Risks / Decision."""
+    """Material report with required REPORT_READY sections (persisted body, not outline-only)."""
     profile = state.profile
     fr = dict(state.financial_results or {})
     funding_package = funding_package or fr.get("funding_package") or {}
+    history = list(getattr(state, "assumptions_history", None) or [])
+    financial_change = fr.get("financial_change") if isinstance(fr.get("financial_change"), dict) else {}
 
     evidence = [
         {
@@ -85,7 +101,7 @@ def build_report(state: StudyState, *, funding_package: dict | None = None) -> d
         }
         for a in (state.assumptions or [])
     ]
-    calculations = {
+    financial_metrics = {
         "npv": fr.get("npv"),
         "irr": fr.get("irr"),
         "payback_months": fr.get("payback_months"),
@@ -95,11 +111,33 @@ def build_report(state: StudyState, *, funding_package: dict | None = None) -> d
         "scenarios": fr.get("scenarios") or fr.get("scenario_table") or {},
         "revenue_projections": fr.get("revenue_projections"),
         "cost_projections": fr.get("cost_projections"),
+        "assumptions_version": int(getattr(state, "assumptions_version", 0) or 0),
+        "previous_npv": financial_change.get("previous_npv"),
+        "npv_delta": financial_change.get("npv_delta"),
+        "change_explanation": financial_change.get("explanation"),
     }
     risks = list(state.decision_risks or [])
     mean_conf = mean_evidence_confidence(state)
+    verdict = state.verdict
+    recommendation = _recommendation_for(verdict)
+
+    exec_bits = [
+        f"Archetype: {(profile.archetype if profile else 'unknown')}.",
+        f"Verdict: {verdict or 'pending'}.",
+        f"NPV={financial_metrics.get('npv')}, IRR={financial_metrics.get('irr')}, "
+        f"Payback={financial_metrics.get('payback_months')}m.",
+        f"Evidence claims={len(evidence)} (mean confidence="
+        f"{mean_conf if mean_conf is not None else 'n/a'}).",
+        f"Assumptions version={getattr(state, 'assumptions_version', 0)}.",
+        recommendation,
+    ]
 
     sections = {
+        "executive_summary": {
+            "title": "Executive summary",
+            "summary": " ".join(exec_bits),
+            "items": exec_bits,
+        },
         "evidence": {
             "title": "Evidence",
             "summary": f"{len(evidence)} claims; mean confidence={mean_conf if mean_conf is not None else 'n/a'}",
@@ -107,16 +145,39 @@ def build_report(state: StudyState, *, funding_package: dict | None = None) -> d
         },
         "assumptions": {
             "title": "Assumptions",
-            "summary": f"{len(assumptions)} assumptions (version {getattr(state, 'assumptions_version', 0)})",
+            "summary": (
+                f"{len(assumptions)} assumptions (version {getattr(state, 'assumptions_version', 0)}); "
+                f"{len(history)} history snapshots"
+            ),
             "items": assumptions,
+            "history": history,
         },
+        "financial_results": {
+            "title": "Financial results",
+            "summary": (
+                f"NPV={financial_metrics.get('npv')}, IRR={financial_metrics.get('irr')}, "
+                f"Payback={financial_metrics.get('payback_months')}m"
+                + (
+                    f"; ΔNPV={financial_metrics.get('npv_delta')}"
+                    if financial_metrics.get("npv_delta") is not None
+                    else ""
+                )
+            ),
+            "metrics": financial_metrics,
+            "items": (
+                [financial_change["explanation"]]
+                if financial_change.get("explanation")
+                else []
+            ),
+        },
+        # Keep calculations as an alias of financial_results for backward-compatible UI keys.
         "calculations": {
             "title": "Calculations",
             "summary": (
-                f"NPV={calculations.get('npv')}, IRR={calculations.get('irr')}, "
-                f"Payback={calculations.get('payback_months')}m"
+                f"NPV={financial_metrics.get('npv')}, IRR={financial_metrics.get('irr')}, "
+                f"Payback={financial_metrics.get('payback_months')}m"
             ),
-            "metrics": calculations,
+            "metrics": financial_metrics,
         },
         "risks": {
             "title": "Risks",
@@ -125,10 +186,16 @@ def build_report(state: StudyState, *, funding_package: dict | None = None) -> d
         },
         "decision_rationale": {
             "title": "Decision rationale",
-            "verdict": state.verdict,
+            "verdict": verdict,
             "rationale": state.decision_rationale,
             "conditions": list(state.decision_conditions or []),
             "decision_version": getattr(state, "decision_version", 0),
+        },
+        "recommendation": {
+            "title": "Recommendation",
+            "summary": recommendation,
+            "verdict": verdict,
+            "items": [recommendation, *(state.decision_conditions or [])],
         },
     }
 
@@ -137,17 +204,20 @@ def build_report(state: StudyState, *, funding_package: dict | None = None) -> d
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "phase": "REPORT_READY",
         "archetype": profile.archetype if profile else "unknown",
-        "verdict": state.verdict,
+        "verdict": verdict,
         "assumptions_version": int(getattr(state, "assumptions_version", 0) or 0),
         "decision_version": int(getattr(state, "decision_version", 0) or 0),
         "evidence_confidence_mean": mean_conf,
         "evidence_confidence_threshold": EVIDENCE_CONFIDENCE_THRESHOLD,
+        "assumptions_history": history,
         "section_order": [
+            "executive_summary",
             "evidence",
             "assumptions",
-            "calculations",
+            "financial_results",
             "risks",
             "decision_rationale",
+            "recommendation",
         ],
         "sections": sections,
         "funding_package": funding_package,

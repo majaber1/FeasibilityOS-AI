@@ -111,11 +111,13 @@ def run_funding(state: StudyState) -> StudyState:
     report_outline = {
         "title": report["title"],
         "sections": [
+            "Executive summary",
             "Evidence",
             "Assumptions",
-            "Calculations",
+            "Financial results",
             "Risks",
             "Decision rationale",
+            "Recommendation",
             "Funding readiness & recommended instruments",
         ],
         "section_order": report["section_order"],
@@ -148,11 +150,13 @@ def run_funding(state: StudyState) -> StudyState:
         *[f"- {x}" for x in book["avoid"]],
         "",
         "## Feasibility Report (persisted)",
+        f"- Executive summary: {report['sections']['executive_summary']['summary'][:160]}",
         f"- Evidence items: {len(report['sections']['evidence']['items'])}",
         f"- Assumptions: {len(report['sections']['assumptions']['items'])}",
-        f"- Calculations: {report['sections']['calculations']['summary']}",
+        f"- Financial results: {report['sections']['financial_results']['summary']}",
         f"- Risks: {len(report['sections']['risks']['items'])}",
         f"- Decision: {report['sections']['decision_rationale']['verdict']}",
+        f"- Recommendation: {report['sections']['recommendation']['summary']}",
     ]
     from langchain_core.messages import AIMessage
 
