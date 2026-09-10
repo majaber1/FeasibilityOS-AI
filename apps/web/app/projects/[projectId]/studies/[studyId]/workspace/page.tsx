@@ -76,6 +76,15 @@ function stripJsonFences(text: string): string {
   return text.replace(/```json[\s\S]*?```/g, "").trim();
 }
 
+/** Session auth uses an HTTP-only cookie; never send Authorization: Bearer session. */
+function studyFetchHeaders(token: string): HeadersInit {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token && token !== "session") {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 function applyStudyPayload(
   data: StudyInfo,
   setStudy: (s: StudyInfo) => void,
@@ -114,8 +123,13 @@ export default function StudyWorkspacePage() {
   const [study, setStudy] = useState<StudyInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const filledPanelsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if ((study?.claims_count || 0) > 0 || (study?.assumptions_count || 0) > 0) {
+      filledPanelsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, study?.claims_count, study?.assumptions_count]);
 
@@ -153,10 +167,7 @@ export default function StudyWorkspacePage() {
       const res = await fetch(`${API_BASE}/api/v2/studies`, {
         method: "POST",
         credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: studyFetchHeaders(token),
         body: JSON.stringify({
           project_id: projectId,
           language: locale,
@@ -221,10 +232,7 @@ export default function StudyWorkspacePage() {
       const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/message`, {
         method: "POST",
         credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: studyFetchHeaders(token),
         body: JSON.stringify({ message: text, language: locale }),
       });
       const data = await res.json();
@@ -260,18 +268,19 @@ export default function StudyWorkspacePage() {
   }
 
   async function approveStage(stage: string) {
-    if (!study) return;
+    if (!study || loading) return;
     const token = getToken();
-    if (!token) return;
+    if (!token) {
+      setError(ar ? "الرجاء تسجيل الدخول" : "Please sign in");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/approve/${stage}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "same-origin",
+        headers: studyFetchHeaders(token),
         body: JSON.stringify({ approved: true }),
       });
       const data = await res.json();
@@ -283,16 +292,29 @@ export default function StudyWorkspacePage() {
         throw new Error(message);
       }
       applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+      if (stage === "profile" && data.phase === "NEEDS_INFORMATION") {
+        throw new Error(
+          ar
+            ? "تعذر متابعة التأكيد. حدّث الصفحة وحاول مرة أخرى."
+            : "Confirm did not advance. Refresh the page and try again.",
+        );
+      }
       setMessages((prev) => [
         ...prev,
         {
           role: "system",
-          content: ar
-            ? `تمت الموافقة على مرحلة ${stage}. الانتقال للمرحلة التالية...`
-            : `Approved ${stage} stage. Moving to next phase...`,
+          content:
+            stage === "profile"
+              ? ar
+                ? "تم التأكيد. جارٍ تعبئة الأدلة والافتراضات بالتقديرات..."
+                : "Confirmed. Filling evidence and assumptions with estimates..."
+              : ar
+                ? `تمت الموافقة على مرحلة ${stage}. الانتقال للمرحلة التالية...`
+                : `Approved ${stage} stage. Moving to next phase...`,
         },
       ]);
       if (data.error) setError(data.error);
+      else setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -342,25 +364,46 @@ export default function StudyWorkspacePage() {
             )}
           </div>
           {missing.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-900">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900" data-testid="missing-information-box">
               <p className="font-semibold">{ar ? "معلومات ناقصة" : "Missing information"}</p>
               <p className="mt-1 text-[11px] text-amber-800">
                 {ar
-                  ? "يمكنك الإجابة في المحادثة، أو اضغط «تأكيد ومتابعة» ليكمل الذكاء الاصطناعي بتقديرات واضحة."
-                  : "Answer in chat, or click “Confirm & continue” and AI will proceed with explicit estimates."}
+                  ? "لا يلزم تعبئة كل عنصر يدوياً. اضغط الزر الأخضر فيستخدم الذكاء الاصطناعي تقديرات واضحة ويكمل الدراسة."
+                  : "You do not need to answer every item. Press the green button and AI will fill explicit estimates, then continue the study."}
               </p>
               <ul className="mt-1 list-disc ps-4">
                 {missing.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
+              {study.phase === "NEEDS_INFORMATION" && (
+                <button
+                  type="button"
+                  onClick={() => approveStage("profile")}
+                  disabled={loading}
+                  data-testid="confirm-profile-btn"
+                  className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {loading
+                    ? ar
+                      ? "جارٍ تعبئة التقديرات..."
+                      : "Filling estimates..."
+                    : ar
+                      ? "تأكيد ومتابعة — الذكاء الاصطناعي سيقدّر الباقي الآن"
+                      : "Confirm & continue — AI will estimate the rest now"}
+                </button>
+              )}
             </div>
           )}
         </div>
       )}
 
       {(claims.length > 0 || assumptions.length > 0 || financial || study?.verdict) && (
-        <div className="mb-3 grid max-h-56 gap-3 overflow-y-auto md:grid-cols-2 xl:grid-cols-3" data-testid="ai-filled-panels">
+        <div
+          ref={filledPanelsRef}
+          className="mb-3 grid max-h-56 gap-3 overflow-y-auto md:grid-cols-2 xl:grid-cols-3"
+          data-testid="ai-filled-panels"
+        >
           {claims.length > 0 && (
             <section className="rounded-xl border border-slate-200 bg-white p-3" data-testid="claims-panel">
               <h2 className="text-sm font-semibold text-ink-900">
@@ -427,34 +470,49 @@ export default function StudyWorkspacePage() {
         </div>
       )}
 
-      {(study?.phase === "NEEDS_INFORMATION" || study?.phase === "EVIDENCE_REVIEW" || study?.phase === "ASSUMPTIONS_REVIEW") && (
+      {(study?.phase === "EVIDENCE_REVIEW" || study?.phase === "ASSUMPTIONS_REVIEW") && (
         <div className="mb-3 flex gap-2">
-          {study.phase === "NEEDS_INFORMATION" && (
+          {study.phase === "EVIDENCE_REVIEW" && (
             <button
-              onClick={() => approveStage("profile")}
-              disabled={loading}
-              data-testid="confirm-profile-btn"
+              type="button"
+              onClick={() => approveStage("evidence")}
+              disabled={loading || claims.length === 0}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
-              {missing.length > 0
-                ? ar
-                  ? "تأكيد ومتابعة — الذكاء الاصطناعي سيقدّر الباقي"
-                  : "Confirm & continue — AI will estimate the rest"
-                : ar
-                  ? "تأكيد الملف الشخصي"
-                  : "Confirm Profile"}
-            </button>
-          )}
-          {study.phase === "EVIDENCE_REVIEW" && (
-            <button onClick={() => approveStage("evidence")} disabled={loading} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
               {ar ? "الموافقة على الأدلة" : "Approve Evidence"}
             </button>
           )}
           {study.phase === "ASSUMPTIONS_REVIEW" && (
-            <button onClick={() => approveStage("assumptions")} disabled={loading} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+            <button
+              type="button"
+              onClick={() => approveStage("assumptions")}
+              disabled={loading || assumptions.length === 0}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
               {ar ? "الموافقة على الافتراضات" : "Approve Assumptions"}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Keep Confirm available even when missing list is empty but phase is still gated */}
+      {study?.phase === "NEEDS_INFORMATION" && missing.length === 0 && (
+        <div className="mb-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => approveStage("profile")}
+            disabled={loading}
+            data-testid="confirm-profile-btn"
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {loading
+              ? ar
+                ? "جارٍ المتابعة..."
+                : "Continuing..."
+              : ar
+                ? "تأكيد الملف الشخصي والمتابعة"
+                : "Confirm Profile & continue"}
+          </button>
         </div>
       )}
 
