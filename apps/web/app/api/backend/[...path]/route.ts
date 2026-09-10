@@ -20,6 +20,10 @@ async function proxy(request: NextRequest) {
   request.headers.forEach((value, key) => { if (!HOP_BY_HOP.has(key.toLowerCase()) && key.toLowerCase() !== "cookie") headers.set(key, value); });
   const session = request.cookies.get(SESSION_COOKIE)?.value;
   if (session) headers.set("authorization", `Bearer ${session}`);
+  // Optional Preview-only bypass so the web BFF can reach a SSO-protected
+  // feasibilityos-ai Preview deployment without disabling Deployment Protection.
+  const protectionBypass = process.env.BACKEND_PROTECTION_BYPASS?.trim();
+  if (protectionBypass) headers.set("x-vercel-protection-bypass", protectionBypass);
   headers.set("x-request-id", request.headers.get("x-request-id") || crypto.randomUUID());
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.arrayBuffer();
   const upstream = await fetch(target, { method: request.method, headers, body, cache: "no-store", redirect: "manual" });
