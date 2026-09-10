@@ -11,6 +11,7 @@ from .agents.assumption import run_assumptions
 from .agents.financial_analyst import run_financial_analysis
 from .agents.risk import run_risk_analysis
 from .agents.decision import run_decision
+from .agents.funding import run_funding
 
 PHASE_TRANSITIONS = {
     "DRAFT": "discovery",
@@ -21,13 +22,40 @@ PHASE_TRANSITIONS = {
     "READY_FOR_ANALYSIS": "financial",
     "ANALYZED": "risk",
     "DECISION_READY": "decision",
-    "FUNDING_READY": END,
+    # First entry to funding runs the funding agent; subsequent messages can re-run it.
+    "FUNDING_READY": "funding",
+    "REPORT_READY": "funding",
 }
+
+_CHALLENGE_MARKERS = (
+    "CHALLENGE LOOP",
+    "CHALLENGE ASSUMPTION",
+    "REVISE ASSUMPTION",
+    "CHANGE ASSUMPTION",
+    "UPDATE ASSUMPTION",
+    "RECALCULATE WITH",
+)
+
+
+def _wants_challenge(state: StudyState) -> bool:
+    """User asked to revise a major assumption after the model was built."""
+    msgs = state.messages or []
+    if not msgs:
+        return False
+    last = msgs[-1]
+    content = getattr(last, "content", None)
+    if content is None and isinstance(last, dict):
+        content = last.get("content")
+    text = (content or "").upper()
+    return any(m in text for m in _CHALLENGE_MARKERS)
 
 
 def route_by_phase(state: StudyState) -> str:
     if state.error:
         return "error_handler"
+    # Explicit challenge: force assumption revision even after decision/funding.
+    if _wants_challenge(state) and state.profile_confirmed and state.evidence_approved:
+        return "assumptions"
     phase = state.phase
     return PHASE_TRANSITIONS.get(phase, "discovery")
 
@@ -47,6 +75,7 @@ def build_graph() -> StateGraph:
     graph.add_node("financial", run_financial_analysis)
     graph.add_node("risk", run_risk_analysis)
     graph.add_node("decision", run_decision)
+    graph.add_node("funding", run_funding)
     graph.add_node("error_handler", error_handler)
 
     graph.set_conditional_entry_point(route_by_phase)
@@ -57,6 +86,7 @@ def build_graph() -> StateGraph:
     graph.add_edge("financial", END)
     graph.add_edge("risk", END)
     graph.add_edge("decision", END)
+    graph.add_edge("funding", END)
     graph.add_edge("error_handler", END)
 
     return graph

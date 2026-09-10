@@ -100,6 +100,19 @@ def run_assumptions(state: StudyState) -> StudyState:
         "MUST be a JSON string, even when numeric (e.g. \"900000000\")."
     )
 
+    # If this turn is an explicit challenge, require applying the requested value.
+    last = state.messages[-1] if state.messages else None
+    last_text = ""
+    if last is not None:
+        last_text = getattr(last, "content", None) or (last.get("content") if isinstance(last, dict) else "") or ""
+    if "CHALLENGE" in last_text.upper() or "RECALCULATE WITH" in last_text.upper():
+        extra += (
+            "\n\nCHALLENGE MODE: The user's latest message revises a major assumption. "
+            "You MUST apply the requested key/value change in the assumptions JSON, "
+            "set assumptions_complete=true, and keep other assumptions stable unless "
+            "they directly depend on the challenged value."
+        )
+
     # Truncate chat history — long discovery threads exceed Groq 20b TPM (413).
     recent = list(state.messages[-2:]) if state.messages else []
     messages = [SystemMessage(content=system_prompt + extra)] + recent
@@ -135,13 +148,29 @@ def run_assumptions(state: StudyState) -> StudyState:
                 base=_as_str(a.get("base")),
                 high=_as_str(a.get("high")),
             ))
+        prev_sig = [
+            (a.key, a.value, a.base) for a in (state.assumptions or [])
+        ] if state.assumptions else []
+        new_sig = [(a.key, a.value, a.base) for a in assumptions]
+        changed = new_sig != prev_sig
+
         state.assumptions = assumptions
+        if changed or state.assumptions_version == 0:
+            state.assumptions_version = int(state.assumptions_version or 0) + 1
+            # Invalidate downstream so challenge/recalc must rebuild the model.
+            state.financial_results = None
+            state.financial_snapshot_id = None
+            state.verdict = None
+            state.decision_rationale = None
+            state.decision_conditions = []
+            state.decision_risks = []
 
         if assumption_data.get("assumptions_complete", False):
             state.phase = "READY_FOR_ANALYSIS"
             state.assumptions_approved = True
         else:
             state.phase = "ASSUMPTIONS_REVIEW"
+            state.assumptions_approved = False
 
     state.messages.append(AIMessage(content=response_text))
     state.next_action = "review_assumptions"

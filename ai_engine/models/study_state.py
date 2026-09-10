@@ -7,7 +7,7 @@ from langgraph.graph import add_messages
 StudyPhase = Literal[
     "DRAFT", "UNDERSTANDING", "NEEDS_INFORMATION",
     "EVIDENCE_REVIEW", "ASSUMPTIONS_REVIEW", "READY_FOR_ANALYSIS",
-    "ANALYZED", "DECISION_READY", "FUNDING_READY"
+    "ANALYZED", "DECISION_READY", "FUNDING_READY", "REPORT_READY",
 ]
 
 ProjectArchetype = Literal[
@@ -67,6 +67,7 @@ class StudyState(BaseModel):
 
     assumptions: List[Assumption] = []
     assumptions_approved: bool = False
+    assumptions_version: int = 0
 
     financial_snapshot_id: Optional[str] = None
     financial_results: Optional[dict] = None

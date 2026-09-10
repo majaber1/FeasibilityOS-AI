@@ -144,7 +144,8 @@ def run_decision(state: StudyState) -> StudyState:
         state.decision_conditions = decision_data.get("conditions", [])
         state.decision_risks = decision_data.get("key_risks", state.decision_risks)
         state.decision_version += 1
-        state.phase = "DECISION_READY"
+        # After a verdict is issued, advance into funding readiness.
+        state.phase = "FUNDING_READY"
 
     state.messages.append(AIMessage(content=response_text))
     state.next_action = "present_decision"
