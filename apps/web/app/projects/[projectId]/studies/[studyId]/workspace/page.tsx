@@ -535,58 +535,66 @@ export default function StudyWorkspacePage() {
         </div>
       )}
 
-      {((study?.assumptions_history || []).length > 0 ||
-        (financial && typeof financial === "object" && financial.financial_change)) && (
-        <div
-          className="mb-3 rounded-xl border border-slate-200 bg-white p-3 text-xs"
-          data-testid="assumption-history-panel"
-        >
-          <h2 className="text-sm font-semibold text-ink-900">
-            {ar ? "تفسير تغيّر NPV وإصدارات الافتراضات" : "NPV change & assumption versions"}
-          </h2>
-          <p className="mt-1 text-[11px] text-ink-500" data-testid="assumptions-version-label">
-            {ar ? "إصدار الافتراضات الحالي:" : "Current assumptions version:"}{" "}
-            {study?.assumptions_version ?? 0}
-          </p>
-          {financial &&
-            typeof financial === "object" &&
-            financial.financial_change &&
-            typeof financial.financial_change === "object" && (
+      {(() => {
+        const history = study?.assumptions_history || [];
+        const changeRaw =
+          financial && typeof financial === "object" ? financial.financial_change : null;
+        const change =
+          changeRaw && typeof changeRaw === "object"
+            ? (changeRaw as Record<string, unknown>)
+            : null;
+        if (history.length === 0 && !change) return null;
+        return (
+          <div
+            className="mb-3 rounded-xl border border-slate-200 bg-white p-3 text-xs"
+            data-testid="assumption-history-panel"
+          >
+            <h2 className="text-sm font-semibold text-ink-900">
+              {ar ? "تفسير تغيّر NPV وإصدارات الافتراضات" : "NPV change & assumption versions"}
+            </h2>
+            <p className="mt-1 text-[11px] text-ink-500" data-testid="assumptions-version-label">
+              {ar ? "إصدار الافتراضات الحالي:" : "Current assumptions version:"}{" "}
+              {study?.assumptions_version ?? 0}
+            </p>
+            {change && (
               <div className="mt-2 rounded-lg bg-slate-50 p-2" data-testid="npv-change-explanation">
                 <p className="font-medium text-ink-800">
-                  NPV: {String((financial.financial_change as Record<string, unknown>).previous_npv ?? "—")}
+                  NPV: {String(change.previous_npv ?? "—")}
                   {" → "}
-                  {String((financial as Record<string, unknown>).npv ?? (financial.financial_change as Record<string, unknown>).npv ?? "—")}
-                  {(financial.financial_change as Record<string, unknown>).npv_delta != null
-                    ? ` (Δ ${String((financial.financial_change as Record<string, unknown>).npv_delta)})`
-                    : ""}
+                  {String(
+                    (financial as Record<string, unknown>).npv ?? change.npv ?? "—",
+                  )}
+                  {change.npv_delta != null ? ` (Δ ${String(change.npv_delta)})` : ""}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-[11px] text-ink-600">
-                  {String((financial.financial_change as Record<string, unknown>).explanation || "")}
+                  {String(change.explanation || "")}
                 </p>
               </div>
             )}
-          <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto" data-testid="assumption-history-list">
-            {[...(study?.assumptions_history || [])].slice().reverse().map((entry, idx) => (
-              <li key={idx} className="rounded-lg bg-slate-50 p-2">
-                <p className="font-medium">
-                  v{String(entry.version ?? "?")}
-                  {entry.kind ? ` · ${String(entry.kind)}` : ""}
-                  {entry.npv_at_version != null ? ` · NPV ${String(entry.npv_at_version)}` : ""}
-                </p>
-                {Array.isArray(entry.changed_keys) && entry.changed_keys.length > 0 && (
-                  <p className="text-[11px] text-ink-500">
-                    Changed: {(entry.changed_keys as unknown[]).map(String).join(", ")}
+            <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto" data-testid="assumption-history-list">
+              {[...history].reverse().map((entry, idx) => (
+                <li key={idx} className="rounded-lg bg-slate-50 p-2">
+                  <p className="font-medium">
+                    v{String(entry.version ?? "?")}
+                    {entry.kind ? ` · ${String(entry.kind)}` : ""}
+                    {entry.npv_at_version != null ? ` · NPV ${String(entry.npv_at_version)}` : ""}
                   </p>
-                )}
-                {entry.note ? (
-                  <p className="mt-1 text-[11px] text-ink-600 whitespace-pre-wrap">{String(entry.note)}</p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+                  {Array.isArray(entry.changed_keys) && entry.changed_keys.length > 0 && (
+                    <p className="text-[11px] text-ink-500">
+                      Changed: {(entry.changed_keys as unknown[]).map(String).join(", ")}
+                    </p>
+                  )}
+                  {entry.note ? (
+                    <p className="mt-1 whitespace-pre-wrap text-[11px] text-ink-600">
+                      {String(entry.note)}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {(claims.length > 0 || assumptions.length > 0 || financial || study?.verdict) && (
         <div
