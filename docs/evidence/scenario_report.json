@@ -1,0 +1,216 @@
+{
+  "generated_at": "2026-09-10T23:23:27.135196+00:00",
+  "api": "https://feasibilityos-ai.vercel.app",
+  "scenarios": {
+    "1_uber_ride_hailing": {
+      "scenario": "Uber / ride-hailing (services)",
+      "result": "PASS",
+      "gates": {
+        "classification": true,
+        "questions_or_assumptions_type_adaptive": true,
+        "financial": true,
+        "risk": true,
+        "verdict": true,
+        "persistence": true,
+        "no_saas_bleed": true
+      },
+      "classification": "services",
+      "recommended_model": "general_v1",
+      "phase": "REPORT_READY",
+      "assumption_keys": [
+        "average_trip_value",
+        "take_rate",
+        "monthly_rides_year1",
+        "driver_acquisition_cost",
+        "promo_burn_pct",
+        "monthly_fixed_opex",
+        "initial_investment"
+      ],
+      "required_group_hits": {
+        "trip_or_ride": true,
+        "take_rate_or_commission": true,
+        "driver_supply": true,
+        "volume": true,
+        "investment": true
+      },
+      "financial": {
+        "analysis_complete": true,
+        "npv": -4057142.86,
+        "irr": -0.7888,
+        "capex": 5000000.0,
+        "payback_months": null
+      },
+      "risks": [
+        "Regulatory licensing challenges under Vision\u202f2030",
+        "Supply\u2011side acquisition of drivers/providers",
+        "Intense price wars eroding margins",
+        "Safety and insurance compliance requirements",
+        "Weak unit economics and insufficient cash runway"
+      ],
+      "verdict": "NO_GO",
+      "decision_rationale": "The financial projections for the Uper Ride platform indicate a negative NPV of -4.06\u202fM\u202fSAR and a negative IRR of -78.9% across all scenarios, implying that the project will not generate sufficient returns to justify the initial investment. Additionally, critical risks such as regulatory licensing under Vision\u202f2030, driver acquisition, price\u2011war pressure, safety/insurance compliance, and weak unit economics have no robust mitigation plans in place. These factors collectively render the venture unviable in its current form.",
+      "persistence": {
+        "refresh_1": {
+          "phase": "REPORT_READY",
+          "verdict": "NO_GO",
+          "npv": -4057142.86,
+          "nrisks": 5
+        },
+        "refresh_2": {
+          "phase": "REPORT_READY",
+          "verdict": "NO_GO",
+          "npv": -4057142.86,
+          "nrisks": 5
+        },
+        "stable": true
+      },
+      "saas_key_hits": []
+    },
+    "2_residential_real_estate": {
+      "scenario": "Residential real estate",
+      "result": "PASS",
+      "gates": {
+        "classification": true,
+        "questions_or_assumptions_type_adaptive": true,
+        "financial": true,
+        "risk": true,
+        "verdict": true,
+        "persistence": true,
+        "no_saas_bleed": true
+      },
+      "classification": "real_estate",
+      "recommended_model": "real_estate_v1",
+      "phase": "REPORT_READY",
+      "assumption_keys": [
+        "land_cost",
+        "construction_boq",
+        "unit_count",
+        "asp_per_unit",
+        "annual_absorption_units",
+        "sales_period_years",
+        "initial_investment"
+      ],
+      "required_group_hits": {
+        "land": true,
+        "construction_or_boq": true,
+        "units": true,
+        "sales": true,
+        "financing_or_investment": true
+      },
+      "financial": {
+        "analysis_complete": true,
+        "npv": -788520863.7,
+        "irr": null,
+        "capex": 630000000.0,
+        "payback_months": null
+      },
+      "risks": [
+        "Low absorption/sell\u2011through rate",
+        "Construction cost inflation",
+        "Permitting delays",
+        "Mortgage rate shock",
+        "Off\u2011plan default risk"
+      ],
+      "verdict": "NO_GO",
+      "decision_rationale": "All financial scenarios project a negative NPV (ranging from \u2013SAR 474\u202fM to \u2013SAR 1.1\u202fB) and no IRR is attainable under the current assumptions. The break\u2011even point is projected at the end of year\u202f3.5, yet the cash\u2011flow turns positive only after the full construction period, implying a very long payback horizon and high liquidity risk. Coupled with the high\u2011likelihood, high\u2011impact risks identified\u2014particularly low absorption/sell\u2011through, construction cost inflation, permitting delays, mortgage rate shock, and off\u2011plan default\u2014the project does not meet the feasibility threshold for investment. ",
+      "persistence": {
+        "refresh_1": {
+          "phase": "REPORT_READY",
+          "verdict": "NO_GO",
+          "npv": -788520863.7,
+          "nrisks": 5
+        },
+        "refresh_2": {
+          "phase": "REPORT_READY",
+          "verdict": "NO_GO",
+          "npv": -788520863.7,
+          "nrisks": 5
+        },
+        "stable": true
+      },
+      "saas_key_hits": []
+    },
+    "3_data_center": {
+      "scenario": "Data center",
+      "result": "PASS",
+      "gates": {
+        "classification": true,
+        "questions_or_assumptions_type_adaptive": true,
+        "financial": true,
+        "risk": true,
+        "verdict": true,
+        "persistence": true,
+        "no_saas_bleed": true
+      },
+      "classification": "data_center",
+      "recommended_model": "data_center_v1",
+      "phase": "REPORT_READY",
+      "assumption_keys": [
+        "it_load_mw",
+        "price_per_kw_month",
+        "year1_occupancy",
+        "year3_occupancy",
+        "year5_occupancy",
+        "pue",
+        "power_tariff_per_kwh",
+        "initial_investment",
+        "annual_opex_ex_power",
+        "rack_count",
+        "discount_rate",
+        "debt_pct",
+        "interest_rate"
+      ],
+      "required_group_hits": {
+        "mw": true,
+        "racks": true,
+        "utilization": true,
+        "pue": true,
+        "capex": true,
+        "opex": true
+      },
+      "financial": {
+        "analysis_complete": true,
+        "npv": -946455883.75,
+        "irr": -0.7662,
+        "capex": 900000000.0,
+        "payback_months": null
+      },
+      "risks": [
+        "Grid interconnection delay or denial",
+        "Power tariff escalation",
+        "Hyperscaler self\u2011build competition",
+        "PUE/cooling failure",
+        "ESG and water usage constraints",
+        "Regulatory approval delays",
+        "Supply chain disruptions",
+        "Currency volatility",
+        "Talent shortage for operations"
+      ],
+      "verdict": "NO_GO",
+      "decision_rationale": "The updated financial model shows a negative Net Present Value (NPV \u2248 \u2013950\u202fM\u202fSAR) and a negative Internal Rate of Return (IRR \u2248 \u201376\u202f%) across all scenarios, including the optimistic case. The project fails to cover debt service in the early years (DSCR < 1) and has no payback period. These financial outcomes, combined with critical risks such as grid interconnection delays, power tariff escalation, hyperscaler self\u2011build competition, PUE/cooling reliability, ESG and water constraints, and regulatory approval uncertainties, indicate that the project is not viable in its current form. The negati",
+      "persistence": {
+        "refresh_1": {
+          "phase": "REPORT_READY",
+          "verdict": "NO_GO",
+          "npv": -946455883.75,
+          "nrisks": 9
+        },
+        "refresh_2": {
+          "phase": "REPORT_READY",
+          "verdict": "NO_GO",
+          "npv": -946455883.75,
+          "nrisks": 9
+        },
+        "stable": true
+      },
+      "saas_key_hits": []
+    }
+  },
+  "notes": "SaaS bleed scored on current assumption keys + profile gaps only (not historical chat disclaimers).",
+  "overall": "PASS",
+  "cross_study_matrix": {
+    "uber_vs_residential_assumptions_differ": true,
+    "residential_vs_dc_assumptions_differ": true,
+    "uber_vs_dc_assumptions_differ": true
+  }
+}
