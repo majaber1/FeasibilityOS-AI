@@ -352,7 +352,8 @@ class TestFullJourney:
         assert data["profile"]["stage"] == "mvp"
 
     @patch("ai_engine.agents.discovery.get_llm")
-    def test_discovery_with_complete_info_skips_to_evidence(self, mock_get_llm):
+    def test_discovery_with_complete_info_still_uses_structured_questions(self, mock_get_llm):
+        """Even with rich description, V2 forces structured discovery questions (no Markdown dump)."""
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = _mock_llm_response(DISCOVERY_COMPLETE_RESPONSE)
         mock_get_llm.return_value = mock_llm
@@ -364,7 +365,10 @@ class TestFullJourney:
             "description": "SaaS project management platform. 299 SAR/month. 50 new customers/month target. 5% churn. 45K SAR monthly opex. CAC 500 SAR.",
         }, headers=headers)
         assert r.status_code == 200
-        assert r.json()["phase"] == "EVIDENCE_REVIEW"
+        data = r.json()
+        assert data["phase"] == "NEEDS_INFORMATION"
+        assert len(data.get("discovery_questions") or []) > 0
+        assert "###" not in (data.get("response") or "")
 
     @patch("ai_engine.agents.discovery.get_llm")
     def test_message_continues_discovery(self, mock_get_llm):
@@ -527,8 +531,14 @@ class TestPhaseByPhaseProgression:
             profile_json={"archetype": "saas_digital", "sector": "IT", "stage": "mvp",
                           "decision_goal": "investment", "missing_information": [],
                           "language": "ar", "recommended_model": "saas_v1"},
-            financial_results_json={"npv": 1234567, "irr": 0.345, "payback_months": 18},
+            financial_results_json={"npv": 1234567, "irr": 0.345, "payback_months": 18, "status": "OK", "analysis_complete": True},
             decision_risks=["market competition", "data localization"],
+            gate_choice="provisional",
+            evidence_status="empty",
+            assumptions_json=[
+                {"key": "customers", "value": "300", "source": "user", "confidence": "medium",
+                 "origin": "user", "status": "approved", "critical": True},
+            ],
         )
 
         r = client.post(f"/api/v2/studies/{sid}/message", json={
@@ -708,7 +718,8 @@ class TestLanguageHandling:
 
 class TestAIFailureHandling:
     @patch("ai_engine.agents.discovery.get_llm")
-    def test_ai_error_sets_error_field(self, mock_get_llm):
+    def test_ai_error_recovers_with_heuristic_discovery(self, mock_get_llm):
+        """LLM outage must not hard-fail discovery — heuristic catalog questions still load."""
         mock_llm = MagicMock()
         mock_llm.invoke.side_effect = Exception("Groq API rate limit exceeded")
         mock_get_llm.return_value = mock_llm
@@ -717,12 +728,13 @@ class TestAIFailureHandling:
         r = client.post("/api/v2/studies", json={
             "project_id": f"proj_{_uid()}",
             "language": "ar",
-            "description": "مشروع تطبيق",
+            "description": "مشروع تطبيق واتساب SaaS",
         }, headers=headers)
         assert r.status_code == 200
         data = r.json()
-        assert data["error"] is not None
-        assert "error" in data["error"].lower() or "rate limit" in data["error"].lower()
+        assert data["phase"] == "NEEDS_INFORMATION"
+        assert data.get("error") in (None, "")
+        assert len(data.get("discovery_questions") or []) > 0
 
     @patch("ai_engine.agents.discovery.get_llm")
     def test_ai_error_study_still_persists(self, mock_get_llm):
@@ -743,7 +755,7 @@ class TestAIFailureHandling:
         assert get_r.json()["study_id"] == sid
 
     @patch("ai_engine.agents.discovery.get_llm")
-    def test_ai_returns_no_json_stays_draft(self, mock_get_llm):
+    def test_ai_returns_no_json_uses_heuristic_needs_information(self, mock_get_llm):
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = _mock_llm_response(
             "I need more information about your project. Can you tell me more?"
@@ -754,10 +766,13 @@ class TestAIFailureHandling:
         r = client.post("/api/v2/studies", json={
             "project_id": f"proj_{_uid()}",
             "language": "en",
-            "description": "something",
+            "description": "WhatsApp AI SaaS platform",
         }, headers=headers)
         assert r.status_code == 200
-        assert r.json()["phase"] == "DRAFT"
+        data = r.json()
+        assert data["phase"] == "NEEDS_INFORMATION"
+        assert len(data.get("discovery_questions") or []) > 0
+        assert "###" not in (data.get("response") or "")
 
 
 # =============================================================================
