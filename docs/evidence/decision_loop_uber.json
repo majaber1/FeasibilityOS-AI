@@ -1,0 +1,246 @@
+{
+  "study_id": "study_7373f1139f96",
+  "phase": "REPORT_READY",
+  "previous": {
+    "verdict": "NO_GO",
+    "npv": -4057142.86,
+    "assumptions_version": 1,
+    "take_rate": "0.30"
+  },
+  "new": {
+    "verdict": "GO_WITH_CONDITIONS",
+    "npv": 11200000.0,
+    "irr": 2.6288,
+    "payback_months": 3.4,
+    "assumptions_version": 2,
+    "take_rate": "0.35"
+  },
+  "financial_change": {
+    "assumptions_version": 2,
+    "npv": 11200000.0,
+    "irr": 2.6288,
+    "payback_months": 3.4,
+    "previous_npv": -4057142.86,
+    "npv_delta": 15257142.86,
+    "changed_keys": [
+      "monthly_fixed_opex",
+      "monthly_rides_year1",
+      "promo_burn_pct",
+      "take_rate"
+    ],
+    "recorded_at": "2026-09-10T23:48:40.058268+00:00",
+    "explanation": "NPV recalculated under assumptions_version=2. Prior NPV at earlier version was -4057142.86. Changed keys: monthly_fixed_opex, monthly_rides_year1, promo_burn_pct, take_rate."
+  },
+  "assumption_diffs": [
+    {
+      "key": "monthly_fixed_opex",
+      "before_value": "0.00",
+      "after_value": "300000",
+      "before_base": "0.00",
+      "after_base": "300000"
+    },
+    {
+      "key": "monthly_rides_year1",
+      "before_value": "10000",
+      "after_value": "120000",
+      "before_base": "10000",
+      "after_base": "120000"
+    },
+    {
+      "key": "promo_burn_pct",
+      "before_value": "0.00",
+      "after_value": "10",
+      "before_base": "0.00",
+      "after_base": "10"
+    },
+    {
+      "key": "take_rate",
+      "before_value": "0.30",
+      "after_value": "0.35",
+      "before_base": "0.30",
+      "after_base": "0.35"
+    }
+  ],
+  "changed_keys_from_history": [
+    "monthly_fixed_opex",
+    "monthly_rides_year1",
+    "promo_burn_pct",
+    "take_rate"
+  ],
+  "history": [
+    {
+      "version": 1,
+      "recorded_at": "2026-09-10T23:48:37.462581+00:00",
+      "assumptions": [
+        {
+          "key": "average_trip_value",
+          "value": "40",
+          "source": "user_input",
+          "confidence": "medium",
+          "low": "40",
+          "base": "40",
+          "high": "40"
+        },
+        {
+          "key": "take_rate",
+          "value": "0.30",
+          "source": "ai_assumption",
+          "confidence": "medium",
+          "low": "0.30",
+          "base": "0.30",
+          "high": "0.30"
+        },
+        {
+          "key": "monthly_rides_year1",
+          "value": "10000",
+          "source": "user_input",
+          "confidence": "medium",
+          "low": "10000",
+          "base": "10000",
+          "high": "10000"
+        },
+        {
+          "key": "driver_acquisition_cost",
+          "value": "2000",
+          "source": "user_input",
+          "confidence": "medium",
+          "low": "2000",
+          "base": "2000",
+          "high": "2000"
+        },
+        {
+          "key": "promo_burn_pct",
+          "value": "0.00",
+          "source": "none",
+          "confidence": "low",
+          "low": "0.00",
+          "base": "0.00",
+          "high": "0.00"
+        },
+        {
+          "key": "monthly_fixed_opex",
+          "value": "0.00",
+          "source": "none",
+          "confidence": "low",
+          "low": "0.00",
+          "base": "0.00",
+          "high": "0.00"
+        },
+        {
+          "key": "initial_investment",
+          "value": "5000000",
+          "source": "user_input",
+          "confidence": "medium",
+          "low": "5000000",
+          "base": "5000000",
+          "high": "5000000"
+        }
+      ],
+      "npv_at_version": -4057142.86,
+      "changed_keys": [
+        "monthly_fixed_opex",
+        "monthly_rides_year1",
+        "promo_burn_pct",
+        "take_rate"
+      ],
+      "note": "Assumptions updated; prior financial results invalidated for recalculation."
+    },
+    {
+      "version": 2,
+      "recorded_at": "2026-09-10T23:48:40.058268+00:00",
+      "assumptions": [
+        {
+          "key": "average_trip_value",
+          "value": "40",
+          "source": "User\u2011provided typical short\u2011trip ticket (Riyadh)",
+          "confidence": "medium",
+          "low": "35",
+          "base": "40",
+          "high": "45"
+        },
+        {
+          "key": "take_rate",
+          "value": "0.35",
+          "source": "User challenge \u2013 revised take\u2011rate to 0.35",
+          "confidence": "medium",
+          "low": "0.35",
+          "base": "0.35",
+          "high": "0.35"
+        },
+        {
+          "key": "monthly_rides_year1",
+          "value": "120000",
+          "source": "User target of 10\u202f000 rides/month by month\u202f9 (extrapolated to 12\u202fmonths)",
+          "confidence": "medium",
+          "low": "100000",
+          "base": "120000",
+          "high": "140000"
+        },
+        {
+          "key": "driver_acquisition_cost",
+          "value": "2000",
+          "source": "User\u2011provided early\u2011cohort driver CAC",
+          "confidence": "medium",
+          "low": "1500",
+          "base": "2000",
+          "high": "2500"
+        },
+        {
+          "key": "promo_burn_pct",
+          "value": "10",
+          "source": "No explicit source \u2013 typical promotional discount rate for new ride\u2011hailing launches in the region",
+          "confidence": "low",
+          "low": "5",
+          "base": "10",
+          "high": "15"
+        },
+        {
+          "key": "monthly_fixed_opex",
+          "value": "300000",
+          "source": "Assumed fixed overhead (office, admin, tech) based on comparable Saudi start\u2011ups; no explicit source",
+          "confidence": "low",
+          "low": "250000",
+          "base": "300000",
+          "high": "350000"
+        },
+        {
+          "key": "initial_investment",
+          "value": "5000000",
+          "source": "Founders\u2011confirmed seed budget",
+          "confidence": "confirmed",
+          "low": "5000000",
+          "base": "5000000",
+          "high": "5000000"
+        }
+      ],
+      "npv_at_version": 11200000.0,
+      "changed_keys": [
+        "monthly_fixed_opex",
+        "monthly_rides_year1",
+        "promo_burn_pct",
+        "take_rate"
+      ],
+      "note": "NPV recalculated under assumptions_version=2. Prior NPV at earlier version was -4057142.86. Changed keys: monthly_fixed_opex, monthly_rides_year1, promo_burn_pct, take_rate.",
+      "kind": "financial_results"
+    }
+  ],
+  "decision_rationale": "The financial model shows a positive NPV (SAR\u202f11.2\u202fm) and IRR (2.63) under the base scenario, with a payback period of 3.4\u202fm SAR and a breakeven point of 0. These metrics satisfy the investment criteria for a ride\u2011hailing platform in Saudi Arabia. However, the project faces several high\u2011likelihood, high\u2011impact risks that must be mitigated before full commitment: regulatory licensing, intense competition, and a potentially eroding cash runway due to high promotional burn and fixed operating expenses. By addressing these risks through targeted actions, the project can proceed with a higher probability of success.",
+  "decision_conditions": [
+    "Secure a valid ride\u2011hailing license from the Ministry of Transport and CITC within the first 3 months of operation.",
+    "Implement a driver acquisition and retention program that keeps the average driver CAC below SAR\u202f2,000 and maintains a driver\u2011to\u2011ride ratio of at least 1:10.",
+    "Cap promotional spend at 10% of monthly revenue and establish KPI thresholds for marketing spend to prevent burn\u2011out.",
+    "Maintain a contingency reserve of at least 20% of the initial investment (SAR\u202f1\u202fm) to cover unforeseen regulatory or operational costs.",
+    "Negotiate flexible vendor contracts to keep fixed operating expenses within the SAR\u202f300k/month target."
+  ],
+  "report_sections": [
+    "executive_summary",
+    "evidence",
+    "assumptions",
+    "financial_results",
+    "calculations",
+    "risks",
+    "decision_rationale",
+    "recommendation"
+  ],
+  "recommendation": "Proceed only after stated conditions are met and re-checked."
+}
