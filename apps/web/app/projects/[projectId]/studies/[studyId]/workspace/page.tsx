@@ -473,8 +473,8 @@ export default function StudyWorkspacePage() {
             : "You chose to complete missing information yourself. Continue in chat."
           : choice === "research"
             ? ar
-              ? "جارٍ البحث عن أدلة مدعومة بمصادر..."
-              : "Researching source-backed evidence..."
+              ? "جارٍ إنشاء مسودة دراسة بالذكاء الاصطناعي — بحث عن أدلة مدعومة بمصادر..."
+              : "Generating AI Study Draft — researching source-backed evidence..."
             : ar
               ? "جارٍ إنشاء دراسة تقديرية — التقديرات تُحفظ كافتراضات فقط."
               : "Creating a provisional study — estimates are Assumptions only.";
@@ -658,8 +658,8 @@ export default function StudyWorkspacePage() {
               <p className="font-semibold">{ar ? "معلومات ناقصة" : "Missing information"}</p>
               <p className="mt-1 text-[11px] text-amber-800">
                 {ar
-                  ? "اختر أحد المسارات الثلاثة أدناه: أكمل بنفسك، ابحث عن مصادر، أو أنشئ دراسة تقديرية (الافتراضات فقط)."
-                  : "Choose one of the three paths below: complete yourself, research sources, or create a provisional study (Assumptions only)."}
+                  ? "المسار المفضّل: إنشاء مسودة دراسة بالذكاء الاصطناعي (بحث عن مصادر). التقدير المؤقت احتياطي؛ الإكمال اليدوي اختياري للبيانات السرية أو غير المتاحة."
+                  : "Preferred path: Generate AI Study Draft (research sources). Provisional estimates are a fallback; manual completion is optional for confidential or unavailable data."}
               </p>
               <ul className="mt-1 list-disc ps-4">
                 {missing.map((item) => (
@@ -672,36 +672,55 @@ export default function StudyWorkspacePage() {
       )}
 
       {study?.phase === "NEEDS_INFORMATION" && (
-        <div className="mb-3 grid gap-2 sm:grid-cols-3" data-testid="information-gate-buttons">
-          <button
-            type="button"
-            onClick={() => void submitInformationGate("manual")}
-            disabled={loading}
-            data-testid="gate-manual"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-3 text-left text-sm font-semibold text-ink-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
-          >
-            {ar ? "أكمل المعلومات الناقصة بنفسي" : "Complete the missing information myself"}
-          </button>
+        <div className="mb-3 flex flex-col gap-2" data-testid="information-gate-buttons">
           <button
             type="button"
             onClick={() => void submitInformationGate("research")}
             disabled={loading}
             data-testid="gate-research"
-            className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-3 text-left text-sm font-semibold text-sky-900 shadow-sm hover:bg-sky-100 disabled:opacity-50"
+            className="rounded-xl border-2 border-sky-500 bg-sky-600 px-4 py-4 text-left text-base font-bold text-white shadow-sm hover:bg-sky-700 disabled:opacity-50"
           >
-            {ar ? "ابحث عن المعلومات المتاحة" : "Research available information"}
+            <span className="block">
+              {ar ? "إنشاء مسودة دراسة بالذكاء الاصطناعي" : "Generate AI Study Draft"}
+            </span>
+            <span className="mt-1 block text-xs font-medium text-sky-100">
+              {ar
+                ? "المفضّل — ابحث عن المعلومات المتاحة من مصادر موثوقة"
+                : "Preferred — research available information from trusted sources"}
+            </span>
           </button>
-          <button
-            type="button"
-            onClick={() => void submitInformationGate("provisional")}
-            disabled={loading}
-            data-testid="gate-provisional"
-            className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3 text-left text-sm font-semibold text-emerald-900 shadow-sm hover:bg-emerald-100 disabled:opacity-50"
-          >
-            {ar
-              ? "أنشئ دراسة تقديرية باستخدام تقديرات"
-              : "Create a provisional study using estimates"}
-          </button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => void submitInformationGate("provisional")}
+              disabled={loading}
+              data-testid="gate-provisional"
+              className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3 text-left text-sm font-semibold text-emerald-900 shadow-sm hover:bg-emerald-100 disabled:opacity-50"
+            >
+              <span className="block">
+                {ar
+                  ? "أنشئ دراسة تقديرية باستخدام تقديرات"
+                  : "Create a provisional study using estimates"}
+              </span>
+              <span className="mt-1 block text-[11px] font-normal text-emerald-800">
+                {ar ? "احتياطي عند تعذّر التحقق" : "Fallback when verified data is unavailable"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void submitInformationGate("manual")}
+              disabled={loading}
+              data-testid="gate-manual"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-left text-sm font-medium text-ink-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+            >
+              <span className="block">
+                {ar ? "أكمل المعلومات الناقصة بنفسي" : "Complete the missing information myself"}
+              </span>
+              <span className="mt-1 block text-[11px] font-normal text-ink-500">
+                {ar ? "اختياري — بيانات سرية أو غير متاحة علناً" : "Optional — confidential or publicly unavailable data"}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 

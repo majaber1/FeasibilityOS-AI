@@ -122,6 +122,7 @@ def _provisional_assumptions(state: StudyState) -> list[Assumption]:
                 base="base case",
                 high="optimistic",
                 rationale="Generated as provisional planning input because the user chose estimates; not Evidence.",
+                critical=True,
             )
         )
     return assumptions
@@ -253,6 +254,7 @@ def _parse_assumptions(
         confidence = a.get("confidence") or default_confidence
         if confidence not in ("confirmed", "medium", "low"):
             confidence = default_confidence
+        critical = bool(a.get("critical")) or origin == "provisional_estimate"
         assumptions.append(
             Assumption(
                 key=a.get("key", "") or "assumption",
@@ -265,6 +267,7 @@ def _parse_assumptions(
                 origin=origin,
                 status="draft",
                 rationale=a.get("rationale"),
+                critical=critical,
             )
         )
     return assumptions

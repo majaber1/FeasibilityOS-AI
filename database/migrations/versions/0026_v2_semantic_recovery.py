@@ -14,31 +14,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "study_states_v2",
-        sa.Column("gate_choice", sa.String(32), nullable=True),
+    # Idempotent additive columns for preview/local DBs that may already have them.
+    op.execute("ALTER TABLE study_states_v2 ADD COLUMN IF NOT EXISTS gate_choice VARCHAR(32)")
+    op.execute(
+        "ALTER TABLE study_states_v2 ADD COLUMN IF NOT EXISTS evidence_status "
+        "VARCHAR(32) DEFAULT 'not_started' NOT NULL"
     )
-    op.add_column(
-        "study_states_v2",
-        sa.Column(
-            "evidence_status",
-            sa.String(32),
-            nullable=False,
-            server_default="not_started",
-        ),
-    )
-    op.add_column(
-        "study_states_v2",
-        sa.Column(
-            "workflow_meta_json",
-            sa.JSON(),
-            nullable=False,
-            server_default="{}",
-        ),
+    op.execute(
+        "ALTER TABLE study_states_v2 ADD COLUMN IF NOT EXISTS workflow_meta_json "
+        "JSON DEFAULT '{}' NOT NULL"
     )
 
 
 def downgrade() -> None:
-    op.drop_column("study_states_v2", "workflow_meta_json")
-    op.drop_column("study_states_v2", "evidence_status")
-    op.drop_column("study_states_v2", "gate_choice")
+    op.execute("ALTER TABLE study_states_v2 DROP COLUMN IF EXISTS workflow_meta_json")
+    op.execute("ALTER TABLE study_states_v2 DROP COLUMN IF EXISTS evidence_status")
+    op.execute("ALTER TABLE study_states_v2 DROP COLUMN IF EXISTS gate_choice")

@@ -59,6 +59,7 @@ class Assumption(BaseModel):
     origin: AssumptionOrigin = "user"
     status: Literal["draft", "approved", "rejected"] = "draft"
     rationale: Optional[str] = None
+    critical: bool = False
 
 
 class Claim(BaseModel):

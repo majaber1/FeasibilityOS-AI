@@ -342,15 +342,29 @@ def _prepare_profile_gate(state, *, clear_missing: bool) -> list[str]:
     return gaps
 
 
-def _set_phase(state, nxt: str) -> None:
+def _set_phase(state, nxt: str, *, actor: str | None = None, reason: str | None = None) -> None:
     from ai_engine.models.study_state import assert_legal_transition
 
     try:
         assert_legal_transition(state.phase, nxt)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    state.phase_history.append(f"{state.phase}->{nxt}")
+    prev = state.phase
+    state.phase_history.append(f"{prev}->{nxt}")
     state.phase = nxt
+    meta = dict(state.workflow_meta or {})
+    transitions = list(meta.get("transitions") or [])
+    transitions.append(
+        {
+            "from": prev,
+            "to": nxt,
+            "actor": actor or state.user_id,
+            "at": datetime.now(timezone.utc).isoformat(),
+            "reason": reason,
+        }
+    )
+    meta["transitions"] = transitions[-50:]
+    state.workflow_meta = meta
 
 
 def _import_engine():
@@ -610,7 +624,7 @@ async def information_gate(
         gaps = _prepare_profile_gate(state, clear_missing=True)
         state.profile_confirmed = True
         state.phase_history.append("gate_research")
-        _set_phase(state, "EVIDENCE_REVIEW")
+        _set_phase(state, "EVIDENCE_REVIEW", actor=user_id, reason="gate_research")
         state.evidence_status = "not_started"
         instruct = (
             "Research available source-backed evidence only. "
@@ -650,7 +664,7 @@ async def information_gate(
     state.claims = []
     state.evidence_status = "empty"
     state.evidence_approved = False
-    _set_phase(state, "ASSUMPTIONS_REVIEW")
+    _set_phase(state, "ASSUMPTIONS_REVIEW", actor=user_id, reason="gate_provisional")
     note = (
         "Provisional study path selected. Estimates will be stored as Assumptions only "
         "(not Evidence)."
@@ -717,6 +731,21 @@ async def approve_stage(
     if stage == "assumptions" and not state.assumptions:
         raise HTTPException(status_code=400, detail="No assumptions to confirm.")
 
+    if stage == "assumptions" and req.approved:
+        critical = [
+            a for a in state.assumptions
+            if getattr(a, "critical", False) or getattr(a, "origin", None) == "provisional_estimate"
+        ]
+        unapproved = [a for a in critical if getattr(a, "status", "draft") != "approved"]
+        if unapproved:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Critical assumptions require user approval before continuing "
+                    f"({len(unapproved)} still draft/rejected)."
+                ),
+            )
+
     if stage == "evidence" and not state.claims:
         raise HTTPException(
             status_code=400,
@@ -737,9 +766,9 @@ async def approve_stage(
     state.phase_history.append(f"{stage}_approved")
 
     if stage == "evidence":
-        _set_phase(state, "ASSUMPTIONS_REVIEW")
+        _set_phase(state, "ASSUMPTIONS_REVIEW", actor=user_id, reason="approve_evidence")
     elif stage == "assumptions":
-        _set_phase(state, "READY_FOR_ANALYSIS")
+        _set_phase(state, "READY_FOR_ANALYSIS", actor=user_id, reason="approve_assumptions")
 
     try:
         state = await run_study_step(state)

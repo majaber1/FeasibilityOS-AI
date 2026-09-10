@@ -267,3 +267,120 @@ class TestInformationGate:
         assert body["claims_count"] == 0
         assert body["assumptions_count"] >= 1
         assert body["gate_choice"] == "provisional"
+
+
+class TestAIFirstProductPrinciples:
+    """Acceptance: AI-first autonomous platform — not a manual form builder."""
+
+    PREFERRED_GATE = "research"
+    FALLBACK_GATE = "provisional"
+    OPTIONAL_GATE = "manual"
+    PRIMARY_CTA_EN = "Generate AI Study Draft"
+    PRIMARY_CTA_AR = "إنشاء مسودة دراسة بالذكاء الاصطناعي"
+    GOVERNED_GATES = (
+        "Project Profile approval",
+        "Evidence and Assumptions approval",
+        "Final Decision approval",
+    )
+
+    def test_gate_choice_hierarchy_is_documented(self):
+        assert self.PREFERRED_GATE == "research"
+        assert self.FALLBACK_GATE == "provisional"
+        assert self.OPTIONAL_GATE == "manual"
+        assert "AI Study Draft" in self.PRIMARY_CTA_EN
+        assert "مسودة دراسة" in self.PRIMARY_CTA_AR
+        assert len(self.GOVERNED_GATES) == 3
+
+    def test_research_path_remains_open_for_later_phases(self):
+        """Research must stay callable and never fabricate Evidence (Phases B–F unblock)."""
+        headers = _auth("ai_first")
+        create = client.post(
+            "/api/v2/studies",
+            json={"project_id": "p_ai_first", "language": "en"},
+            headers=headers,
+        )
+        study_id = create.json()["study_id"]
+        _seed_needs_information(study_id)
+        with patch(
+            "ai_engine.agents.evidence.get_llm",
+            side_effect=ValueError("GROQ_API_KEY is not set"),
+        ):
+            r = client.post(
+                f"/api/v2/studies/{study_id}/information-gate",
+                json={"choice": self.PREFERRED_GATE},
+                headers=headers,
+            )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["gate_choice"] == "research"
+        assert body["phase"] == "EVIDENCE_REVIEW"
+        assert body["claims_count"] == 0
+        assert body.get("evidence_status") in {"empty", "degraded"}
+        banned = {"ai_assumption", "provisional", "estimate", "llm"}
+        for claim in body.get("claims") or []:
+            assert claim.get("source_type") not in banned
+
+    def test_manual_is_optional_not_forced_happy_path(self):
+        headers = _auth("ai_manual_opt")
+        create = client.post(
+            "/api/v2/studies",
+            json={"project_id": "p_ai_manual", "language": "en"},
+            headers=headers,
+        )
+        study_id = create.json()["study_id"]
+        _seed_needs_information(study_id)
+        r = client.post(
+            f"/api/v2/studies/{study_id}/information-gate",
+            json={"choice": self.OPTIONAL_GATE},
+            headers=headers,
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["phase"] == "NEEDS_INFORMATION"
+        assert body["gate_choice"] == "manual"
+        assert body["claims_count"] == 0
+        # Manual must not auto-advance into Evidence/Assumptions (form-builder anti-pattern)
+        assert body.get("assumptions_count", 0) == 0
+
+    def test_three_choices_are_semantically_distinct(self):
+        outcomes = {}
+        for choice, prefix in (
+            ("manual", "dist_m"),
+            ("research", "dist_r"),
+            ("provisional", "dist_p"),
+        ):
+            headers = _auth(prefix)
+            create = client.post(
+                "/api/v2/studies",
+                json={"project_id": f"p_{prefix}", "language": "en"},
+                headers=headers,
+            )
+            study_id = create.json()["study_id"]
+            _seed_needs_information(study_id)
+            with patch(
+                "ai_engine.agents.evidence.get_llm",
+                side_effect=ValueError("GROQ_API_KEY is not set"),
+            ), patch(
+                "ai_engine.agents.assumption.get_llm",
+                side_effect=ValueError("GROQ_API_KEY is not set"),
+            ):
+                r = client.post(
+                    f"/api/v2/studies/{study_id}/information-gate",
+                    json={"choice": choice},
+                    headers=headers,
+                )
+            assert r.status_code == 200, r.text
+            body = r.json()
+            outcomes[choice] = (
+                body["phase"],
+                body["gate_choice"],
+                body["claims_count"],
+                body.get("assumptions_count", 0),
+            )
+        assert outcomes["manual"][0] == "NEEDS_INFORMATION"
+        assert outcomes["research"][0] == "EVIDENCE_REVIEW"
+        assert outcomes["provisional"][0] == "ASSUMPTIONS_REVIEW"
+        assert outcomes["research"][2] == 0
+        assert outcomes["provisional"][2] == 0
+        assert outcomes["provisional"][3] >= 1
+        assert len({outcomes[c][0] for c in outcomes}) == 3
