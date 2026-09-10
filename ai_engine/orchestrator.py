@@ -53,10 +53,18 @@ def _wants_challenge(state: StudyState) -> bool:
 def route_by_phase(state: StudyState) -> str:
     if state.error:
         return "error_handler"
-    # Explicit challenge: force assumption revision even after decision/funding.
-    if _wants_challenge(state) and state.profile_confirmed and state.evidence_approved:
+    # Explicit challenge: revise assumptions even after decision/funding.
+    # Allow when the study already has assumptions (approve flags may be unset
+    # on older persisted studies that still reached analysis).
+    if _wants_challenge(state) and (
+        state.assumptions
+        or (state.profile_confirmed and state.evidence_approved)
+    ):
         return "assumptions"
     phase = state.phase
+    # Once a verdict exists, advance into funding rather than re-running decision.
+    if phase == "DECISION_READY" and state.verdict:
+        return "funding"
     return PHASE_TRANSITIONS.get(phase, "discovery")
 
 
