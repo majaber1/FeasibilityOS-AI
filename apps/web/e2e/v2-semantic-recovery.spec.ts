@@ -198,6 +198,12 @@ test("V2 UI gate buttons run three distinct choices", async ({ page }) => {
   await page.goto(`/projects/${project.id}/studies/${study.study_id}/workspace`);
   await expect(page.getByTestId("v2-study-workspace")).toBeVisible({ timeout: 30000 });
 
+  // Preferred AI-first CTA must be visible when the gate is shown.
+  const researchBtn = page.getByTestId("gate-research");
+  if (await researchBtn.isVisible()) {
+    await expect(researchBtn).toContainText(/Generate AI Study Draft|إنشاء مسودة دراسة بالذكاء الاصطناعي/);
+  }
+
   // If gate buttons present, click provisional and assert assumptions panel / empty evidence.
   const provisional = page.getByTestId("gate-provisional");
   if (await provisional.isVisible()) {
