@@ -1,6 +1,6 @@
 # Saudi Business — V2 AI Study Recovery Execution
 
-Status: PHASE A IN PROGRESS  
+Status: PHASE A READY FOR REVIEW (draft PR; no production merge)  
 Baseline commit: `0f60a678e1007ce090135d47c2be1df789e68e62`  
 Feature branch: `feat/v2-ai-study-semantic-recovery`  
 Authority: Cursor Phase A execution order (2026-09-10)
