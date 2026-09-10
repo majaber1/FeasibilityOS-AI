@@ -251,6 +251,72 @@ class StudyApprovalRequest(BaseModel):
     feedback: Optional[str] = None
 
 
+def _normalize_profile_label(value: str | None, *, fallback: str) -> str:
+    cleaned = (value or "").strip()
+    if not cleaned or cleaned.lower() in {"unknown", "n/a", "na", "none", "null", "-", "غير معروف"}:
+        return fallback
+    return cleaned
+
+
+def _finalize_profile_confirmation(state):
+    """Confirm Profile means: proceed even if gaps remain; AI must fill estimates next."""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    state.profile_confirmed = True
+    gaps: list[str] = []
+    if state.profile:
+        state.profile.stage = _normalize_profile_label(state.profile.stage, fallback="idea")
+        state.profile.decision_goal = _normalize_profile_label(
+            state.profile.decision_goal, fallback="feasibility"
+        )
+        gaps = list(state.profile.missing_information or [])
+        # Stop blocking the gate; later agents use conversation + estimates.
+        state.profile.missing_information = []
+
+    lang = getattr(state, "language", "en")
+    if gaps:
+        gap_lines = "\n".join(f"- {g}" for g in gaps)
+        if lang == "ar":
+            note = (
+                "تم تأكيد ملف المشروع. سأملأ الآن الأدلة والافتراضات "
+                "بتقديرات صريحة وواضحة للعناصر الناقصة التالية:\n"
+                + gap_lines
+            )
+            instruct = (
+                "تم تأكيد الملف. املأ الأدلة الآن. لكل عنصر ناقص أدناه، أنشئ claim "
+                "من نوع ai_assumption بقيمة تقديرية واقعية للسوق السعودي، مع ذكر أنها تقدير:\n"
+                + gap_lines
+                + "\nثم اضبط evidence_sufficient=true إذا أصبحت التقديرات كافية للمتابعة."
+            )
+        else:
+            note = (
+                "Profile confirmed. I will now fill evidence and assumptions "
+                "with explicit estimates for these remaining gaps:\n"
+                + gap_lines
+            )
+            instruct = (
+                "Profile confirmed. Fill evidence now. For each missing item below, create an "
+                "ai_assumption claim with a realistic Saudi-market estimate and label it as an estimate:\n"
+                + gap_lines
+                + "\nThen set evidence_sufficient=true if these estimates are enough to continue."
+            )
+        state.messages.append(AIMessage(content=note))
+        # Seed the next agent turn with an explicit fill request.
+        state.messages.append(HumanMessage(content=instruct))
+    else:
+        if lang == "ar":
+            state.messages.append(AIMessage(content="تم تأكيد الملف. المتابعة إلى جمع الأدلة."))
+        else:
+            state.messages.append(AIMessage(content="Profile confirmed. Continuing to evidence collection."))
+
+    state.phase = "EVIDENCE_REVIEW"
+    state.next_action = "review_evidence"
+    # Clear any prior LLM failure so the orchestrator routes to evidence, not error_handler.
+    state.error = None
+    state.blocking_reason = None
+    return state
+
+
 def _import_engine():
     try:
         from ai_engine.models.study_state import StudyState
@@ -499,6 +565,16 @@ async def approve_stage(
 
     setattr(state, flag_field, True)
     state.phase_history.append(f"{stage}_approved")
+
+    # Advance phase BEFORE running the next agent. Otherwise the orchestrator
+    # re-routes to the same gate agent (e.g. discovery) and Confirm appears stuck,
+    # especially when missing_information is still non-empty.
+    if stage == "profile":
+        state = _finalize_profile_confirmation(state)
+    elif stage == "evidence":
+        state.phase = "ASSUMPTIONS_REVIEW"
+    elif stage == "assumptions":
+        state.phase = "READY_FOR_ANALYSIS"
 
     try:
         state = await run_study_step(state)

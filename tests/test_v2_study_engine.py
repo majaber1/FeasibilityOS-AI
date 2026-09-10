@@ -387,6 +387,129 @@ class TestV2StudyAPI:
         }, headers=headers)
         assert r.status_code == 400
 
+    def test_approve_profile_advances_with_missing_information(self):
+        """Confirm Profile must leave NEEDS_INFORMATION even when gaps remain."""
+        headers = _auth("approve_gaps")
+        create = client.post("/api/v2/studies", json={
+            "project_id": "proj_gaps", "language": "en",
+        }, headers=headers)
+        study_id = create.json()["study_id"]
+
+        from app.api.v2 import study_engine as se
+        from app import db as app_db
+        from unittest.mock import patch, MagicMock
+
+        db = app_db.SessionLocal()
+        try:
+            row = db.query(se.StudyStateRow).filter_by(study_id=study_id).first()
+            assert row is not None
+            row.phase = "NEEDS_INFORMATION"
+            row.profile_json = {
+                "archetype": "saas_digital",
+                "sector": "Compliance SaaS",
+                "stage": "unknown",
+                "decision_goal": "unknown",
+                "missing_information": [
+                    "Current project stage",
+                    "Revenue model and pricing",
+                    "Expected CAC",
+                ],
+                "language": "en",
+                "recommended_model": "saas_v1",
+            }
+            row.profile_confirmed = False
+            row.messages_json = [
+                {"type": "human", "content": "AI compliance platform for Saudi enterprises"},
+                {"type": "ai", "content": "Gathering more information."},
+            ]
+            db.commit()
+        finally:
+            db.close()
+
+        evidence_json = """```json
+{"claims":[{"statement":"Saudi enterprises need compliance tooling","source_type":"user_input","confidence":0.8}],"gaps":[],"evidence_sufficient":true}
+```"""
+
+        with patch("ai_engine.agents.evidence.get_llm") as mock_get_llm:
+            mock_llm = MagicMock()
+            mock_llm.invoke.return_value = MagicMock(content=evidence_json)
+            mock_get_llm.return_value = mock_llm
+
+            r = client.post(
+                f"/api/v2/studies/{study_id}/approve/profile",
+                json={"approved": True},
+                headers=headers,
+            )
+
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["phase"] != "NEEDS_INFORMATION"
+        assert body["phase"] in {"EVIDENCE_REVIEW", "ASSUMPTIONS_REVIEW"}
+        assert body["profile"]["stage"] != "unknown"
+        assert body["profile"]["decision_goal"] != "unknown"
+        assert body["profile"]["missing_information"] == []
+        assert any("estimate" in (m.get("content") or "").lower() or "gaps" in (m.get("content") or "").lower()
+                   for m in body.get("messages", []) if m.get("role") == "assistant")
+        assert body.get("claims_count", 0) >= 1
+        assert len(body.get("claims") or []) >= 1
+
+    def test_approve_profile_fills_claims_when_groq_missing(self):
+        """Confirm must still populate Evidence claims when GROQ_API_KEY is absent."""
+        headers = _auth("approve_nogroq")
+        create = client.post("/api/v2/studies", json={
+            "project_id": "proj_nogroq", "language": "en",
+        }, headers=headers)
+        study_id = create.json()["study_id"]
+
+        from app.api.v2 import study_engine as se
+        from app import db as app_db
+        from unittest.mock import patch
+
+        db = app_db.SessionLocal()
+        try:
+            row = db.query(se.StudyStateRow).filter_by(study_id=study_id).first()
+            assert row is not None
+            row.phase = "NEEDS_INFORMATION"
+            row.profile_json = {
+                "archetype": "services",
+                "sector": "Ride-hailing",
+                "stage": "unknown",
+                "decision_goal": "unknown",
+                "missing_information": [
+                    "Current project stage",
+                    "Revenue model and pricing",
+                    "Expected CAC",
+                ],
+                "language": "en",
+                "recommended_model": "services_v1",
+            }
+            row.profile_confirmed = False
+            row.messages_json = [
+                {"type": "human", "content": "Uber-like ride hailing in Riyadh"},
+                {"type": "ai", "content": "Need more information."},
+            ]
+            db.commit()
+        finally:
+            db.close()
+
+        with patch(
+            "ai_engine.agents.evidence.get_llm",
+            side_effect=ValueError("GROQ_API_KEY is not set"),
+        ):
+            r = client.post(
+                f"/api/v2/studies/{study_id}/approve/profile",
+                json={"approved": True},
+                headers=headers,
+            )
+
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["phase"] == "EVIDENCE_REVIEW"
+        assert body.get("error") in (None, "", False)
+        assert body.get("claims_count", 0) >= 3
+        assert all(c.get("source_type") == "ai_assumption" for c in body.get("claims") or [])
+        assert body["profile"]["missing_information"] == []
+
     def test_approve_invalid_stage_400(self):
         headers = _auth("approve_invalid")
         create = client.post("/api/v2/studies", json={
