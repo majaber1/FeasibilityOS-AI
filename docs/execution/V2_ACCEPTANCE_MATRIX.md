@@ -59,7 +59,7 @@
 - Financial incomplete vs fake NPV=-CAPEX
 - Decision incomplete guard
 - Assumption previous_values history
-- Radar nav rename + project card primary actions
+- Radar nav rename + project card primary actions (V2 phase-aware Start/Continue/Review Assumptions/Continue Financial/Review Decision)
 - Preview browser access via Vercel OIDC Trusted Sources header
 
 ## NEW
@@ -74,4 +74,4 @@
 - Some Preview env secrets cannot be pulled locally (expected); OIDC Trusted Sources used for automation
 
 ## FINAL STATUS
-**ACCEPTED**
+**PENDING_PREVIEW_REVERIFY** (project-card V2 CTAs + previous_values test landed; Preview A–D re-run required on new HEAD)

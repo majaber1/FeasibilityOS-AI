@@ -579,6 +579,9 @@ class TestV2StudyAPI:
         studies = r.json()["studies"]
         assert len(studies) >= 1
         assert any(s["phase"] == "DRAFT" for s in studies)
+        matched = next(s for s in studies if s.get("project_id") == "proj_list")
+        assert matched["project_id"] == "proj_list"
+        assert "study_id" in matched
 
     def test_create_study_default_language_ar(self):
         headers = _auth("lang_default")

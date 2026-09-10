@@ -242,6 +242,62 @@ class TestInformationGate:
         assert r.status_code == 200, r.text
         assert r.json()["assumptions"][0]["status"] == "approved"
 
+    def test_item_action_edit_assumption_records_previous_values(self):
+        headers = _auth("prev_vals")
+        create = client.post(
+            "/api/v2/studies",
+            json={"project_id": "p_prev", "language": "en"},
+            headers=headers,
+        )
+        study_id = create.json()["study_id"]
+        _seed_needs_information(study_id)
+        with patch(
+            "ai_engine.agents.assumption.get_llm",
+            side_effect=ValueError("GROQ_API_KEY is not set"),
+        ):
+            client.post(
+                f"/api/v2/studies/{study_id}/information-gate",
+                json={"choice": "provisional"},
+                headers=headers,
+            )
+        before = client.get(f"/api/v2/studies/{study_id}", headers=headers).json()
+        assert before["assumptions_count"] >= 1
+        original = before["assumptions"][0]["value"]
+        r = client.post(
+            f"/api/v2/studies/{study_id}/item-action",
+            json={
+                "target": "assumption",
+                "index": 0,
+                "action": "edit",
+                "value": "edited-assumption-value",
+            },
+            headers=headers,
+        )
+        assert r.status_code == 200, r.text
+        edited = r.json()["assumptions"][0]
+        assert edited["value"] == "edited-assumption-value"
+        assert edited["status"] == "draft"
+        history = edited.get("previous_values") or []
+        assert len(history) >= 1
+        assert history[-1]["value"] == original
+        assert "at" in history[-1]
+
+        # Second edit appends another history entry.
+        r2 = client.post(
+            f"/api/v2/studies/{study_id}/item-action",
+            json={
+                "target": "assumption",
+                "index": 0,
+                "action": "edit",
+                "value": "second-edit",
+            },
+            headers=headers,
+        )
+        assert r2.status_code == 200, r2.text
+        hist2 = r2.json()["assumptions"][0].get("previous_values") or []
+        assert len(hist2) >= 2
+        assert hist2[-1]["value"] == "edited-assumption-value"
+
     def test_persistence_after_provisional_reload(self):
         headers = _auth("persist")
         create = client.post(

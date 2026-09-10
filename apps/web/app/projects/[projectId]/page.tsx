@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
-import { createStudy, getProject, getToken, listStudies, updateProject, type Project, type Study } from "@/lib/api";
+import { createStudy, getProject, getToken, listStudies, listV2Studies, updateProject, v2StudyPrimaryAction, type Project, type Study, type V2StudySummary } from "@/lib/api";
 import { useLanguage } from "@/components/LanguageProvider";
 
 export default function ProjectWorkspacePage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -13,6 +13,7 @@ export default function ProjectWorkspacePage({ params }: { params: Promise<{ pro
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [study, setStudy] = useState<Study | null>(null);
+  const [v2Study, setV2Study] = useState<V2StudySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -25,10 +26,15 @@ export default function ProjectWorkspacePage({ params }: { params: Promise<{ pro
 
   useEffect(() => {
     if (!token || !Number.isInteger(projectId)) { setLoading(false); return; }
-    Promise.all([getProject(token, projectId), listStudies(token, projectId)])
-      .then(([projectRow, studies]) => {
+    Promise.all([
+      getProject(token, projectId),
+      listStudies(token, projectId),
+      listV2Studies(token).catch(() => [] as V2StudySummary[]),
+    ])
+      .then(([projectRow, studies, v2Studies]) => {
         setProject(projectRow);
         setStudy(studies[0] ?? null);
+        setV2Study(v2Studies.find((s) => String(s.project_id ?? "") === String(projectId)) ?? null);
         setName(projectRow.name);
         setIndustry(projectRow.industry);
         setInvestment(projectRow.investment);
@@ -82,11 +88,32 @@ export default function ProjectWorkspacePage({ params }: { params: Promise<{ pro
     )}
     <div className="mt-7 flex flex-wrap gap-3">
       <Link
-        href={`/projects/${project.id}/studies/new/workspace`}
+        href={v2Study ? `/projects/${project.id}/studies/${v2Study.study_id}/workspace` : `/projects/${project.id}/studies/new/workspace`}
         data-testid="open-ai-study-workspace"
+        data-phase={v2Study?.phase ?? "none"}
+        data-action={v2Study ? v2StudyPrimaryAction(v2Study.phase) : "startStudy"}
         className="inline-flex rounded-lg bg-brand-600 px-5 py-3 font-medium text-white"
       >
-        {locale === "ar" ? "دراسة جدوى بالذكاء الاصطناعي" : "AI feasibility study"}
+        {(() => {
+          const key = v2Study ? v2StudyPrimaryAction(v2Study.phase) : "startStudy";
+          const labels = {
+            ar: {
+              startStudy: "ابدأ الدراسة",
+              continueStudy: "متابعة الدراسة",
+              reviewAssumptions: "مراجعة الافتراضات",
+              continueFinancial: "متابعة التحليل المالي",
+              reviewDecision: "مراجعة القرار",
+            },
+            en: {
+              startStudy: "Start Study",
+              continueStudy: "Continue Study",
+              reviewAssumptions: "Review Assumptions",
+              continueFinancial: "Continue Financial Analysis",
+              reviewDecision: "Review Decision",
+            },
+          } as const;
+          return labels[locale][key];
+        })()}
       </Link>
       {study ? (
         <Link href={`/projects/${project.id}/studies/${study.id}`} data-testid="continue-existing-study" className="inline-flex rounded-lg border px-5 py-3 font-medium text-ink-800">
