@@ -135,7 +135,12 @@ def run_assumptions(state: StudyState) -> StudyState:
         if key not in allowed:
             continue
         meta = schema_by_key.get(key, {})
-        val = _as_str(raw)
+        val = _as_str(raw).strip()
+        # Discovery question ids can collide with assumption keys. Ignore
+        # non-numeric placeholders ("confirmed"/"ok") for numeric fields so
+        # Rule Fallback / AI can supply values financial analysis can parse.
+        if not _usable_user_assumption_value(meta, val):
+            continue
         seeded[key] = Assumption(
             key=key,
             value=val,
@@ -264,6 +269,26 @@ def _as_str(v) -> str:
     if v is None:
         return ""
     return v if isinstance(v, str) else str(v)
+
+
+def _usable_user_assumption_value(field: dict, val: str) -> bool:
+    """Return False for empty / placeholder answers that would break financial extract."""
+    if not val:
+        return False
+    lowered = val.strip().lower()
+    if lowered in {
+        "confirmed", "ok", "yes", "y", "true", "n/a", "na", "none", "null",
+        "unknown", "tbd", "مؤكد", "نعم", "موافق",
+    }:
+        return False
+    input_type = (field.get("input_type") or "").lower()
+    if input_type in {"number", "currency", "percent"}:
+        cleaned = val.replace(",", "").replace("%", "").replace("SAR", "").replace("ر.س", "").strip()
+        try:
+            float(cleaned)
+        except ValueError:
+            return False
+    return True
 
 
 def _default_value_for_field(field: dict, archetype: str) -> str:
