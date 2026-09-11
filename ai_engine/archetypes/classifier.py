@@ -1,6 +1,7 @@
 """Mandatory project archetype classification (deterministic + LLM-assistable)."""
 from __future__ import annotations
 
+import re
 from typing import Any
 
 SUPPORTED_ARCHETYPES = (
@@ -29,12 +30,17 @@ def classify_archetype(text: str) -> str:
     t = (text or "").lower()
 
     # Strong SaaS signals win early so phrases like "not real estate" do not hijack.
+    # Ignore negated mentions ("not a saas", "not saas").
+    t_saas = re.sub(r"\bnot\s+(a\s+)?(saas|subscription)\b", " ", t)
     strong_saas = (
-        "saas", "subscription", "arr", "mrr", "churn", "cac", "ltv",
+        "saas", "subscription", " arr", " mrr", "churn", " cac", " ltv",
         "b2b software", "software platform", "api product", "crm software",
         "اشتراك", "برمجيات كخدمة",
     )
-    if any(k in t for k in strong_saas):
+    # Word-ish checks: require saas/subscription as tokens after negation scrub.
+    if re.search(r"\b(saas|subscription|arr|mrr|churn|cac|ltv)\b", t_saas) or any(
+        k in t_saas for k in ("b2b software", "software platform", "api product", "crm software", "اشتراك", "برمجيات كخدمة")
+    ):
         return "saas_digital"
 
     dc_kw = (
