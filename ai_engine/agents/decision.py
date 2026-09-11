@@ -119,14 +119,20 @@ def run_decision(state: StudyState) -> StudyState:
 
     messages = [SystemMessage(content=system_prompt + extra)] + state.messages
 
+    lang = getattr(state, "language", "en") or "en"
     try:
         response = llm.invoke(messages)
         response_text = response.content
         decision_data = _extract_json(response_text)
     except Exception as e:
+        from ..utils.safe_messages import sanitize_error_for_user
+
+        sanitize_error_for_user(e, language=lang, context="decision.invoke")
         decision_data = _fallback_decision(state)
         response_text = (
-            f"Decision fallback ({e}).\n\n```json\n{json.dumps(decision_data, ensure_ascii=False)}\n```"
+            "تعذر الاتصال بنموذج القرار؛ تم إعداد حكم أولي للمراجعة في التقرير."
+            if lang == "ar"
+            else "Decision model unavailable; a provisional verdict was prepared for the report."
         )
 
     if decision_data:
@@ -138,7 +144,19 @@ def run_decision(state: StudyState) -> StudyState:
         state.phase = "REPORT_READY"
         state.error = None
 
-    state.messages.append(AIMessage(content=response_text))
+    from ..utils.safe_messages import sanitize_chat_content
+
+    public = sanitize_chat_content(
+        response_text,
+        language=lang,
+        fallback=(
+            "تم تحديث القرار. راجع لوحة الحكم والتقرير."
+            if lang == "ar"
+            else "Decision updated. Review the verdict panel and report."
+        ),
+    )
+    if public:
+        state.messages.append(AIMessage(content=public))
     state.next_action = "present_decision"
     return state
 

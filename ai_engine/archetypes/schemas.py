@@ -75,6 +75,8 @@ SAAS_SCHEMA = [
     _f("cac", label_en="CAC", label_ar="تكلفة اكتساب العميل (CAC)", input_type="currency", unit="SAR"),
     _f("churn", label_en="Monthly churn", label_ar="نسبة التسرب الشهرية", input_type="percent", unit="%"),
     _f("ltv", label_en="LTV", label_ar="قيمة العميل مدى الحياة (LTV)", input_type="currency", unit="SAR", required=False),
+    _f("capex", label_en="CAPEX", label_ar="النفقات الرأسمالية (CAPEX)", input_type="currency", unit="SAR", required=False),
+    _f("opex_annual", label_en="Annual OPEX", label_ar="التكاليف التشغيلية السنوية (OPEX)", input_type="currency", unit="SAR", required=False),
     _f(
         "acquisition_channels",
         label_en="Acquisition channels",

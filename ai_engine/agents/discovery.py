@@ -15,6 +15,11 @@ from ..archetypes import (
     ARCHETYPE_LABELS,
     detect_services_variant,
 )
+from ..utils.safe_messages import sanitize_chat_content, sanitize_error_for_user
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_AR = """
 أنت مستشار أعمال خبير متخصص في السوق السعودي.
@@ -93,9 +98,11 @@ def run_discovery(state: StudyState) -> StudyState:
         response = llm.invoke(messages)
         response_text = response.content if hasattr(response, "content") else str(response)
     except Exception as e:
+        sanitize_error_for_user(e, language=lang, context="discovery.classify")
         response_text = (
-            f"Classified as {heuristic} via keyword fallback ({e}). "
-            "Please confirm the project archetype to continue."
+            "تعذر الاتصال بنموذج التصنيف؛ تم استخدام التصنيف التقريبي. يرجى تأكيد نوع المشروع."
+            if lang == "ar"
+            else "Classification model unavailable; using a keyword estimate. Please confirm the project archetype."
         )
         profile_data = {
             "archetype": heuristic,
@@ -105,23 +112,26 @@ def run_discovery(state: StudyState) -> StudyState:
             "missing_information": [],
             "recommended_model": f"{heuristic}_v1",
         }
-        return _apply_profile(state, profile_data, response_text, lang, heuristic)
+        return _apply_profile(
+            state, profile_data, response_text, lang, heuristic,
+            ambiguous=True, clarify_reason="llm_unavailable",
+        )
 
     profile_data = _extract_json(response_text) or {}
     llm_arch = normalize_archetype(profile_data.get("archetype"))
-    if heuristic in {"services", "real_estate", "data_center", "industrial"} and llm_arch in {
-        "saas_digital",
-        "other",
-        "unknown",
-    }:
-        chosen = heuristic
-    elif llm_arch not in {"other", "unknown"}:
-        chosen = llm_arch
-    else:
-        chosen = heuristic
-
+    chosen, ambiguous, clarify_reason = _resolve_archetype(heuristic, llm_arch, last_user)
     profile_data["archetype"] = chosen
-    return _apply_profile(state, profile_data, response_text, lang, chosen)
+    # Keep structured model JSON out of chat; store it only in profile / audit fields.
+    public_text = sanitize_chat_content(response_text, language=lang) or (
+        "تم تحليل وصف المشروع واقتراح التصنيف."
+        if lang == "ar"
+        else "Project description reviewed and an archetype is suggested."
+    )
+    return _apply_profile(
+        state, profile_data, public_text, lang, chosen,
+        ambiguous=ambiguous, clarify_reason=clarify_reason,
+        heuristic=heuristic, llm_arch=llm_arch,
+    )
 
 
 def _apply_profile(
@@ -130,6 +140,11 @@ def _apply_profile(
     response_text: str,
     lang: str,
     archetype: str,
+    *,
+    ambiguous: bool = False,
+    clarify_reason: str | None = None,
+    heuristic: str | None = None,
+    llm_arch: str | None = None,
 ) -> StudyState:
     stage = str(profile_data.get("stage") or "").strip() or "idea"
     decision_goal = str(profile_data.get("decision_goal") or "").strip() or "feasibility"
@@ -178,18 +193,149 @@ def _apply_profile(
             if lang == "ar"
             else f"Suggested archetype: **{label}** (`{archetype}`). Confirm the archetype, then answer the structured questions."
         )
-        state.messages.append(AIMessage(content=f"{response_text}\n\n{hint}"))
+        if ambiguous:
+            hint = f"{hint}\n\n{_confirmation_question(lang, clarify_reason, heuristic, llm_arch, archetype)}"
+        safe = sanitize_chat_content(response_text, language=lang) or ""
+        content = f"{safe}\n\n{hint}".strip() if safe else hint
+        state.messages.append(AIMessage(content=content))
     elif state.profile.missing_information or _unanswered_required(state):
         state.phase = "NEEDS_INFORMATION"
         state.next_action = "answer_structured_questions"
-        state.messages.append(AIMessage(content=response_text))
+        safe = sanitize_chat_content(response_text, language=lang)
+        if safe:
+            state.messages.append(AIMessage(content=safe))
     else:
         state.phase = "EVIDENCE_REVIEW"
         state.next_action = "review_evidence"
-        state.messages.append(AIMessage(content=response_text))
+        safe = sanitize_chat_content(response_text, language=lang)
+        if safe:
+            state.messages.append(AIMessage(content=safe))
 
     state.error = None
     return state
+
+
+# Ride-hailing / mobility signals — must never resolve to data_center.
+_MOBILITY_SIGNALS = (
+    "uber", "careem", "ride-hailing", "ride hailing", "rideshare", "ride share",
+    "taxi", "take rate", "take-rate", "monthly trips", "drivers", "delivery platform",
+    "سائق", "مشاوير", "توصيل",
+)
+_STRONG_DC_SIGNALS = (
+    "data center", "datacenter", "مركز بيانات", "colocation", "colo ",
+    "hyperscaler", "pue", "tier iii", "tier 3", "tier iv", "tier 4",
+    "rack count", "mw capacity", "it load", "power capacity",
+)
+
+
+def _has_any(text: str, needles: tuple[str, ...]) -> bool:
+    t = (text or "").lower()
+    return any(n in t for n in needles)
+
+
+def _resolve_archetype(
+    heuristic: str,
+    llm_arch: str,
+    text: str | None,
+) -> tuple[str, bool, str | None]:
+    """Validate classification confidence before discovery.
+
+    Returns (chosen, needs_confirmation_question, reason).
+    Uber / mobility descriptions must never become data_center.
+    """
+    t = text or ""
+    mobility = _has_any(t, _MOBILITY_SIGNALS)
+    strong_dc = _has_any(t, _STRONG_DC_SIGNALS)
+
+    if mobility and not strong_dc:
+        if heuristic == "data_center" or llm_arch == "data_center":
+            logger.info(
+                "classification_guard blocked data_center for mobility text "
+                "(heuristic=%s llm=%s)",
+                heuristic,
+                llm_arch,
+            )
+            return "services", True, "mobility_vs_data_center"
+        if heuristic == "services":
+            if llm_arch in {"saas_digital", "industrial", "other", "unknown", "retail"}:
+                return (
+                    "services",
+                    llm_arch not in {"services", "other", "unknown"},
+                    "mobility_keep_services",
+                )
+            if llm_arch == "services":
+                return "services", False, None
+            if llm_arch not in {"other", "unknown"} and llm_arch != "services":
+                return "services", True, "mobility_llm_conflict"
+
+    if heuristic == "services" and llm_arch == "data_center" and not strong_dc:
+        logger.info("classification_guard blocked services→data_center LLM override")
+        return "services", True, "services_vs_data_center"
+
+    if heuristic in {"services", "real_estate", "data_center", "industrial"} and llm_arch in {
+        "saas_digital",
+        "other",
+        "unknown",
+    }:
+        return heuristic, False, None
+
+    if llm_arch not in {"other", "unknown"}:
+        chosen = llm_arch
+    else:
+        chosen = heuristic
+
+    ambiguous = (
+        heuristic not in {"other", "unknown"}
+        and llm_arch not in {"other", "unknown"}
+        and heuristic != llm_arch
+    )
+    if ambiguous:
+        if {heuristic, llm_arch} == {"services", "data_center"}:
+            chosen = "services" if not strong_dc else "data_center"
+            return chosen, True, "services_data_center_ambiguous"
+        return chosen, True, "heuristic_llm_disagree"
+
+    if chosen in {"other", "unknown"}:
+        return "other", True, "low_confidence_other"
+    return chosen, False, None
+
+
+def _confirmation_question(
+    lang: str,
+    reason: str | None,
+    heuristic: str | None,
+    llm_arch: str | None,
+    chosen: str,
+) -> str:
+    if reason in {
+        "mobility_vs_data_center",
+        "services_vs_data_center",
+        "services_data_center_ambiguous",
+    }:
+        if lang == "ar":
+            return (
+                "للتأكيد قبل المتابعة: هل المشروع منصة تنقل/توصيل أو خدمات مهنية، "
+                "أم مركز بيانات / بنية تحتية (colo)؟ اختر التصنيف الصحيح أدناه."
+            )
+        return (
+            "Before we continue: is this a ride-hailing / delivery / professional services business, "
+            "or a data center / colo facility? Please confirm the correct archetype below."
+        )
+    if reason == "heuristic_llm_disagree":
+        h = heuristic or "other"
+        l = llm_arch or "other"
+        if lang == "ar":
+            return (
+                f"التصنيف غير حاسم (تقريبي: `{h}`، نموذج: `{l}`). "
+                f"المقترح الآن: `{chosen}`. هل هذا صحيح؟ أكّد أو اختر التصنيف المناسب."
+            )
+        return (
+            f"Classification is ambiguous (keyword: `{h}`, model: `{l}`). "
+            f"Suggested now: `{chosen}`. Is that correct? Confirm or pick the right archetype."
+        )
+    if lang == "ar":
+        return "التصنيف غير مؤكد بعد. يرجى تأكيد نوع المشروع قبل بدء أسئلة الاكتشاف."
+    return "Classification confidence is low. Please confirm the project archetype before discovery questions."
 
 
 def _unanswered_required(state: StudyState) -> bool:

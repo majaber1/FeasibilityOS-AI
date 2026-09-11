@@ -98,8 +98,22 @@ const VERDICT_COLORS: Record<string, string> = {
   INSUFFICIENT_EVIDENCE: "bg-slate-100 text-slate-800",
 };
 
-function stripJsonFences(text: string): string {
-  return text.replace(/```json[\s\S]*?```/g, "").trim();
+function sanitizeChatContent(text: string): string {
+  if (!text) return "";
+  let cleaned = text.replace(/```(?:json|javascript|js|tool|xml)?[\s\S]*?```/gi, "");
+  cleaned = cleaned.replace(/\b(req_[a-zA-Z0-9]+|chatcmpl-[a-zA-Z0-9]+|call_[a-zA-Z0-9]+)\b/gi, "[redacted]");
+  cleaned = cleaned.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "");
+  // Drop bare JSON blobs and obvious stack / HTTP dumps.
+  const lines = cleaned.split("\n").filter((line) => {
+    if (/Traceback \(most recent call last\)|File "[^"]+", line \d+/i.test(line)) return false;
+    if (/Error code:\s*\d+|rate[_ ]?limit|\b(429|503|401|403)\b/i.test(line)) return false;
+    if (/(Exception|Error):\s*.{0,40}(groq|openai|httpx|api\.)/i.test(line)) return false;
+    return true;
+  });
+  cleaned = lines.join("\n").trim();
+  if (/^\s*[\{\[][\s\S]*[\}\]]\s*$/.test(cleaned)) return "";
+  if (/fill evidence now|output json inside|strict rules:/i.test(cleaned)) return "";
+  return cleaned.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /** Session auth uses an HTTP-only cookie; never send Authorization: Bearer session. */
@@ -121,7 +135,7 @@ function applyStudyPayload(
   const hydrated = (data.messages || [])
     .map((m) => ({
       role: m.role,
-      content: m.role === "assistant" ? stripJsonFences(m.content) : m.content,
+      content: m.role === "assistant" ? sanitizeChatContent(m.content) : m.content,
     }))
     .filter((m) => m.content);
 
@@ -212,7 +226,7 @@ export default function StudyWorkspacePage() {
 
       // If API returned assistant text but messages were empty, append response.
       if (data.response) {
-        const cleaned = stripJsonFences(data.response);
+        const cleaned = sanitizeChatContent(data.response);
         if (cleaned) {
           setMessages((prev) => {
             const has = prev.some((m) => m.role === "assistant" && m.content === cleaned);
@@ -279,7 +293,7 @@ export default function StudyWorkspacePage() {
       if (data.messages?.length) {
         applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
       } else if (data.response) {
-        const cleaned = stripJsonFences(data.response);
+        const cleaned = sanitizeChatContent(data.response);
         if (cleaned) {
           setMessages((prev) => [...prev, { role: "assistant", content: cleaned }]);
         }
