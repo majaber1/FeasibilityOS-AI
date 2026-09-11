@@ -602,6 +602,7 @@ def _public_knowledge_context(kc) -> dict | None:
         "query": kc.get("query") or "",
         "hit_count": int(kc.get("hit_count") or 0),
         "comparable_projects": (kc.get("comparable_projects") or [])[:8],
+        "similar_projects": (kc.get("similar_projects") or [])[:8],
         "assumption_hints": (kc.get("assumption_hints") or [])[:12],
         "risk_hints": (kc.get("risk_hints") or [])[:8],
         "financial_patterns": (kc.get("financial_patterns") or [])[:8],
@@ -690,6 +691,12 @@ def _attach_knowledge_context(state, user_id: str):
                 assumption_keys = [f["key"] for f in schema]
             except Exception:
                 assumption_keys = []
+        query_profile = {
+            "sector": sector,
+            "project_type": archetype,
+            "geography": getattr(profile, "city", None) or getattr(profile, "location", None),
+            "capex": getattr(profile, "capex", None) or getattr(profile, "investment", None),
+        }
         db = SessionLocal()
         try:
             pack = ks.retrieve_evidence(
@@ -699,6 +706,7 @@ def _attach_knowledge_context(state, user_id: str):
                 study_id=getattr(state, "study_id", None),
                 assumption_keys=assumption_keys,
                 top_k=6,
+                query_profile=query_profile,
             )
             state.knowledge_context = pack
         finally:
@@ -713,6 +721,31 @@ def _attach_knowledge_context(state, user_id: str):
 def _prepare_assumptions_with_knowledge(state, user_id: str):
     """Attach Evidence Pack then generate assumptions (graph or direct)."""
     return _attach_knowledge_context(state, user_id)
+
+
+def _finalize_knowledge_influence(state, user_id: str):
+    """Post-process assumption refs + persist influence (no engine changes)."""
+    if not (getattr(state, "assumptions", None) or []):
+        return state
+    try:
+        from app.db import DB_ENABLED, SessionLocal
+        from app.services import knowledge_service as ks
+        if not DB_ENABLED:
+            return state
+        state = ks.enrich_state_assumptions(state)
+        db = SessionLocal()
+        try:
+            ks.record_assumption_influence(
+                db,
+                owner_id=int(user_id),
+                study_id=getattr(state, "study_id", None),
+                assumptions=getattr(state, "assumptions", None) or [],
+            )
+        finally:
+            db.close()
+    except Exception:
+        return state
+    return state
 
 
 def _remember_study_if_ready(state, user_id: str):
@@ -905,6 +938,9 @@ async def approve_stage(
             state.error = None
         except Exception as e:
             state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_generation")
+
+    if stage == "evidence" or state.phase == "ASSUMPTIONS_REVIEW":
+        state = _finalize_knowledge_influence(state, user_id)
 
     _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
 
@@ -1148,6 +1184,7 @@ async def assumption_action(study_id: str, req: AssumptionActionRequest, user=De
                 state = run_assumptions(state)
             except Exception as e:
                 state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_rebuild")
+        state = _finalize_knowledge_influence(state, user_id)
         _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
         return _payload_from_state(study_id, state, record_meta=record)
 
@@ -1210,6 +1247,7 @@ async def regenerate_assumptions(study_id: str, user=Depends(get_current_user)):
             state = run_assumptions(state)
         except Exception as e:
             state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_rebuild")
+    state = _finalize_knowledge_influence(state, user_id)
     _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 

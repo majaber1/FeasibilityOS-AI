@@ -30,6 +30,7 @@ class RetrieveRequest(BaseModel):
     study_id: Optional[str] = None
     assumption_keys: Optional[List[str]] = None
     top_k: int = Field(default=6, ge=1, le=20)
+    query_profile: Optional[Dict[str, Any]] = None
 
 
 def _require_db() -> None:
@@ -131,8 +132,18 @@ def retrieve_knowledge(
         study_id=req.study_id,
         assumption_keys=req.assumption_keys,
         top_k=req.top_k,
+        query_profile=req.query_profile,
     )
     return {"evidence_pack": pack}
+
+
+@router.get("/dashboard")
+def knowledge_dashboard(
+    user: UserOut = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_db()
+    return {"dashboard": ks.dashboard_stats(db, owner_id=user.id)}
 
 
 @router.get("/memories")
@@ -159,6 +170,8 @@ def list_study_memories(
                 "decision": r.decision,
                 "lessons_learned": r.lessons_learned,
                 "summary_text": r.summary_text,
+                "conditions": r.conditions,
+                "influence_summary": r.influence_summary,
             }
             for r in rows
         ]

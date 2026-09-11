@@ -1654,6 +1654,12 @@ class KnowledgeDocument(TimestampMixin, Base):
     content_type: Mapped[Optional[str]] = mapped_column(String(120))
     original_filename: Mapped[Optional[str]] = mapped_column(String(255))
     raw_text_excerpt: Mapped[Optional[str]] = mapped_column(Text)
+    # Phase 6.1 — quality / similarity intelligence
+    quality_score: Mapped[Optional[float]] = mapped_column(Float)
+    quality_breakdown: Mapped[Optional[dict]] = mapped_column(JSON)
+    reference_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    geography: Mapped[Optional[str]] = mapped_column(String(120))
+    business_model: Mapped[Optional[str]] = mapped_column(String(120))
 
     chunks: Mapped[list["KnowledgeChunk"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
@@ -1693,6 +1699,8 @@ class KnowledgeEvidence(Base):
     source_study_memory_id: Mapped[Optional[str]] = mapped_column(String(36))
     confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
     related_project: Mapped[Optional[str]] = mapped_column(String(255))
+    assumption_key: Mapped[Optional[str]] = mapped_column(String(120))
+    reason: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
@@ -1716,3 +1724,5 @@ class StudyMemory(TimestampMixin, Base):
     summary_text: Mapped[Optional[str]] = mapped_column(Text)
     embedding: Mapped[list] = mapped_column(JSON, default=list)
     visibility: Mapped[str] = mapped_column(String(20), default="private", nullable=False)
+    conditions: Mapped[Optional[list]] = mapped_column(JSON)
+    influence_summary: Mapped[Optional[dict]] = mapped_column(JSON)

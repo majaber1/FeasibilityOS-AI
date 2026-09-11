@@ -12,6 +12,12 @@ type KnowledgeDoc = {
   confidence?: number | null;
   chunk_count?: number;
   original_filename?: string | null;
+  quality_score?: number | null;
+  quality_breakdown?: {
+    reasons?: string[];
+    factors?: Record<string, number>;
+  } | null;
+  reference_count?: number | null;
 };
 
 type Props = {
@@ -125,21 +131,42 @@ export function KnowledgePanel({ ar, apiBase = "", getToken }: Props) {
         </p>
       ) : (
         <ul className="space-y-2" data-testid="knowledge-doc-list">
-          {docs.map((d) => (
-            <li
-              key={d.id}
-              className="rounded-xl border border-teal-100 bg-white px-3 py-2 text-xs"
-              data-testid={`knowledge-doc-${d.id}`}
-            >
-              <p className="font-semibold text-ink-900">{d.title}</p>
-              <p className="text-ink-500">
-                {[d.project_type, d.sector, d.document_type, d.extraction_status]
-                  .filter(Boolean)
-                  .join(" · ")}
-                {typeof d.chunk_count === "number" ? ` · ${d.chunk_count} chunks` : ""}
-              </p>
-            </li>
-          ))}
+          {docs.map((d) => {
+            const reasons = d.quality_breakdown?.reasons || [];
+            return (
+              <li
+                key={d.id}
+                className="rounded-xl border border-teal-100 bg-white px-3 py-2 text-xs"
+                data-testid={`knowledge-doc-${d.id}`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="font-semibold text-ink-900">{d.title}</p>
+                  {typeof d.quality_score === "number" ? (
+                    <span
+                      className="rounded-md bg-teal-100 px-2 py-0.5 font-semibold text-teal-900"
+                      data-testid={`knowledge-quality-${d.id}`}
+                    >
+                      {ar ? "الجودة" : "Quality"} {Math.round(d.quality_score)}%
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-ink-500">
+                  {[d.project_type, d.sector, d.document_type, d.extraction_status]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  {typeof d.chunk_count === "number" ? ` · ${d.chunk_count} chunks` : ""}
+                  {typeof d.reference_count === "number" && d.reference_count > 0
+                    ? ` · ${d.reference_count} refs`
+                    : ""}
+                </p>
+                {reasons.length > 0 ? (
+                  <p className="mt-1 text-[11px] text-teal-800" data-testid={`knowledge-quality-reasons-${d.id}`}>
+                    {reasons.slice(0, 3).join(" · ")}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

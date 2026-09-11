@@ -53,7 +53,8 @@ def test_alembic_single_head_and_revision_chain():
         "0026_archetype_schemas",
         "0027_funding_intelligence",
         "0028_knowledge_intel",
-    ), f"Expected head to be 0024–0028 lineage tip, got {heads[0]}"
+        "0029_knowledge_intel_learning",
+    ), f"Expected head to be 0024–0029 lineage tip, got {heads[0]}"
 
     rev_0024 = script.get_revision("0024_wave6_integrity")
     assert rev_0024.down_revision == "0023_growth_os"
