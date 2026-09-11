@@ -101,7 +101,19 @@ const VERDICT_COLORS: Record<string, string> = {
 function sanitizeChatContent(text: string): string {
   if (!text) return "";
   let cleaned = text.replace(/```(?:json|javascript|js|tool|xml)?[\s\S]*?```/gi, "");
-  cleaned = cleaned.replace(/\b(req_[a-zA-Z0-9]+|chatcmpl-[a-zA-Z0-9]+|call_[a-zA-Z0-9]+)\b/gi, "[redacted]");
+  cleaned = cleaned.replace(
+    /\b(req_[a-zA-Z0-9]+|chatcmpl-[a-zA-Z0-9]+|call_[a-zA-Z0-9]+|org_[a-zA-Z0-9]+|proj_[a-zA-Z0-9]+)\b/gi,
+    "[redacted]",
+  );
+  cleaned = cleaned.replace(
+    /\b(llama-[\w.\-]+|gpt-oss-[\w.\-]+|gpt-4[\w.\-]*|mixtral-[\w.\-]+|gemma-[\w.\-]+|groq\/[^\s,;]+)\b/gi,
+    "[model]",
+  );
+  cleaned = cleaned.replace(
+    /https?:\/\/[^\s]*(?:console\.groq\.com|platform\.openai\.com|billing|usage|rate-limits)[^\s]*/gi,
+    "[link]",
+  );
+  cleaned = cleaned.replace(/\b\d+\s*[KkMm]?\s*(?:TPM|TPD|tokens?\s*per\s*day)\b/gi, "[limit]");
   cleaned = cleaned.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "");
   // Drop bare JSON blobs and obvious stack / HTTP dumps.
   const lines = cleaned.split("\n").filter((line) => {
