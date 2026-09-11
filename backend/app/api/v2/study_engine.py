@@ -285,8 +285,10 @@ class ArchetypeSelectRequest(BaseModel):
 
 
 class StructuredAnswersRequest(BaseModel):
-    answers: dict
+    answers: dict = {}
     mark_answered: bool = True
+    # Question ids the user asked the AI to estimate (reuse Assumption Engine).
+    ai_estimates: list[str] = []
 
 
 class AssumptionEditRequest(BaseModel):
@@ -863,25 +865,73 @@ async def submit_structured_answers(study_id: str, req: StructuredAnswersRequest
         raise HTTPException(status_code=404, detail="Study not found")
     _, run_study_step = _import_engine()
     state = _state_from_record(record)
+    from ai_engine.discovery import unanswered_required, enrich_questions_for_language
+
+    # Ensure interview metadata exists for studies created before Discovery Advisor.
+    if state.discovery_questions:
+        state.discovery_questions = enrich_questions_for_language(
+            state.discovery_questions, language=state.language or "en"
+        )
 
     answers = dict(state.structured_answers or {})
-    answers.update(req.answers or {})
+    # Apply explicit user answers only (never write AI-estimate placeholders).
+    # Reject poison strings like "confirmed"/"ok" for numeric/currency/percent
+    # fields so StudyState maps cleanly into the existing Assumption Engine.
+    q_types = {
+        str(q.get("id")): str(q.get("answer_type") or q.get("question_type") or "").upper()
+        for q in (state.discovery_questions or [])
+        if q.get("id")
+    }
+    _NUMERIC_TYPES = {"NUMBER", "CURRENCY", "PERCENTAGE", "PERCENT"}
+    _POISON = {"confirmed", "ok", "yes", "y", "true", "n/a", "na", "none", "null", "-"}
+    for key, value in (req.answers or {}).items():
+        if value is None or value == "":
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        atype = q_types.get(str(key), "")
+        if atype in _NUMERIC_TYPES:
+            if isinstance(value, str) and value.strip().lower() in _POISON:
+                continue
+            if isinstance(value, str):
+                try:
+                    value = float(value.strip().replace(",", ""))
+                    if value.is_integer():
+                        value = int(value)
+                except ValueError:
+                    continue
+        answers[key] = value
     state.structured_answers = answers
-    if req.mark_answered and state.discovery_questions:
+
+    ai_estimate_ids = {str(x) for x in (req.ai_estimates or []) if x}
+    if state.discovery_questions:
         for q in state.discovery_questions:
-            qid = q.get("id")
+            qid = str(q.get("id") or "")
+            if not qid:
+                continue
             if qid in answers:
                 q["answered"] = True
                 q["answer"] = answers[qid]
+                q["ai_estimated"] = False
+            elif qid in ai_estimate_ids and q.get("allow_ai_estimate", True):
+                # Mark satisfied for discovery gating; leave structured_answers
+                # empty so the existing Assumption Engine fills the value.
+                q["answered"] = True
+                q["ai_estimated"] = True
+                q["answer"] = None
+            elif req.mark_answered and qid in (req.answers or {}):
+                # Explicit empty answer ignored — keep unanswered.
+                pass
 
-    # If all required answered, allow profile confirm / evidence
-    unanswered = [
-        q for q in (state.discovery_questions or [])
-        if q.get("required", True) and q.get("id") not in answers
-    ]
+    unanswered = unanswered_required(state.discovery_questions, state.structured_answers)
     if unanswered:
         state.phase = "NEEDS_INFORMATION"
         state.next_action = "answer_structured_questions"
+        if state.profile:
+            # Soft hint only — primary UX is the AI Discovery Interview.
+            state.profile.missing_information = [
+                str(q.get("question") or q.get("prompt") or q.get("id")) for q in unanswered
+            ]
     else:
         state.profile_confirmed = True
         if state.profile:

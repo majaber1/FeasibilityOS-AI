@@ -1,0 +1,312 @@
+{
+  "generatedAt": "2026-09-11T18:46:14.394Z",
+  "base": "http://127.0.0.1:3000",
+  "commit": "7b8183de94b2acd065c875ca95928d90a0a160e8",
+  "preview": "https://saudi-business-m3b0pce3x-20262031.vercel.app",
+  "leakPass": true,
+  "persistencePass": true,
+  "i18nPass": true,
+  "allOk": true,
+  "results": [
+    {
+      "id": "saas",
+      "ok": true,
+      "email": "prod5a_saas_1789152188579@example.com",
+      "expectedArchetype": "saas_digital",
+      "observedArchetype": "saas_digital",
+      "phases": [
+        "ARCHETYPE_CLASSIFICATION",
+        "archetype_confirmed",
+        "discovery_interview_visible",
+        "no_flat_missing_list",
+        "why_matters_shown",
+        "ai_estimate_used",
+        "manual_choice",
+        "discovery_submitted",
+        "evidence_approved",
+        "assumptions_approved",
+        "REPORT_READY",
+        "persistence_ok"
+      ],
+      "screenshots": [
+        "/opt/cursor/artifacts/p5b-saas-classification.png",
+        "/opt/cursor/artifacts/p5b-saas-interview.png",
+        "/opt/cursor/artifacts/p5b-saas-ai-estimate.png",
+        "/opt/cursor/artifacts/p5b-saas-assumptions.png",
+        "/opt/cursor/artifacts/p5b-saas-report.png",
+        "/opt/cursor/artifacts/p5b-saas-05-refresh.png",
+        "/opt/cursor/artifacts/p5b-saas-06-relogin.png"
+      ],
+      "leakChecks": [
+        {
+          "stage": "classification",
+          "hits": []
+        },
+        {
+          "stage": "assumptions",
+          "hits": []
+        },
+        {
+          "stage": "chat:Please complete financia",
+          "hits": []
+        },
+        {
+          "stage": "chat:Assess the key risks.",
+          "hits": []
+        },
+        {
+          "stage": "report",
+          "hits": []
+        },
+        {
+          "stage": "refresh",
+          "hits": []
+        },
+        {
+          "stage": "relogin",
+          "hits": []
+        }
+      ],
+      "errors": [],
+      "warnings": [],
+      "persistence": {
+        "refreshPhase": "التقرير جاهز",
+        "reloginPhase": "التقرير جاهز"
+      },
+      "i18n": null,
+      "studyUrl": "http://127.0.0.1:3000/projects/385/studies/study_d89965cbed82/workspace",
+      "finalPhase": "Report Ready"
+    },
+    {
+      "id": "cyber",
+      "ok": true,
+      "email": "prod5a_cyber_1789152224442@example.com",
+      "expectedArchetype": "services",
+      "observedArchetype": "services",
+      "phases": [
+        "ARCHETYPE_CLASSIFICATION",
+        "archetype_confirmed",
+        "discovery_interview_visible",
+        "no_flat_missing_list",
+        "why_matters_shown",
+        "ai_estimate_used",
+        "discovery_submitted",
+        "evidence_approved",
+        "assumptions_approved",
+        "REPORT_READY"
+      ],
+      "screenshots": [
+        "/opt/cursor/artifacts/p5b-cyber-classification.png",
+        "/opt/cursor/artifacts/p5b-cyber-interview.png",
+        "/opt/cursor/artifacts/p5b-cyber-ai-estimate.png",
+        "/opt/cursor/artifacts/p5b-cyber-assumptions.png",
+        "/opt/cursor/artifacts/p5b-cyber-report.png"
+      ],
+      "leakChecks": [
+        {
+          "stage": "classification",
+          "hits": []
+        },
+        {
+          "stage": "assumptions",
+          "hits": []
+        },
+        {
+          "stage": "chat:Please complete financia",
+          "hits": []
+        },
+        {
+          "stage": "chat:Assess the key risks.",
+          "hits": []
+        },
+        {
+          "stage": "report",
+          "hits": []
+        }
+      ],
+      "errors": [
+        "NO_MANUAL_DISCOVERY_ANSWER"
+      ],
+      "warnings": [],
+      "persistence": null,
+      "i18n": null,
+      "studyUrl": "http://127.0.0.1:3000/projects/386/studies/study_bd13acde36d9/workspace",
+      "finalPhase": "Report Ready"
+    },
+    {
+      "id": "residential",
+      "ok": true,
+      "email": "prod5a_residential_1789152285872@example.com",
+      "expectedArchetype": "real_estate",
+      "observedArchetype": "real_estate",
+      "phases": [
+        "ARCHETYPE_CLASSIFICATION",
+        "archetype_confirmed",
+        "discovery_interview_visible",
+        "no_flat_missing_list",
+        "why_matters_shown",
+        "ai_estimate_used",
+        "manual_choice",
+        "discovery_submitted_early",
+        "evidence_approved",
+        "assumptions_approved",
+        "REPORT_READY"
+      ],
+      "screenshots": [
+        "/opt/cursor/artifacts/p5b-residential-classification.png",
+        "/opt/cursor/artifacts/p5b-residential-interview.png",
+        "/opt/cursor/artifacts/p5b-residential-ai-estimate.png",
+        "/opt/cursor/artifacts/p5b-residential-assumptions.png",
+        "/opt/cursor/artifacts/p5b-residential-report.png"
+      ],
+      "leakChecks": [
+        {
+          "stage": "classification",
+          "hits": []
+        },
+        {
+          "stage": "assumptions",
+          "hits": []
+        },
+        {
+          "stage": "chat:Please complete financia",
+          "hits": []
+        },
+        {
+          "stage": "chat:Assess the key risks.",
+          "hits": []
+        },
+        {
+          "stage": "report",
+          "hits": []
+        }
+      ],
+      "errors": [],
+      "warnings": [],
+      "persistence": null,
+      "i18n": null,
+      "studyUrl": "http://127.0.0.1:3000/projects/387/studies/study_c18f425070c0/workspace",
+      "finalPhase": "Report Ready"
+    },
+    {
+      "id": "datacenter",
+      "ok": true,
+      "email": "prod5a_datacenter_1789152311256@example.com",
+      "expectedArchetype": "data_center",
+      "observedArchetype": "data_center",
+      "phases": [
+        "ARCHETYPE_CLASSIFICATION",
+        "archetype_confirmed",
+        "discovery_interview_visible",
+        "no_flat_missing_list",
+        "why_matters_shown",
+        "ai_estimate_used",
+        "manual_choice",
+        "discovery_submitted_early",
+        "evidence_approved",
+        "assumptions_approved",
+        "REPORT_READY"
+      ],
+      "screenshots": [
+        "/opt/cursor/artifacts/p5b-datacenter-classification.png",
+        "/opt/cursor/artifacts/p5b-datacenter-interview.png",
+        "/opt/cursor/artifacts/p5b-datacenter-ai-estimate.png",
+        "/opt/cursor/artifacts/p5b-datacenter-assumptions.png",
+        "/opt/cursor/artifacts/p5b-datacenter-report.png"
+      ],
+      "leakChecks": [
+        {
+          "stage": "classification",
+          "hits": []
+        },
+        {
+          "stage": "assumptions",
+          "hits": []
+        },
+        {
+          "stage": "chat:Please complete financia",
+          "hits": []
+        },
+        {
+          "stage": "chat:Assess the key risks.",
+          "hits": []
+        },
+        {
+          "stage": "report",
+          "hits": []
+        }
+      ],
+      "errors": [],
+      "warnings": [],
+      "persistence": null,
+      "i18n": null,
+      "studyUrl": "http://127.0.0.1:3000/projects/388/studies/study_104252be9771/workspace",
+      "finalPhase": "Report Ready"
+    },
+    {
+      "id": "uber",
+      "ok": true,
+      "email": "prod5a_uber_1789152344970@example.com",
+      "expectedArchetype": "services",
+      "observedArchetype": "services",
+      "phases": [
+        "ARCHETYPE_CLASSIFICATION",
+        "archetype_confirmed",
+        "discovery_interview_visible",
+        "no_flat_missing_list",
+        "why_matters_shown",
+        "ai_estimate_used",
+        "discovery_submitted",
+        "evidence_approved",
+        "assumptions_approved",
+        "REPORT_READY",
+        "i18n_ok"
+      ],
+      "screenshots": [
+        "/opt/cursor/artifacts/p5b-uber-classification.png",
+        "/opt/cursor/artifacts/p5b-uber-interview.png",
+        "/opt/cursor/artifacts/p5b-uber-ai-estimate.png",
+        "/opt/cursor/artifacts/p5b-uber-assumptions.png",
+        "/opt/cursor/artifacts/p5b-uber-report.png",
+        "/opt/cursor/artifacts/p5b-uber-07-arabic.png",
+        "/opt/cursor/artifacts/p5b-uber-08-english.png"
+      ],
+      "leakChecks": [
+        {
+          "stage": "classification",
+          "hits": []
+        },
+        {
+          "stage": "assumptions",
+          "hits": []
+        },
+        {
+          "stage": "chat:Please complete financia",
+          "hits": []
+        },
+        {
+          "stage": "chat:Assess the key risks.",
+          "hits": []
+        },
+        {
+          "stage": "report",
+          "hits": []
+        },
+        {
+          "stage": "arabic",
+          "hits": []
+        }
+      ],
+      "errors": [
+        "NO_MANUAL_DISCOVERY_ANSWER"
+      ],
+      "warnings": [],
+      "persistence": null,
+      "i18n": {
+        "arabicVisible": true
+      },
+      "studyUrl": "http://127.0.0.1:3000/projects/389/studies/study_92f402bd091c/workspace",
+      "finalPhase": "Report Ready"
+    }
+  ]
+}

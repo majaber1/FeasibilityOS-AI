@@ -1,0 +1,77 @@
+{
+  "email": "saas_gate_1789129308326@example.com",
+  "steps": [
+    "saas-gate-01-interview-no-missing-list.png",
+    "saas-gate-02-multichoice.png",
+    "saas-gate-03-numeric.png",
+    "saas-gate-04-ai-estimate.png",
+    "saas-gate-05-after-refresh.png",
+    "saas-gate-06-assumptions.png",
+    "saas-gate-07-report-ready.png"
+  ],
+  "ok": true,
+  "poison": [],
+  "stepsLog": [
+    "EVIDENCE_REVIEW",
+    "ASSUMPTIONS_REVIEW",
+    "ANALYZED",
+    "DECISION_READY",
+    "REPORT_READY"
+  ],
+  "afterAuthUrl": "http://127.0.0.1:3000/projects",
+  "hasToken": true,
+  "projectId": 335,
+  "studyId": "study_534eae0de3e2",
+  "phaseAfterArch": "NEEDS_INFORMATION",
+  "questionCount": 8,
+  "questionIds": [
+    "target_customers",
+    "pricing",
+    "arr",
+    "mrr",
+    "cac",
+    "churn",
+    "ltv",
+    "acquisition_channels"
+  ],
+  "url": "http://127.0.0.1:3000/projects/335/studies/study_534eae0de3e2/workspace",
+  "missingVisible": false,
+  "interviewVisible": true,
+  "multiChoice": "Paid ads",
+  "numeric": "500",
+  "aiEstimateOn": "pricing",
+  "submitPhase": "EVIDENCE_REVIEW",
+  "structuredAnswers": {
+    "arr": 1000,
+    "cac": 1000,
+    "ltv": 1000,
+    "mrr": 1000,
+    "churn": 5,
+    "target_customers": 500,
+    "acquisition_channels": [
+      "Paid ads"
+    ]
+  },
+  "aiEstimated": [
+    "pricing"
+  ],
+  "refreshPhase": "EVIDENCE_REVIEW",
+  "refreshAnswers": {
+    "arr": 1000,
+    "cac": 1000,
+    "ltv": 1000,
+    "mrr": 1000,
+    "churn": 5,
+    "target_customers": 500,
+    "acquisition_channels": [
+      "Paid ads"
+    ]
+  },
+  "refreshAi": [
+    "pricing"
+  ],
+  "persisted": true,
+  "finalPhase": "REPORT_READY",
+  "verdict": "GO_WITH_CONDITIONS",
+  "financial": true
+}

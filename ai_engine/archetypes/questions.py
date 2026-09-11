@@ -1,4 +1,8 @@
-"""Structured discovery questions per archetype (yes/no, select, numeric)."""
+"""Structured discovery questions per archetype (yes/no, select, numeric).
+
+Interview enrichment (category, explanation, allow_ai_estimate, answer_type)
+lives in ai_engine.discovery — this module stays a thin schema→question map.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -41,6 +45,7 @@ def get_structured_questions(
                 "description_ar": field.get("description_ar") or "",
                 "answer": None,
                 "answered": False,
+                "ai_estimated": False,
             }
         )
     return questions
@@ -53,17 +58,12 @@ def questions_for_language(
     context_text: str | None = None,
     services_variant: str | None = None,
 ) -> list[dict[str, Any]]:
-    lang = "ar" if language == "ar" else "en"
-    out = []
-    for q in get_structured_questions(
-        archetype, context_text=context_text, services_variant=services_variant
-    ):
-        out.append(
-            {
-                **q,
-                "prompt": q["prompt_ar"] if lang == "ar" else q["prompt_en"],
-                "options": q["options_ar"] if lang == "ar" else q["options_en"],
-                "description": q["description_ar"] if lang == "ar" else q["description_en"],
-            }
-        )
-    return out
+    """Return interview-ready questions (Discovery Advisor enrichment applied)."""
+    from ai_engine.discovery import build_discovery_interview
+
+    return build_discovery_interview(
+        archetype,
+        language,
+        context_text=context_text,
+        services_variant=services_variant,
+    )
