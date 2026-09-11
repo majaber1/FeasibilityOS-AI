@@ -3,112 +3,110 @@
 **Date:** 2026-09-11  
 **Branch:** `cursor/assumption-review-approval-fix-1831`  
 **PR:** https://github.com/majaber1/saudi-business/pull/24  
-**Status:** PASS (API + browser E2E)
+**Status:** PASS (reproduction + fix + browser E2E + regression)
 
-## Problem
+## CURRENT V2 model (preserved)
 
-In Study Workspace → Assumptions Review, **Approve Assumptions / Approve All Assumptions** stayed disabled and could not be clicked, blocking progress into financial analysis.
+`Assumption` fields (no per-row status enum):
 
-## Investigation (no assumed cause)
+- `key`, `value`, `source`, `confidence`, `low`/`base`/`high`
+- `origin` (`user` | `ai_estimated` | `document` | `default` | `rule_fallback`)
+- `ai_estimated`, labels, `unit`, `input_type`
 
-### 1) Frontend disable conditions
+Study-level gate only: `assumptions_approved: bool` + phase `ASSUMPTIONS_REVIEW` → `READY_FOR_ANALYSIS`.
 
-`AssumptionReviewPanel` and the workspace page gate Approve All on:
+A prior draft incorrectly added `PENDING_REVIEW` / `EDITED` / `REJECTED`. That was **reverted**. Reject = remove row from `assumptions` (not a parallel lifecycle).
 
-| Condition | Disables? | Notes |
-|-----------|-----------|-------|
-| `loading` / save in progress | Yes | Correct |
-| `assumptions.length === 0` | Yes | Correct — but this was the observed UI state |
-| API/study `error` **with** rows present | No | Must not block Approve All |
-| Individual cards still `PENDING_REVIEW` | No | Global approve must remain available |
+## 1) Reproduction (pre-fix)
 
-**Observed bug:** phase was `ASSUMPTIONS_REVIEW` while `assumptions` was `[]`, so the CTA rendered disabled.
+Stuck study created for browser:
 
-### 2) API fields
+- URL: `http://127.0.0.1:3000/projects/308/studies/study_2ac1eafb9192/workspace`
+- Artifact: `/opt/cursor/artifacts/assumption-stuck-pre-fix-state.json`
+- UI screenshot: `/opt/cursor/artifacts/assumption-stuck-pre-fix-ui.webp`
 
-`GET /api/v2/studies/{id}` (and approve/action payloads) return assumption objects with:
+| Field | Value |
+|-------|-------|
+| phase | `ASSUMPTIONS_REVIEW` |
+| assumptions count | `0` |
+| assumptions | `[]` |
+| assumptions_approved | `false` |
+| evidence_approved | `true` |
+| error | `null` (DB-seeded stuck) / `AI service error: …` on live get_llm failure |
+| per-assumption status | N/A (no status field in model) |
 
-- `id` (e.g. `asm_arr`)
-- `status` (`PENDING_REVIEW` \| `APPROVED` \| `EDITED` \| `REJECTED`)
-- `source` (`AI_ESTIMATED` \| `RULE_BASED` \| `USER_PROVIDED`)
-- `confidence`
-- `reviewed` (bool)
-- `value` / `low` / `base` / `high`
+Frontend:
 
-Per-card: `POST .../assumptions/action` with `approve` \| `reject` \| `regenerate`.  
-Global: `POST .../approve/assumptions`.
+- Panel gate (pre-fix): `phase === ASSUMPTIONS_REVIEW && assumptions.length > 0` → **panel hidden**
+- Approve disable: `loading \|\| assumptions.length === 0` → **disabled=true** (confirmed in DevTools)
 
-### 3) Persistence / lifecycle
+## 2) Exact disable reason (proven)
 
-| Event | Expected |
-|-------|----------|
-| AI / rule fill | `source=AI_ESTIMATED` or `RULE_BASED`, `status=PENDING_REVIEW`, `reviewed=false` |
-| User structured answer seed | `source=USER_PROVIDED`, `status=APPROVED`, `reviewed=true` |
-| Approve (card or all) | `status=APPROVED`, `reviewed=true` |
-| Edit | `status=EDITED`, `source=USER_PROVIDED`, `reviewed=true` |
-| Reject | `status=REJECTED`, `reviewed=true` |
+**`assumptions.length === 0` while phase is `ASSUMPTIONS_REVIEW`.**
 
-Approve-all advances phase to analysis (`READY_FOR_ANALYSIS` → financial → `ANALYZED`).
+Disproved as primary causes for this stuck study:
 
-### 4) Root cause
+| Hypothesis | Result |
+|------------|--------|
+| phase mismatch | No — phase correctly `ASSUMPTIONS_REVIEW` |
+| draft/rejected rows | No — array empty; no status model |
+| assumptions_approved mismatch | No — false, as expected pre-approve |
+| stale frontend state | No — GET API also returned count 0 |
+| API validation on click | N/A — button never enabled |
+| loading/error alone | No — loading false; error null on seeded stuck |
 
-1. **Empty assumptions in review phase:** `get_llm("assumptions")` (or equivalent client init) could fail **outside** the try/except that handled invoke/parse errors. Evidence approve still advanced phase to `ASSUMPTIONS_REVIEW`, leaving zero rows → Approve disabled.
-2. **Empty / `TBD` values** on rule fallback prevented deterministic financial extract after approve (`Could not extract financial data from assumptions`).
-3. UX lacked reliable empty-state recovery and per-card Approve / Edit / Regenerate.
+## 3) Architectural root cause
 
-## Fix summary
+`ai_engine/agents/assumption.py` called `get_llm("assumptions")` **outside** the try/except.
 
-| Area | Change |
-|------|--------|
-| `ai_engine/agents/assumption.py` | LLM init inside try/except; numeric defaults (never empty/`TBD`); lifecycle fields on every row |
-| `ai_engine/models/study_state.py` | `id`, `status`, `reviewed` on `Assumption` |
-| `backend/app/api/v2/study_engine.py` | Rebuild assumptions if empty after evidence approve / regenerate; approve-all marks non-rejected rows approved; `POST /assumptions/action` |
-| `AssumptionReviewPanel.tsx` | Empty state + Regenerate; per-card Approve/Edit/Regenerate; Approve All only disabled for loading / no rows / error-with-no-data |
-| Workspace page | Show panel whenever phase is `ASSUMPTIONS_REVIEW` (even if empty); wire card actions |
+`approve_stage(evidence)` sets `phase = ASSUMPTIONS_REVIEW` **before** `run_study_step`. If LLM client init raises, the exception is caught at the API layer, phase stays `ASSUMPTIONS_REVIEW`, and `assumptions` remains `[]`.
 
-## Tests
+That is a **state-machine / generation defect**, not a missing Approve enablement rule.
 
-### A) Unit / agent smoke
+Unit proof (pre-fix): `get_llm` raising → `run_assumptions` aborts → `assumptions=[]`.  
+Unit proof (post-fix): same raise → Rule Fallback seeds non-empty numeric rows.
 
-- LLM unavailable → rule fallback rows with `RULE_BASED`, `PENDING_REVIEW`, non-empty numeric values.
-- Deterministic financial extract succeeds on those rows.
+## 4) Exact fix (smallest)
 
-### B) API SaaS journey
+1. Move `get_llm` inside try/except; on failure seed **Rule Fallback** rows with numeric defaults (never empty/`TBD`).
+2. After evidence approve: if still `ASSUMPTIONS_REVIEW` and empty → rebuild via `run_assumptions`.
+3. Regenerate: clear + hard-guarantee rebuild if empty.
+4. UX on **current** fields: Approve / Edit / Reject / Regenerate / Why (source/origin/confidence/L-B-H).
+5. Bulk CTA: **Approve all eligible assumptions** — disabled only with an explicit visible reason (loading / no rows / all values empty). Rejected rows are removed, never silently approved. Empty values block bulk approve with a banner.
 
-User `saas_ar_1789093373@example.com`, project `305`, study `study_bb4593447e39`:
+**DB CHANGE:** NO  
+**API CHANGE:** YES (additive `POST .../assumptions/action` for approve|reject|regenerate mapped to existing fields)
 
-1. Create SaaS study → archetype → structured answers → evidence approve  
-2. Assumptions appear (count 8)  
-3. Card approve + **Approve All** → phase `ANALYZED`  
-4. `financial_results` present (`npv`, `irr`, `payback_months`, `capex`, scenarios)
+## 5) Browser E2E
 
-Artifact: `/opt/cursor/artifacts/assumption-api-e2e.json`
+### Stuck study repair
+- Regenerate → rows appear → Approve all eligible → Analyzed + financials  
+- Artifact: `/opt/cursor/artifacts/assumption-e2e-stuck-study-analyzed.webp`
 
-### C) Browser E2E
+### Fresh SaaS (project 311 / `study_24b54764b5c8`)
+- Cards with Approve/Edit/Reject/Regenerate/Why  
+- Bulk enabled → Analyzed with financial panel  
+- Refresh + logout/login persistence  
 
-Study: `http://127.0.0.1:3000/projects/307/studies/study_c9cbb93f20db/workspace`
+<img src="/opt/cursor/artifacts/assumption-e2e-review-enabled.webp" alt="Eligible approve enabled" />
+<img src="/opt/cursor/artifacts/assumption-e2e-after-approve-financial.webp" alt="After approve financial" />
+<img src="/opt/cursor/artifacts/assumption-e2e-persistence-reload.webp" alt="Persistence after reload" />
 
-| Check | Result |
-|-------|--------|
-| Assumption cards visible (8) | PASS |
-| Per-card Approve / Edit / Regenerate | PASS |
-| Approve All **enabled** | PASS |
-| Approve All advances phase → Analyzed | PASS |
-| Financial panel (NPV) without extract error | PASS |
+### API SaaS full path
+`saas_e2e_*` → `ASSUMPTIONS_REVIEW` → card approve/edit/reject/regen → bulk → `ANALYZED` → `REPORT_READY` (`verdict=DEFER`).  
+Artifact: `/opt/cursor/artifacts/assumption-saas-api-journey.json`
 
-Screenshots:
+## 6) Archetype regression (API)
 
-- <img src="/opt/cursor/artifacts/assumption-review-enabled-approve.webp" alt="Approve All enabled with per-card actions" />
-- <img src="/opt/cursor/artifacts/assumption-review-after-approve.webp" alt="After approve: Analyzed with NPV" />
+| Case | Archetype | Assumptions | Financial | SaaS leak | Mobility leak |
+|------|-----------|-------------|-----------|-----------|---------------|
+| Residential | `real_estate` | 7 | yes | none | none |
+| Data Center | `data_center` | 10 | yes | none | none |
+| Professional Services | `services` | 7 | yes | none | none |
+| SaaS | `saas_digital` | 8 | yes | expected SaaS keys | n/a |
 
-JSON results: `/opt/cursor/artifacts/assumption-review-approve-all-e2e-test-results.json`
-
-## Limitations / follow-ups
-
-- When discovery answers reuse assumption keys, rows seed as `USER_PROVIDED`/`APPROVED` (by design). Pure `AI_ESTIMATED`/`PENDING_REVIEW` is covered by LLM-down agent smoke and regenerate without overlapping answers.
-- IRR / payback may still be `null` for some CAPEX=0 SaaS extracts; NPV still computed. Separate from Approve enablement.
-- Environment LLM 429 rate limits force rule/keyword fallbacks; fallback path is now safe for approve → financial.
+Artifact: `/opt/cursor/artifacts/assumption-archetype-regression.json`
 
 ## Verdict
 
-**PASS** — Approve All is clickable whenever assumptions exist; empty generation recovers via regenerate / post-evidence rebuild; approve advances into financial analysis.
+**PASS** — empty `ASSUMPTIONS_REVIEW` fixed at generation/transition; Approve disable reason was empty array; no invented status enum; fresh + stuck browser paths reach Financial; regressions clean.
