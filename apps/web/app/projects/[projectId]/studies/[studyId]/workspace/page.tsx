@@ -66,6 +66,15 @@ type StudyInfo = {
   financial_results?: Record<string, unknown> | null;
   assumptions_version?: number;
   assumptions_history?: Array<Record<string, unknown>>;
+  funding_package?: {
+    archetype?: string;
+    readiness_status?: string;
+    readiness_focus?: string[];
+    recommended_instruments?: Array<{ name?: string; fit?: string; notes?: string }>;
+    avoid_instruments?: string[];
+    verdict_context?: string | null;
+    npv?: number | null;
+  } | null;
   report?: FeasibilityReport | null;
   report_outline?: Record<string, unknown> | null;
   verdict: string | null;
@@ -360,6 +369,12 @@ export default function StudyWorkspacePage() {
       : null) ??
       null);
   const reportSections = report?.sections || null;
+  const funding =
+    study?.funding_package ||
+    ((financial && typeof financial === "object" && "funding_package" in financial
+      ? (financial.funding_package as StudyInfo["funding_package"])
+      : null) ??
+      null);
   const missing = study?.profile?.missing_information || [];
 
   return (
@@ -443,6 +458,57 @@ export default function StudyWorkspacePage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {funding && (
+        <div
+          className="mb-3 rounded-xl border border-slate-200 bg-white p-3 text-xs"
+          data-testid="funding-readiness-panel"
+        >
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink-900">
+              {ar ? "الجاهزية والتمويل" : "Readiness & funding"}
+            </h2>
+            <span
+              className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-ink-700"
+              data-testid="funding-readiness-status"
+            >
+              {funding.readiness_status || "—"}
+              {funding.archetype ? ` · ${funding.archetype}` : ""}
+            </span>
+          </div>
+          {(funding.readiness_focus || []).length > 0 && (
+            <p className="mb-2 text-[11px] text-ink-500" data-testid="funding-readiness-focus">
+              Focus: {(funding.readiness_focus || []).join(", ")}
+            </p>
+          )}
+          <div className="grid gap-3 md:grid-cols-2" data-testid="funding-instruments">
+            <div>
+              <h3 className="font-semibold text-ink-800">
+                {ar ? "أدوات موصى بها" : "Recommended instruments"}
+              </h3>
+              <ul className="mt-1 list-disc space-y-1 ps-4 text-[11px] text-ink-700">
+                {(funding.recommended_instruments || []).slice(0, 6).map((inst, idx) => (
+                  <li key={`${inst.name || "inst"}-${idx}`}>
+                    <span className="font-medium">{inst.name}</span>
+                    {inst.fit ? ` — ${inst.fit}` : ""}
+                    {inst.notes ? ` (${inst.notes})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-ink-800">
+                {ar ? "تجنب لهذه الفئة" : "Avoid for this archetype"}
+              </h3>
+              <ul className="mt-1 list-disc space-y-1 ps-4 text-[11px] text-ink-700">
+                {(funding.avoid_instruments || []).slice(0, 6).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
