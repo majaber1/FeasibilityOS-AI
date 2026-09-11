@@ -17,6 +17,8 @@ from ai_engine.agents import assumption as assumption_mod
 
 GOLDEN = [
     ("Uber ride hailing service marketplace in Riyadh with drivers and take rate", "services"),
+    ("Cybersecurity consulting and managed security services company in Riyadh with retainers and utilization", "services"),
+    ("Food manufacturing factory with production capacity and machinery", "industrial"),
     ("Residential compound 500 villas in Jeddah with land cost and BOQ", "real_estate"),
     ("50MW tier III data center in Dammam with racks and PUE", "data_center"),
 ]

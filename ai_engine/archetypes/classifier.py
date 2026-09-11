@@ -38,16 +38,34 @@ def classify_archetype(text: str) -> str:
     re_kw = (
         "residential", "real estate", "سكني", "عقار", "مجمع", "وحدات", "villas",
         "construction", "بناء", "compound", "مجمع سكني", "boq", "land cost", "wafi",
-        "off-plan", "gated",
+        "off-plan", "gated", "apartment", "apartments",
     )
     if any(k in t for k in re_kw):
         return "real_estate"
 
+    # Professional / managed services before industrial: words like "utilization"
+    # appear in consulting staffing models and must not force industrial.
+    services_kw = (
+        "uber", "careem", "ride", "hailing", "ride-hailing", "rideshare", "taxi",
+        "driver", "take rate", "take-rate", "marketplace", "delivery platform",
+        "خدمة", "توصيل", "سائق", "مشاوير",
+        "consulting", "consultancy", "cybersecurity", "cyber security",
+        "professional services", "managed services", "managed security",
+        "retainer", "advisory", "services company", "service business",
+        "agency", "soc ", "penetration test", "استشارات", "خدمات مهنية",
+    )
+    if any(k in t for k in services_kw):
+        return "services"
+
     industrial_kw = (
-        "factory", "manufacturing", "industrial", "مصنع", "تصنيع", "إنتاج",
-        "production capacity", "raw material", "utilization", "machinery",
+        "factory", "manufacturing", "industrial", "مصنع", "تصنيع",
+        "production capacity", "raw material", "machinery", "plant utilization",
+        "food plant", "manufacturing plant", "production plant",
     )
     if any(k in t for k in industrial_kw):
+        return "industrial"
+    # Arabic "production" alone is industrial-leaning when not already services.
+    if "إنتاج" in t and not any(k in t for k in ("خدمة", "استشارات")):
         return "industrial"
 
     retail_kw = (
@@ -57,19 +75,10 @@ def classify_archetype(text: str) -> str:
     if any(k in t for k in retail_kw):
         return "retail"
 
-    # Ride-hailing / marketplace mobility → services (NOT pure SaaS subscription)
-    services_kw = (
-        "uber", "careem", "ride", "hailing", "ride-hailing", "rideshare", "taxi",
-        "driver", "take rate", "take-rate", "marketplace", "delivery platform",
-        "خدمة", "توصيل", "سائق", "مشاوير",
-    )
-    if any(k in t for k in services_kw):
-        return "services"
-
     saas_kw = (
         "saas", "subscription", "arr", "mrr", "churn", "b2b software",
         "اشتراك", "برمجيات كخدمة", "software platform", "whatsapp ai",
-        "crm software", "api product",
+        "crm software", "api product", "ai compliance", "compliance platform",
     )
     if any(k in t for k in saas_kw):
         return "saas_digital"

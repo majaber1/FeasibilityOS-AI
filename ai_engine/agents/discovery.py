@@ -23,7 +23,7 @@ SYSTEM_PROMPT_AR = """
 - صنّف المشروع أولاً إلى أحد: saas_digital | real_estate | data_center | industrial | retail | services | other
 - اسأل فقط أسئلة مناسبة لهذا التصنيف
 - ممنوع سؤال CAC أو Churn أو ARR أو MRR أو تسعير SaaS لمشاريع العقار أو مراكز البيانات أو الصناعة أو التجزئة
-- مشاريع التنقل/التوصيل/الأسواق تُصنَّف services وليست saas_digital
+- مشاريع التنقل/التوصيل/الأسواق والاستشارات/الأمن السيبراني/الخدمات المهنية تُصنَّف services وليست saas_digital أو industrial
 - لا تخترع أرقاماً مالية دقيقة في هذه المرحلة
 
 أخرج JSON داخل ```json ... ```:
@@ -45,7 +45,7 @@ Strict rules:
 - Classify first into: saas_digital | real_estate | data_center | industrial | retail | services | other
 - Ask only questions appropriate for that archetype
 - NEVER ask CAC, Churn, ARR, MRR, or SaaS pricing for real estate, data centers, industrial, or retail
-- Mobility / ride-hailing / marketplaces classify as services (NOT saas_digital)
+- Mobility / ride-hailing / marketplaces AND consulting / cybersecurity / professional services classify as services (NOT saas_digital or industrial)
 - Do not invent precise financial numbers in this step
 
 Output JSON inside ```json ... ```:
@@ -61,9 +61,21 @@ Output JSON inside ```json ... ```:
 
 
 def run_discovery(state: StudyState) -> StudyState:
-    if state.profile_confirmed and state.profile and state.profile.archetype_confirmed:
-        state.phase = "EVIDENCE_REVIEW"
-        state.next_action = "review_evidence"
+    # Once archetype is locked, never re-classify — only advance structured Qs / evidence.
+    if state.profile and state.profile.archetype_confirmed:
+        if state.profile_confirmed:
+            state.phase = "EVIDENCE_REVIEW"
+            state.next_action = "review_evidence"
+            state.error = None
+            return state
+        unanswered = _unanswered_required(state)
+        if unanswered or (state.profile.missing_information):
+            state.phase = "NEEDS_INFORMATION"
+            state.next_action = "answer_structured_questions"
+        else:
+            state.phase = "EVIDENCE_REVIEW"
+            state.next_action = "review_evidence"
+            state.profile_confirmed = True
         state.error = None
         return state
 
