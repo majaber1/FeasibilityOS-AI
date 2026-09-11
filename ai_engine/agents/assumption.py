@@ -84,7 +84,6 @@ def run_assumptions(state: StudyState) -> StudyState:
     schema_by_key = {f["key"]: f for f in schema}
 
     system_prompt = SYSTEM_PROMPT_AR if lang == "ar" else SYSTEM_PROMPT_EN
-    llm = get_llm("assumptions")
 
     context_parts = [
         f"Archetype: {archetype}",
@@ -113,6 +112,7 @@ def run_assumptions(state: StudyState) -> StudyState:
     response_text = ""
     llm_unavailable = False
     try:
+        llm = get_llm("assumptions")
         response = llm.invoke(messages)
         response_text = response.content if hasattr(response, "content") else str(response)
         assumption_data = _extract_json(response_text)
@@ -134,9 +134,10 @@ def run_assumptions(state: StudyState) -> StudyState:
         meta = schema_by_key.get(key, {})
         val = _as_str(raw)
         seeded[key] = Assumption(
+            id=f"asm_{key}",
             key=key,
             value=val,
-            source="user",
+            source="USER_PROVIDED",
             confidence="confirmed",
             low=val,
             base=val,
@@ -147,6 +148,8 @@ def run_assumptions(state: StudyState) -> StudyState:
             label_en=meta.get("label_en"),
             label_ar=meta.get("label_ar"),
             ai_estimated=False,
+            status="APPROVED",
+            reviewed=True,
         )
 
     for a in (assumption_data or {}).get("assumptions") or []:
@@ -160,23 +163,29 @@ def run_assumptions(state: StudyState) -> StudyState:
         conf = str(a.get("confidence") or "low")
         if conf not in {"confirmed", "medium", "low"}:
             conf = "low"
-        source = str(a.get("source") or ("AI Estimated Assumption" if ai_est else "model"))
-        if ai_est and "AI Estimated" not in source:
-            source = "AI Estimated Assumption"
+        source = "AI_ESTIMATED" if ai_est else str(a.get("source") or "RULE_BASED")
+        default_val = _default_value_for_field(meta or {"key": key}, archetype)
+        value = _as_str(a.get("value")).strip() or default_val
+        low = _as_str(a.get("low")).strip() or value
+        base = _as_str(a.get("base")).strip() or value
+        high = _as_str(a.get("high")).strip() or value
         seeded[key] = Assumption(
+            id=f"asm_{key}",
             key=key,
-            value=_as_str(a.get("value")),
+            value=value,
             source=source,
             confidence=conf,  # type: ignore[arg-type]
-            low=_as_str(a.get("low")) or None,
-            base=_as_str(a.get("base")) or None,
-            high=_as_str(a.get("high")) or None,
+            low=low,
+            base=base,
+            high=high,
             origin="ai_estimated" if ai_est else "user",
             input_type=meta.get("input_type"),
             unit=meta.get("unit"),
             label_en=meta.get("label_en"),
             label_ar=meta.get("label_ar"),
             ai_estimated=ai_est,
+            status="PENDING_REVIEW",
+            reviewed=False,
         )
 
     for field in schema:
@@ -185,31 +194,44 @@ def run_assumptions(state: StudyState) -> StudyState:
             continue
         if not field.get("required", True):
             continue
+        default_val = _default_value_for_field(field, archetype)
         if llm_unavailable:
             seeded[key] = Assumption(
+                id=f"asm_{key}",
                 key=key,
-                value="",
-                source="Rule Fallback",
+                value=default_val,
+                source="RULE_BASED",
                 confidence="low",
+                low=default_val,
+                base=default_val,
+                high=default_val,
                 origin="rule_fallback",
                 input_type=field.get("input_type"),
                 unit=field.get("unit"),
                 label_en=field.get("label_en"),
                 label_ar=field.get("label_ar"),
                 ai_estimated=False,
+                status="PENDING_REVIEW",
+                reviewed=False,
             )
         else:
             seeded[key] = Assumption(
+                id=f"asm_{key}",
                 key=key,
-                value="",
-                source="AI Estimated Assumption",
+                value=default_val,
+                source="AI_ESTIMATED",
                 confidence="low",
+                low=default_val,
+                base=default_val,
+                high=default_val,
                 origin="ai_estimated",
                 input_type=field.get("input_type"),
                 unit=field.get("unit"),
                 label_en=field.get("label_en"),
                 label_ar=field.get("label_ar"),
                 ai_estimated=True,
+                status="PENDING_REVIEW",
+                reviewed=False,
             )
 
     assumptions = list(seeded.values())
@@ -249,6 +271,47 @@ def _as_str(v) -> str:
     if v is None:
         return ""
     return v if isinstance(v, str) else str(v)
+
+
+def _default_value_for_field(field: dict, archetype: str) -> str:
+    """Deterministic placeholder so financial analysis can run when LLM is down."""
+    key = field.get("key") or ""
+    input_type = (field.get("input_type") or "").lower()
+    defaults = {
+        "target_customers": "200",
+        "pricing": "500",
+        "arr": "1200000",
+        "mrr": "100000",
+        "cac": "800",
+        "churn": "3",
+        "ltv": "8000",
+        "acquisition_channels": "Organic",
+        "initial_investment": "1500000",
+        "capex": "1500000",
+        "opex_monthly": "80000",
+        "revenue_y1": "1200000",
+        "gross_margin": "70",
+        "land_cost": "5000000",
+        "construction_boq": "15000000",
+        "units": "100",
+        "selling_price": "1200000",
+        "absorption_rate": "40",
+        "mw_capacity": "5",
+        "rack_count": "200",
+        "pue": "1.4",
+        "power_cost": "0.25",
+        "active_contracts": "15",
+        "consultants_headcount": "20",
+        "utilization_rate": "70",
+    }
+    if key in defaults:
+        return defaults[key]
+    if input_type in {"currency", "number"}:
+        return "100000" if archetype in {"real_estate", "data_center"} else "10000"
+    if input_type == "percent":
+        return "10"
+    # Never return non-numeric placeholders — financial extract needs parseable values.
+    return "10000"
 
 
 def _extract_json(text: str) -> dict | None:

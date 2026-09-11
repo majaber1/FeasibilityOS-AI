@@ -22,6 +22,7 @@ type Claim = {
 };
 
 type Assumption = {
+  id?: string | null;
   key: string;
   value: string;
   source?: string;
@@ -33,6 +34,8 @@ type Assumption = {
   label_en?: string | null;
   label_ar?: string | null;
   unit?: string | null;
+  status?: string | null;
+  reviewed?: boolean;
 };
 
 type DiscoveryQuestion = {
@@ -397,6 +400,30 @@ export default function StudyWorkspacePage() {
     }
   }
 
+  async function assumptionCardAction(key: string, action: "approve" | "reject" | "regenerate") {
+    if (!study || loading) return;
+    const token = getToken();
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/assumptions/action`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: studyFetchHeaders(token),
+        body: JSON.stringify({ key, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Failed to ${action} assumption`);
+      applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+      if (data.error) setError(data.error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function approveStage(stage: string) {
     if (!study || loading) return;
     const token = getToken();
@@ -551,14 +578,16 @@ export default function StudyWorkspacePage() {
           />
         )}
 
-      {study?.phase === "ASSUMPTIONS_REVIEW" && (study.assumptions?.length || 0) > 0 && (
+      {study?.phase === "ASSUMPTIONS_REVIEW" && (
         <AssumptionReviewPanel
           assumptions={study.assumptions || []}
           ar={ar}
           loading={loading}
-          onApprove={() => approveStage("assumptions")}
-          onRegenerate={regenerateAssumptions}
+          error={error || study.error}
+          onApproveAll={() => approveStage("assumptions")}
+          onRegenerateAll={regenerateAssumptions}
           onEdit={editAssumption}
+          onCardAction={assumptionCardAction}
         />
       )}
 
@@ -657,10 +686,18 @@ export default function StudyWorkspacePage() {
             <button
               type="button"
               onClick={() => approveStage("assumptions")}
-              disabled={loading || assumptions.length === 0}
+              disabled={loading || assumptions.length === 0 || Boolean(error && assumptions.length === 0)}
+              data-testid="approve-all-assumptions-btn"
+              title={
+                assumptions.length === 0
+                  ? ar
+                    ? "لا توجد افتراضات — أعد التوليد أولاً"
+                    : "No assumptions — regenerate first"
+                  : undefined
+              }
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
-              {ar ? "الموافقة على الافتراضات" : "Approve Assumptions"}
+              {ar ? "اعتماد كل الافتراضات" : "Approve All Assumptions"}
             </button>
           )}
         </div>

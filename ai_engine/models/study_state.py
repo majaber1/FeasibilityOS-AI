@@ -48,7 +48,11 @@ class ProjectProfile(BaseModel):
     services_variant: Optional[str] = None
 
 
+AssumptionStatus = Literal["PENDING_REVIEW", "APPROVED", "EDITED", "REJECTED"]
+
+
 class Assumption(BaseModel):
+    id: Optional[str] = None
     key: str
     value: str
     source: str
@@ -62,6 +66,9 @@ class Assumption(BaseModel):
     label_en: Optional[str] = None
     label_ar: Optional[str] = None
     ai_estimated: bool = False
+    # Review lifecycle — AI estimates start as PENDING_REVIEW.
+    status: AssumptionStatus = "PENDING_REVIEW"
+    reviewed: bool = False
 
 
 class Claim(BaseModel):

@@ -282,6 +282,15 @@ class AssumptionEditRequest(BaseModel):
     explanation: Optional[str] = None
 
 
+class AssumptionActionRequest(BaseModel):
+    key: str
+    action: str  # approve | reject | regenerate
+    value: Optional[str] = None
+    low: Optional[str] = None
+    base: Optional[str] = None
+    high: Optional[str] = None
+
+
 
 def _normalize_profile_label(value: str | None, *, fallback: str) -> str:
     cleaned = (value or "").strip()
@@ -725,12 +734,28 @@ async def approve_stage(
     elif stage == "evidence":
         state.phase = "ASSUMPTIONS_REVIEW"
     elif stage == "assumptions":
+        # Mark every assumption reviewed/approved — individual review is optional.
+        for a in state.assumptions or []:
+            if getattr(a, "status", None) != "REJECTED":
+                a.status = "APPROVED"
+                a.reviewed = True
+            if not getattr(a, "id", None):
+                a.id = f"asm_{a.key}"
         state.phase = "READY_FOR_ANALYSIS"
 
     try:
         state = await run_study_step(state)
     except Exception as e:
         state.error = f"AI service error: {e}"
+
+    # If we entered assumptions review without rows (e.g. LLM init failure), rebuild via rule fallback.
+    if stage == "evidence" and state.phase == "ASSUMPTIONS_REVIEW" and not (state.assumptions or []):
+        try:
+            from ai_engine.agents.assumption import run_assumptions
+            state = run_assumptions(state)
+            state.error = None
+        except Exception as e:
+            state.error = f"Assumption generation failed: {e}"
 
     _save_study(study_id, state.model_dump(), user_id)
 
@@ -861,10 +886,14 @@ async def edit_assumption(study_id: str, req: AssumptionEditRequest, user=Depend
                 a.base = req.base
             if req.high is not None:
                 a.high = req.high
-            a.source = "user"
+            a.source = "USER_PROVIDED"
             a.origin = "user"
             a.ai_estimated = False
             a.confidence = "confirmed"
+            a.status = "EDITED"
+            a.reviewed = True
+            if not a.id:
+                a.id = f"asm_{a.key}"
             updated = True
             break
     if not updated:
@@ -872,21 +901,77 @@ async def edit_assumption(study_id: str, req: AssumptionEditRequest, user=Depend
         state.assumptions = list(state.assumptions or [])
         state.assumptions.append(
             Assumption(
+                id=f"asm_{req.key}",
                 key=req.key,
                 value=req.value,
-                source="user",
+                source="USER_PROVIDED",
                 confidence="confirmed",
                 low=req.low,
                 base=req.base or req.value,
                 high=req.high,
                 origin="user",
                 ai_estimated=False,
+                status="EDITED",
+                reviewed=True,
             )
         )
     state.assumptions_version = int(state.assumptions_version or 0) + 1
     state.assumptions_approved = False
     state.phase = "ASSUMPTIONS_REVIEW"
     state.next_action = "review_assumptions"
+    _save_study(study_id, state.model_dump(), user_id)
+    return _payload_from_state(study_id, state, record_meta=record)
+
+
+@router.post("/{study_id}/assumptions/action")
+async def assumption_action(study_id: str, req: AssumptionActionRequest, user=Depends(get_current_user)):
+    """Per-card assumption actions: approve | reject | regenerate."""
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    state = _state_from_record(record)
+    action = (req.action or "").strip().lower()
+    if action not in {"approve", "reject", "regenerate"}:
+        raise HTTPException(status_code=400, detail="action must be approve|reject|regenerate")
+
+    if action == "regenerate":
+        # Re-run assumption agent for a fresh set (keyed regenerate uses full rebuild for consistency).
+        _, run_study_step = _import_engine()
+        state.assumptions_approved = False
+        state.phase = "ASSUMPTIONS_REVIEW"
+        state.error = None
+        # Drop the target key so rule/AI fill replaces it.
+        state.assumptions = [a for a in (state.assumptions or []) if a.key != req.key]
+        try:
+            state = await run_study_step(state)
+        except Exception as e:
+            state.error = f"AI service error: {e}"
+        _save_study(study_id, state.model_dump(), user_id)
+        return _payload_from_state(study_id, state, record_meta=record)
+
+    found = False
+    for a in state.assumptions or []:
+        if a.key != req.key:
+            continue
+        found = True
+        if action == "approve":
+            a.status = "APPROVED"
+            a.reviewed = True
+            if req.value is not None:
+                a.value = req.value
+        elif action == "reject":
+            a.status = "REJECTED"
+            a.reviewed = True
+        if not getattr(a, "id", None):
+            a.id = f"asm_{a.key}"
+        break
+    if not found:
+        raise HTTPException(status_code=404, detail=f"Assumption not found: {req.key}")
+
+    state.assumptions_approved = False
+    state.phase = "ASSUMPTIONS_REVIEW"
+    state.assumptions_version = int(state.assumptions_version or 0) + 1
     _save_study(study_id, state.model_dump(), user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
@@ -900,14 +985,23 @@ async def regenerate_assumptions(study_id: str, user=Depends(get_current_user)):
     _, run_study_step = _import_engine()
     state = _state_from_record(record)
     state.assumptions_approved = False
+    state.assumptions = []
     state.phase = "ASSUMPTIONS_REVIEW"
     state.error = None
     try:
         state = await run_study_step(state)
     except Exception as e:
         state.error = f"AI service error: {e}"
+    # Hard guarantee: never leave ASSUMPTIONS_REVIEW with zero rows when schema exists.
+    if not state.assumptions:
+        try:
+            from ai_engine.agents.assumption import run_assumptions
+            state = run_assumptions(state)
+        except Exception as e:
+            state.error = f"Assumption rebuild failed: {e}"
     _save_study(study_id, state.model_dump(), user_id)
     return _payload_from_state(study_id, state, record_meta=record)
+
 
 
 @router.get("")
