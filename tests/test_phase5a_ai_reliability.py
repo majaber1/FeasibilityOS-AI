@@ -12,15 +12,59 @@ from ai_engine.agents.discovery import _resolve_archetype
 from ai_engine.archetypes.schemas import schema_keys_for, assert_no_saas_leakage
 
 
-def test_sanitize_error_hides_provider_details():
+def test_sanitize_error_hides_org_model_billing_token_limits():
     msg = sanitize_error_for_user(
-        Exception("Error code: 429 req_abc123 rate_limit from groq"),
-        context="unit",
+        Exception(
+            "Error code: 429 org_abc123 model=llama-3.3-70b-versatile "
+            "https://console.groq.com/settings/billing exceeded 200K TPD / 100K TPM"
+        ),
+        context="provider",
     )
-    assert "429" not in msg
-    assert "req_abc" not in msg
-    assert "groq" not in msg.lower()
-    assert "try again" in msg.lower() or "moment" in msg.lower()
+    low = msg.lower()
+    assert "429" not in low
+    assert "org_" not in low
+    assert "llama" not in low
+    assert "groq" not in low
+    assert "billing" not in low
+    assert "tpd" not in low
+    assert "tpm" not in low
+    assert "try again" in low or "moment" in low
+
+
+def test_sanitize_chat_strips_financial_payload():
+    raw = 'Here you go\n{"npv": 123456, "irr": 0.22, "capex": 900000, "assumptions": []}\n'
+    cleaned = sanitize_chat_content(raw)
+    assert "npv" not in cleaned.lower()
+    assert "capex" not in cleaned.lower()
+    assert "assumptions" not in cleaned.lower()
+
+
+def test_provider_invoke_falls_back_then_raises():
+    from unittest.mock import patch, MagicMock
+    from ai_engine.provider import invoke_llm, ProviderUnavailableError
+
+    calls = {"n": 0}
+
+    def boom_factory(model: str):
+        calls["n"] += 1
+        llm = MagicMock()
+        llm.invoke.side_effect = Exception(f"Error code: 429 rate_limit on {model}")
+        return llm
+
+    with patch("ai_engine.provider._build_chat_groq", side_effect=boom_factory):
+        with pytest.raises(ProviderUnavailableError):
+            invoke_llm("classification", [MagicMock()], context="unit")
+    assert calls["n"] >= 2  # primary + alternate
+
+
+def test_marketplace_never_becomes_data_center():
+    chosen, ambiguous, reason = _resolve_archetype(
+        "other",
+        "data_center",
+        "Two-sided marketplace for gig drivers like Uber/Careem in Jeddah",
+    )
+    assert chosen == "services"
+    assert ambiguous is True
 
 
 def test_sanitize_chat_strips_json_and_tool_traces():

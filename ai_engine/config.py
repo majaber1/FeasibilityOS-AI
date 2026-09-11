@@ -48,18 +48,20 @@ GROQ_SMART = DEFAULT_GROQ_SMART
 
 
 def get_llm(task: str = "general"):
-    from langchain_groq import ChatGroq
+    """Return preferred ChatGroq client for ``task``.
 
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise ValueError("GROQ_API_KEY is not set")
+    For resilient invoke-with-fallback, use :func:`ai_engine.provider.invoke_llm`.
+    """
+    from .provider import get_llm as _provider_get_llm
 
-    return ChatGroq(
-        model=_model_for_task(task),
-        api_key=api_key,
-        temperature=0.1,
-        max_tokens=2000,
-    )
+    return _provider_get_llm(task)
+
+
+def invoke_llm(task: str, messages, *, context: str = ""):
+    """Invoke with model fallback on rate-limit; never invents results."""
+    from .provider import invoke_llm as _provider_invoke
+
+    return _provider_invoke(task, messages, context=context)
 
 
 def get_langfuse():

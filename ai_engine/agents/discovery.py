@@ -6,7 +6,7 @@ import re
 
 from langchain_core.messages import AIMessage, SystemMessage
 
-from ..config import get_llm
+from ..config import get_llm, invoke_llm
 from ..models.study_state import StudyState, ProjectProfile
 from ..archetypes import (
     classify_archetype,
@@ -15,7 +15,12 @@ from ..archetypes import (
     ARCHETYPE_LABELS,
     detect_services_variant,
 )
-from ..utils.safe_messages import sanitize_chat_content, sanitize_error_for_user
+from ..utils.safe_messages import (
+    ai_unavailable_classify_message,
+    sanitize_chat_content,
+    sanitize_error_for_user,
+)
+from ..provider import ProviderUnavailableError
 
 import logging
 
@@ -87,7 +92,6 @@ def run_discovery(state: StudyState) -> StudyState:
 
     lang = state.language
     system_prompt = SYSTEM_PROMPT_AR if lang == "ar" else SYSTEM_PROMPT_EN
-    llm = get_llm("classification")
 
     last_user = _last_user_text(state)
     heuristic = classify_archetype(last_user) if last_user else "other"
@@ -95,17 +99,19 @@ def run_discovery(state: StudyState) -> StudyState:
     messages = [SystemMessage(content=system_prompt)] + list(state.messages[-8:] if state.messages else [])
 
     try:
-        response = llm.invoke(messages)
+        response = invoke_llm("classification", messages, context="discovery.classify")
         response_text = response.content if hasattr(response, "content") else str(response)
     except Exception as e:
+        # Provider / rate-limit failure: do NOT silently lock a classification.
         sanitize_error_for_user(e, language=lang, context="discovery.classify")
-        response_text = (
-            "تعذر الاتصال بنموذج التصنيف؛ تم استخدام التصنيف التقريبي. يرجى تأكيد نوع المشروع."
-            if lang == "ar"
-            else "Classification model unavailable; using a keyword estimate. Please confirm the project archetype."
-        )
+        # Prefer mobility-safe heuristic for Uber-like text, still require confirmation.
+        if _has_any(last_user or "", _MOBILITY_SIGNALS) and not _has_any(
+            last_user or "", _STRONG_DC_SIGNALS
+        ):
+            heuristic = "services"
+        response_text = ai_unavailable_classify_message(lang)
         profile_data = {
-            "archetype": heuristic,
+            "archetype": heuristic if heuristic not in {"other", "unknown"} else "other",
             "sector": "",
             "stage": "idea",
             "decision_goal": "feasibility",
@@ -113,8 +119,13 @@ def run_discovery(state: StudyState) -> StudyState:
             "recommended_model": f"{heuristic}_v1",
         }
         return _apply_profile(
-            state, profile_data, response_text, lang, heuristic,
-            ambiguous=True, clarify_reason="llm_unavailable",
+            state,
+            profile_data,
+            response_text,
+            lang,
+            profile_data["archetype"],
+            ambiguous=True,
+            clarify_reason="llm_unavailable",
         )
 
     profile_data = _extract_json(response_text) or {}
@@ -215,11 +226,12 @@ def _apply_profile(
     return state
 
 
-# Ride-hailing / mobility signals — must never resolve to data_center.
+# Ride-hailing / mobility / marketplace signals — must never resolve to data_center.
 _MOBILITY_SIGNALS = (
     "uber", "careem", "ride-hailing", "ride hailing", "rideshare", "ride share",
     "taxi", "take rate", "take-rate", "monthly trips", "drivers", "delivery platform",
-    "سائق", "مشاوير", "توصيل",
+    "marketplace", "two-sided marketplace", "gig platform",
+    "سائق", "مشاوير", "توصيل", "سوق إلكتروني",
 )
 _STRONG_DC_SIGNALS = (
     "data center", "datacenter", "مركز بيانات", "colocation", "colo ",
@@ -320,6 +332,17 @@ def _confirmation_question(
         return (
             "Before we continue: is this a ride-hailing / delivery / professional services business, "
             "or a data center / colo facility? Please confirm the correct archetype below."
+        )
+    if reason == "llm_unavailable":
+        if lang == "ar":
+            return (
+                "الذكاء الاصطناعي غير متاح مؤقتاً. تم اقتراح تصنيف أولي فقط — "
+                "يرجى تأكيد نوع المشروع أدناه قبل المتابعة. لن نثبّت التصنيف دون تأكيدك."
+            )
+        return (
+            "AI is temporarily unavailable. A provisional archetype is suggested only — "
+            "please confirm the project type below before continuing. "
+            "We will not lock classification without your confirmation."
         )
     if reason == "heuristic_llm_disagree":
         h = heuristic or "other"
