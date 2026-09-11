@@ -8,12 +8,19 @@
 
 | Gate | Status | Evidence |
 |------|--------|----------|
-| Quality scoring | PASS | `ai_engine/knowledge/quality.py`; ingest attaches `quality_score` + breakdown; UI shows % + reasons |
+| Quality scoring | PASS | `ai_engine/knowledge/quality.py`; ingest attaches `quality_score` + breakdown; KnowledgePanel shows % + reasons |
 | Similar-project intelligence | PASS | `ai_engine/knowledge/similarity.py`; evidence pack includes `similar_projects`; study API exposes them |
 | Influence tracking | PASS | `ai_engine/knowledge/influence.py`; post-process glue in `study_engine` + `knowledge_service.record_assumption_influence` |
 | Learning loop | PASS | `memory.build_memory_payload` writes `conditions` + `influence_summary` on REPORT_READY |
 | Knowledge Dashboard MVP | PASS | `GET /api/v2/knowledge/dashboard` + `/tools/knowledge` page |
-| Residential vs DC E2E unit comparison | PASS | `tests/test_knowledge_intelligence_learning.py::test_residential_vs_datacenter_retrieval_separation` |
+| Residential vs DC comparison | PASS | `tests/test_knowledge_intelligence_learning.py` |
+
+## Test results
+
+```text
+12 passed (knowledge MVP + Phase 6.1 + alembic head allowlist)
+Artifact: /opt/cursor/artifacts/phase61_knowledge_tests.log
+```
 
 ## Files changed (primary)
 
@@ -33,14 +40,8 @@
 - Columns: `study_memories.conditions|influence_summary`
 - API: `GET /api/v2/knowledge/dashboard`, retrieve `query_profile`, memories learning fields
 
-## Non-goals / safeguards
+## Safeguards
 
 - No invented citations — refs keep real document/chunk/memory ids
 - Embeddings never returned in public serializers
 - Influence enrichment runs only in study glue after assumption generation
-
-## Test command
-
-```bash
-pytest tests/test_knowledge_intelligence.py tests/test_knowledge_intelligence_learning.py tests/test_alembic_launch_migration.py -q --tb=short
-```
