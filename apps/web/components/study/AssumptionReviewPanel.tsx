@@ -2,6 +2,14 @@
 
 import { useMemo, useState } from "react";
 
+export type KnowledgeRef = {
+  document_id?: string | null;
+  chunk_id?: string | null;
+  study_memory_id?: string | null;
+  title?: string | null;
+  similarity?: number | null;
+};
+
 export type ReviewAssumption = {
   key: string;
   value: string;
@@ -15,6 +23,8 @@ export type ReviewAssumption = {
   label_en?: string | null;
   label_ar?: string | null;
   unit?: string | null;
+  knowledge_refs?: KnowledgeRef[];
+  knowledge_confidence?: number | null;
 };
 
 type Props = {
@@ -322,6 +332,26 @@ export function AssumptionReviewPanel({
                     <p>
                       <span className="font-semibold">{ar ? "الثقة:" : "Confidence:"}</span> {a.confidence || "—"}
                     </p>
+                    {a.origin === "knowledge_reference" || (a.knowledge_refs && a.knowledge_refs.length > 0) ? (
+                      <div className="mt-1" data-testid={`assumption-knowledge-refs-${a.key}`}>
+                        <p className="font-semibold text-teal-800">
+                          {ar ? "مرجع معرفة:" : "Knowledge reference:"}
+                          {typeof a.knowledge_confidence === "number"
+                            ? ` ${Math.round(a.knowledge_confidence * 100)}%`
+                            : ""}
+                        </p>
+                        <ul className="mt-1 list-disc pl-4">
+                          {(a.knowledge_refs || [])
+                            .filter((r) => r.document_id || r.study_memory_id)
+                            .map((r, idx) => (
+                              <li key={`${r.document_id || r.study_memory_id}-${idx}`}>
+                                {r.title || r.document_id || r.study_memory_id}
+                                {typeof r.similarity === "number" ? ` (${Math.round(r.similarity * 100)}%)` : ""}
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+                    ) : null}
                     {(a.low || a.base || a.high) && (
                       <p>
                         L/B/H: {a.low ?? "—"} / {a.base ?? "—"} / {a.high ?? "—"}

@@ -585,12 +585,28 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
         "messages": _public_messages(s.get("messages")),
         "next_action": s.get("next_action"),
         "error": s.get("error"),
+        "knowledge_context": _public_knowledge_context(s.get("knowledge_context")),
         "created_at": record.get("created_at"),
         "updated_at": record.get("updated_at"),
     }
     if response is not None:
         payload["response"] = response
     return _attach_archetype_meta(payload, s)
+
+
+def _public_knowledge_context(kc) -> dict | None:
+    """Expose Evidence Pack for UI/debug. Never include embeddings."""
+    if not kc or not isinstance(kc, dict):
+        return None
+    return {
+        "query": kc.get("query") or "",
+        "hit_count": int(kc.get("hit_count") or 0),
+        "comparable_projects": (kc.get("comparable_projects") or [])[:8],
+        "assumption_hints": (kc.get("assumption_hints") or [])[:12],
+        "risk_hints": (kc.get("risk_hints") or [])[:8],
+        "financial_patterns": (kc.get("financial_patterns") or [])[:8],
+        "citations": (kc.get("citations") or [])[:12],
+    }
 
 
 def _payload_from_state(study_id: str, state, *, response: str | None = None, record_meta: dict | None = None) -> dict:
@@ -618,6 +634,7 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
         "messages": _public_messages(state.messages),
         "next_action": state.next_action,
         "error": state.error,
+        "knowledge_context": _public_knowledge_context(getattr(state, "knowledge_context", None)),
         "created_at": (record_meta or {}).get("created_at"),
         "updated_at": (record_meta or {}).get("updated_at"),
     }
@@ -625,6 +642,87 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
         payload["response"] = response
     return _attach_archetype_meta(payload, state)
 
+
+
+def _attach_knowledge_context(state, user_id: str):
+    """Load Evidence Pack into state before assumption generation (tenant-scoped).
+
+    Must run BEFORE run_study_step/run_assumptions so the assumption agent can
+    ground origins/refs. Knowledge failures never block the study flow.
+    """
+    try:
+        from app.db import DB_ENABLED, SessionLocal
+        from app.services import knowledge_service as ks
+        if not DB_ENABLED:
+            return state
+        profile = getattr(state, "profile", None)
+        archetype = getattr(profile, "archetype", None) if profile else None
+        sector = getattr(profile, "sector", None) if profile else None
+        bits = []
+        if archetype:
+            bits.append(str(archetype).replace("_", " "))
+        if sector:
+            bits.append(str(sector))
+        for msg in list(getattr(state, "messages", None) or [])[-5:]:
+            content = getattr(msg, "content", None)
+            if isinstance(msg, dict):
+                content = msg.get("content")
+            if content:
+                bits.append(str(content)[:400])
+        answers = getattr(state, "structured_answers", None) or {}
+        if answers:
+            bits.append(" ".join(f"{k}={v}" for k, v in list(answers.items())[:12]))
+        query = " | ".join(bits)[:2000] or "feasibility study Saudi Arabia"
+        assumption_keys = [a.key for a in (getattr(state, "assumptions", None) or [])]
+        if not assumption_keys:
+            try:
+                from ai_engine.archetypes import get_assumption_schema, normalize_archetype
+                arch = normalize_archetype(archetype or "other")
+                schema = get_assumption_schema(arch)
+                assumption_keys = [f["key"] for f in schema]
+            except Exception:
+                assumption_keys = []
+        db = SessionLocal()
+        try:
+            pack = ks.retrieve_evidence(
+                db,
+                owner_id=int(user_id),
+                query=query,
+                study_id=getattr(state, "study_id", None),
+                assumption_keys=assumption_keys,
+                top_k=6,
+            )
+            state.knowledge_context = pack
+        finally:
+            db.close()
+    except Exception:
+        # Knowledge is assistive — never block the study flow
+        if getattr(state, "knowledge_context", None) is None:
+            state.knowledge_context = {"query": "", "citations": [], "hit_count": 0}
+    return state
+
+
+def _prepare_assumptions_with_knowledge(state, user_id: str):
+    """Attach Evidence Pack then generate assumptions (graph or direct)."""
+    return _attach_knowledge_context(state, user_id)
+
+
+def _remember_study_if_ready(state, user_id: str):
+    """Persist Study Memory when REPORT_READY (tenant-scoped, idempotent)."""
+    if getattr(state, "phase", None) != "REPORT_READY":
+        return
+    try:
+        from app.db import DB_ENABLED, SessionLocal
+        from app.services import knowledge_service as ks
+        if not DB_ENABLED:
+            return
+        db = SessionLocal()
+        try:
+            ks.remember_completed_study(db, owner_id=int(user_id), state=state)
+        finally:
+            db.close()
+    except Exception:
+        return
 
 @router.post("")
 async def create_study(req: StudyCreateRequest, user=Depends(get_current_user)):
@@ -650,7 +748,7 @@ async def create_study(req: StudyCreateRequest, user=Depends(get_current_user)):
         except Exception as e:
             state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
 
-    _save_study(study_id, state.model_dump(), user_id)
+    _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
 
     last_ai_message = None
     for msg in reversed(state.messages):
@@ -693,7 +791,7 @@ async def send_message(study_id: str, req: StudyMessageRequest, user=Depends(get
     except Exception as e:
         state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
 
-    _save_study(study_id, state.model_dump(), user_id)
+    _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
 
     last_ai_message = None
     for msg in reversed(state.messages):
@@ -750,7 +848,7 @@ async def approve_stage(
         if req.feedback:
             from langchain_core.messages import HumanMessage
             state.messages.append(HumanMessage(content=req.feedback))
-        _save_study(study_id, state.model_dump(), user_id)
+        _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
         return _payload_from_state(
             study_id,
             state,
@@ -781,6 +879,10 @@ async def approve_stage(
             )
         state.phase = "READY_FOR_ANALYSIS"
 
+    # Phase 6: knowledge retrieval must precede assumption generation.
+    if stage == "evidence" or state.phase == "ASSUMPTIONS_REVIEW":
+        state = _prepare_assumptions_with_knowledge(state, user_id)
+
     try:
         state = await run_study_step(state)
     except Exception as e:
@@ -790,12 +892,13 @@ async def approve_stage(
     if stage == "evidence" and state.phase == "ASSUMPTIONS_REVIEW" and not (state.assumptions or []):
         try:
             from ai_engine.agents.assumption import run_assumptions
+            state = _prepare_assumptions_with_knowledge(state, user_id)
             state = run_assumptions(state)
             state.error = None
         except Exception as e:
             state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_generation")
 
-    _save_study(study_id, state.model_dump(), user_id)
+    _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
 
     return _payload_from_state(study_id, state, record_meta=record)
 
@@ -853,7 +956,7 @@ async def select_archetype(study_id: str, req: ArchetypeSelectRequest, user=Depe
             state = await run_study_step(state)
         except Exception as e:
             state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
-    _save_study(study_id, state.model_dump(), user_id)
+    _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
 
@@ -944,7 +1047,7 @@ async def submit_structured_answers(study_id: str, req: StructuredAnswersRequest
         except Exception as e:
             state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
 
-    _save_study(study_id, state.model_dump(), user_id)
+    _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
 
@@ -998,7 +1101,7 @@ async def edit_assumption(study_id: str, req: AssumptionEditRequest, user=Depend
     state.assumptions_approved = False
     state.phase = "ASSUMPTIONS_REVIEW"
     state.next_action = "review_assumptions"
-    _save_study(study_id, state.model_dump(), user_id)
+    _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
 
@@ -1025,6 +1128,7 @@ async def assumption_action(study_id: str, req: AssumptionActionRequest, user=De
         state.phase = "ASSUMPTIONS_REVIEW"
         state.error = None
         state.assumptions = [a for a in (state.assumptions or []) if a.key != req.key]
+        state = _prepare_assumptions_with_knowledge(state, user_id)
         try:
             state = await run_study_step(state)
         except Exception as e:
@@ -1032,10 +1136,11 @@ async def assumption_action(study_id: str, req: AssumptionActionRequest, user=De
         if not state.assumptions:
             try:
                 from ai_engine.agents.assumption import run_assumptions
+                state = _prepare_assumptions_with_knowledge(state, user_id)
                 state = run_assumptions(state)
             except Exception as e:
                 state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_rebuild")
-        _save_study(study_id, state.model_dump(), user_id)
+        _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
         return _payload_from_state(study_id, state, record_meta=record)
 
     if action == "reject":
@@ -1047,7 +1152,7 @@ async def assumption_action(study_id: str, req: AssumptionActionRequest, user=De
         state.assumptions_version = int(state.assumptions_version or 0) + 1
         state.phase = "ASSUMPTIONS_REVIEW"
         state.next_action = "review_assumptions"
-        _save_study(study_id, state.model_dump(), user_id)
+        _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
         return _payload_from_state(study_id, state, record_meta=record)
 
     # approve (card-level accept → user-confirmed fields)
@@ -1069,7 +1174,7 @@ async def assumption_action(study_id: str, req: AssumptionActionRequest, user=De
     state.assumptions_approved = False
     state.assumptions_version = int(state.assumptions_version or 0) + 1
     state.phase = "ASSUMPTIONS_REVIEW"
-    _save_study(study_id, state.model_dump(), user_id)
+    _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
 
@@ -1085,6 +1190,7 @@ async def regenerate_assumptions(study_id: str, user=Depends(get_current_user)):
     state.assumptions = []
     state.phase = "ASSUMPTIONS_REVIEW"
     state.error = None
+    state = _prepare_assumptions_with_knowledge(state, user_id)
     try:
         state = await run_study_step(state)
     except Exception as e:
@@ -1092,10 +1198,11 @@ async def regenerate_assumptions(study_id: str, user=Depends(get_current_user)):
     if not state.assumptions:
         try:
             from ai_engine.agents.assumption import run_assumptions
+            state = _prepare_assumptions_with_knowledge(state, user_id)
             state = run_assumptions(state)
         except Exception as e:
             state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_rebuild")
-    _save_study(study_id, state.model_dump(), user_id)
+    _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
 

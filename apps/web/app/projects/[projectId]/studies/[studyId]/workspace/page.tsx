@@ -8,6 +8,7 @@ import { getToken, API_BASE } from "@/lib/api";
 import { ArchetypeClassificationPanel } from "@/components/study/ArchetypeClassificationPanel";
 import { DiscoveryQuestionsPanel } from "@/components/study/DiscoveryQuestionsPanel";
 import { AssumptionReviewPanel } from "@/components/study/AssumptionReviewPanel";
+import { KnowledgePanel } from "@/components/study/KnowledgePanel";
 
 type Message = {
   role: "user" | "assistant" | "system";
@@ -589,6 +590,8 @@ export default function StudyWorkspacePage() {
         </div>
       )}
 
+
+      <KnowledgePanel ar={ar} apiBase={API_BASE} getToken={getToken} />
 
       {study?.phase === "ARCHETYPE_CLASSIFICATION" && (
         <ArchetypeClassificationPanel

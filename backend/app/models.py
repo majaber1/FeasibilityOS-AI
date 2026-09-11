@@ -1622,3 +1622,97 @@ class GrowthAction(TimestampMixin, Base):
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# Knowledge Intelligence Layer (Phase 6)
+# ---------------------------------------------------------------------------
+
+
+class KnowledgeDocument(TimestampMixin, Base):
+    __tablename__ = "knowledge_documents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    organization_id: Mapped[Optional[int]] = mapped_column(ForeignKey("organizations.id"), index=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), default="upload", nullable=False)
+    sector: Mapped[Optional[str]] = mapped_column(String(120))
+    country: Mapped[str] = mapped_column(String(8), default="SA", nullable=False)
+    year: Mapped[Optional[int]] = mapped_column(Integer)
+    document_type: Mapped[str] = mapped_column(String(80), default="feasibility_study", nullable=False)
+    project_type: Mapped[Optional[str]] = mapped_column(String(80), index=True)
+    capex: Mapped[Optional[dict]] = mapped_column(JSON)
+    opex: Mapped[Optional[dict]] = mapped_column(JSON)
+    revenue_model: Mapped[Optional[dict]] = mapped_column(JSON)
+    assumptions: Mapped[dict] = mapped_column(JSON, default=dict)
+    outcome: Mapped[Optional[dict]] = mapped_column(JSON)
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    visibility: Mapped[str] = mapped_column(String(20), default="private", nullable=False)
+    extraction_status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    storage_ref: Mapped[Optional[str]] = mapped_column(String(500))
+    content_type: Mapped[Optional[str]] = mapped_column(String(120))
+    original_filename: Mapped[Optional[str]] = mapped_column(String(255))
+    raw_text_excerpt: Mapped[Optional[str]] = mapped_column(Text)
+
+    chunks: Mapped[list["KnowledgeChunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
+
+
+class KnowledgeChunk(Base):
+    __tablename__ = "knowledge_chunks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    document_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list] = mapped_column(JSON, default=list)
+    chunk_metadata: Mapped[dict] = mapped_column("chunk_metadata", JSON, default=dict)
+    importance: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    document: Mapped["KnowledgeDocument"] = relationship(back_populates="chunks")
+
+
+class KnowledgeEvidence(Base):
+    __tablename__ = "knowledge_evidence"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    study_id: Mapped[Optional[str]] = mapped_column(String(64), index=True)
+    claim: Mapped[str] = mapped_column(Text, nullable=False)
+    source_document_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("knowledge_documents.id", ondelete="SET NULL")
+    )
+    source_chunk_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("knowledge_chunks.id", ondelete="SET NULL")
+    )
+    source_study_memory_id: Mapped[Optional[str]] = mapped_column(String(36))
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    related_project: Mapped[Optional[str]] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class StudyMemory(TimestampMixin, Base):
+    __tablename__ = "study_memories"
+    __table_args__ = (UniqueConstraint("owner_id", "source_study_id", name="uq_study_memory_owner_study"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    organization_id: Mapped[Optional[int]] = mapped_column(ForeignKey("organizations.id"), index=True)
+    source_study_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    archetype: Mapped[Optional[str]] = mapped_column(String(80), index=True)
+    project_type: Mapped[Optional[str]] = mapped_column(String(80))
+    sector: Mapped[Optional[str]] = mapped_column(String(120))
+    country: Mapped[str] = mapped_column(String(8), default="SA", nullable=False)
+    assumptions: Mapped[list] = mapped_column(JSON, default=list)
+    financial_outcome: Mapped[Optional[dict]] = mapped_column(JSON)
+    decision: Mapped[Optional[dict]] = mapped_column(JSON)
+    risks: Mapped[list] = mapped_column(JSON, default=list)
+    lessons_learned: Mapped[Optional[str]] = mapped_column(Text)
+    summary_text: Mapped[Optional[str]] = mapped_column(Text)
+    embedding: Mapped[list] = mapped_column(JSON, default=list)
+    visibility: Mapped[str] = mapped_column(String(20), default="private", nullable=False)
