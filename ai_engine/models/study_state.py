@@ -56,12 +56,14 @@ class Assumption(BaseModel):
     low: Optional[str] = None
     base: Optional[str] = None
     high: Optional[str] = None
-    origin: Literal["user", "ai_estimated", "document", "default", "rule_fallback"] = "user"
+    origin: Literal["user", "ai_estimated", "document", "default", "rule_fallback", "knowledge_reference"] = "user"
     input_type: Optional[str] = None
     unit: Optional[str] = None
     label_en: Optional[str] = None
     label_ar: Optional[str] = None
     ai_estimated: bool = False
+    knowledge_refs: List[Dict[str, Any]] = Field(default_factory=list)
+    knowledge_confidence: Optional[float] = None
 
 
 class Claim(BaseModel):
@@ -108,3 +110,6 @@ class StudyState(BaseModel):
     next_action: Optional[str] = None
     blocking_reason: Optional[str] = None
     error: Optional[str] = None
+
+    # Phase 6 — Evidence Pack from Knowledge Intelligence (never embeddings)
+    knowledge_context: Optional[Dict[str, Any]] = None

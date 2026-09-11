@@ -103,6 +103,26 @@ def run_assumptions(state: StudyState) -> StudyState:
         )
         context_parts.append(f"Evidence:\n{claims_text}")
 
+    # Phase 6 — Knowledge Evidence Pack (citations only; never invent sources)
+    knowledge = getattr(state, "knowledge_context", None) or {}
+    if knowledge.get("citations") or knowledge.get("assumption_hints"):
+        context_parts.append(
+            "Knowledge Evidence Pack (use ONLY these real sources; do not invent citations):\n"
+            + json.dumps(
+                {
+                    "comparable_projects": (knowledge.get("comparable_projects") or [])[:5],
+                    "assumption_hints": (knowledge.get("assumption_hints") or [])[:8],
+                    "risk_hints": (knowledge.get("risk_hints") or [])[:5],
+                    "citations": (knowledge.get("citations") or [])[:8],
+                },
+                ensure_ascii=False,
+            )
+        )
+        context_parts.append(
+            "When an assumption is grounded in Knowledge Evidence, set "
+            'source to "Knowledge Reference", ai_estimated=true, and mention the source title in value rationale if needed.'
+        )
+
     extra = "\n\nContext:\n" + "\n".join(context_parts)
     messages = [SystemMessage(content=system_prompt + extra)] + list(
         state.messages[-4:] if state.messages else []
@@ -240,6 +260,7 @@ def run_assumptions(state: StudyState) -> StudyState:
             )
 
     assumptions = list(seeded.values())
+    assumptions = _apply_knowledge_refs(assumptions, getattr(state, "knowledge_context", None) or {})
     leaked = assert_no_saas_leakage(archetype, [a.key for a in assumptions])
     if leaked:
         assumptions = [a for a in assumptions if a.key not in leaked]
@@ -360,3 +381,63 @@ def _extract_json(text: str) -> dict | None:
         except json.JSONDecodeError:
             pass
     return None
+
+
+def _apply_knowledge_refs(assumptions: list[Assumption], knowledge: dict) -> list[Assumption]:
+    """Attach real knowledge refs to matching assumptions. No fabricated citations."""
+    if not knowledge:
+        return assumptions
+    hints = {h.get("key"): h for h in (knowledge.get("assumption_hints") or []) if h.get("key")}
+    citations = knowledge.get("citations") or []
+    out = []
+    for a in assumptions:
+        hint = hints.get(a.key)
+        refs = []
+        conf = None
+        if hint:
+            for ref in hint.get("refs") or []:
+                if ref.get("document_id") or ref.get("study_memory_id"):
+                    refs.append(
+                        {
+                            "document_id": ref.get("document_id"),
+                            "chunk_id": ref.get("chunk_id"),
+                            "study_memory_id": ref.get("study_memory_id"),
+                            "title": ref.get("title"),
+                            "similarity": ref.get("similarity"),
+                        }
+                    )
+            conf = hint.get("confidence")
+        if not refs:
+            # Fallback: lexical overlap against citations (still requires real ids)
+            key_tokens = [t for t in a.key.lower().replace("_", " ").split() if len(t) >= 3]
+            for cite in citations:
+                if not (cite.get("document_id") or cite.get("study_memory_id")):
+                    continue
+                claim = (cite.get("claim") or "").lower()
+                if key_tokens and any(tok in claim for tok in key_tokens):
+                    refs.append(
+                        {
+                            "document_id": cite.get("document_id"),
+                            "chunk_id": cite.get("chunk_id"),
+                            "study_memory_id": cite.get("study_memory_id"),
+                            "title": cite.get("source_title"),
+                            "similarity": cite.get("confidence"),
+                        }
+                    )
+                    conf = cite.get("confidence")
+                    if len(refs) >= 3:
+                        break
+        if refs:
+            a.knowledge_refs = refs[:3]
+            a.knowledge_confidence = float(conf) if conf is not None else None
+            # Promote AI/rule estimates to knowledge_reference; keep user values as user
+            # but still attach supporting refs for traceability.
+            if a.origin in {"ai_estimated", "rule_fallback", "default"}:
+                a.origin = "knowledge_reference"
+                n = len(refs)
+                a.source = f"AI estimate based on {n} similar knowledge source(s)"
+                a.ai_estimated = True
+            elif a.origin == "user" and "Knowledge" not in (a.source or ""):
+                a.source = f"User input (supported by {len(refs)} knowledge source(s))"
+        out.append(a)
+    return out
