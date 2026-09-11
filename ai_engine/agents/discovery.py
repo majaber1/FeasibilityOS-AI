@@ -80,13 +80,17 @@ def run_discovery(state: StudyState) -> StudyState:
             state.error = None
             return state
         unanswered = _unanswered_required(state)
-        if unanswered or (state.profile.missing_information):
+        # Discovery Advisor interview is the source of truth — do not gate on
+        # the legacy static missing_information list once questions exist.
+        if unanswered:
             state.phase = "NEEDS_INFORMATION"
             state.next_action = "answer_structured_questions"
         else:
             state.phase = "EVIDENCE_REVIEW"
             state.next_action = "review_evidence"
             state.profile_confirmed = True
+            if state.profile:
+                state.profile.missing_information = []
         state.error = None
         return state
 
@@ -209,15 +213,18 @@ def _apply_profile(
         safe = sanitize_chat_content(response_text, language=lang) or ""
         content = f"{safe}\n\n{hint}".strip() if safe else hint
         state.messages.append(AIMessage(content=content))
-    elif state.profile.missing_information or _unanswered_required(state):
+    elif _unanswered_required(state):
         state.phase = "NEEDS_INFORMATION"
         state.next_action = "answer_structured_questions"
+        # Soft hints only — interview UI replaces the static missing list.
         safe = sanitize_chat_content(response_text, language=lang)
         if safe:
             state.messages.append(AIMessage(content=safe))
     else:
         state.phase = "EVIDENCE_REVIEW"
         state.next_action = "review_evidence"
+        if state.profile:
+            state.profile.missing_information = []
         safe = sanitize_chat_content(response_text, language=lang)
         if safe:
             state.messages.append(AIMessage(content=safe))
@@ -390,11 +397,9 @@ def _confirmation_question(
 
 
 def _unanswered_required(state: StudyState) -> bool:
-    answers = state.structured_answers or {}
-    for q in state.discovery_questions or []:
-        if q.get("required", True) and not q.get("answered") and q.get("id") not in answers:
-            return True
-    return False
+    from ai_engine.discovery import unanswered_required
+
+    return bool(unanswered_required(state.discovery_questions, state.structured_answers))
 
 
 def _last_user_text(state: StudyState) -> str:

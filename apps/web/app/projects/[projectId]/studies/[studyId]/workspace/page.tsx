@@ -37,14 +37,21 @@ type Assumption = {
 
 type DiscoveryQuestion = {
   id: string;
-  prompt: string;
-  question_type: string;
+  prompt?: string;
+  question?: string;
+  explanation?: string;
+  description?: string;
+  category?: string;
+  answer_type?: string;
+  question_type?: string;
   options?: string[];
   required?: boolean;
+  allow_ai_estimate?: boolean;
   unit?: string | null;
   field_key?: string | null;
   answer?: string | string[] | number | boolean | null;
   answered?: boolean;
+  ai_estimated?: boolean;
 };
 
 type StudyInfo = {
@@ -353,20 +360,27 @@ export default function StudyWorkspacePage() {
     }
   }
 
-  async function submitStructuredAnswers(answers: { id: string; value: unknown }[]) {
+  async function submitStructuredAnswers(payload: {
+    answers: { id: string; value: unknown }[];
+    aiEstimates: string[];
+  }) {
     if (!study || loading) return;
     const token = getToken();
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const payload: Record<string, unknown> = {};
-      for (const a of answers) payload[a.id] = a.value;
+      const answers: Record<string, unknown> = {};
+      for (const a of payload.answers) answers[a.id] = a.value;
       const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/structured-answers`, {
         method: "POST",
         credentials: "same-origin",
         headers: studyFetchHeaders(token),
-        body: JSON.stringify({ answers: payload, mark_answered: true }),
+        body: JSON.stringify({
+          answers,
+          ai_estimates: payload.aiEstimates || [],
+          mark_answered: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to submit answers");
@@ -544,36 +558,32 @@ export default function StudyWorkspacePage() {
               <span className="rounded bg-white px-2 py-1 text-ink-600">{study.profile.decision_goal}</span>
             )}
           </div>
-          {missing.length > 0 && (
+          {study.phase === "NEEDS_INFORMATION" && (study.discovery_questions?.length || 0) > 0 ? (
+            <div
+              className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sky-950"
+              data-testid="discovery-advisor-hint"
+            >
+              <p className="font-semibold">
+                {ar ? "مقابلة اكتشاف مع مستشار الذكاء الاصطناعي" : "AI consultant discovery interview"}
+              </p>
+              <p className="mt-1 text-[11px] text-sky-900">
+                {ar
+                  ? "بدلاً من قائمة معلومات ناقصة ثابتة، أجب على أسئلة المستشار أو اختر «دع الذكاء الاصطناعي يقدّر»."
+                  : "Instead of a static missing-information list, answer the advisor’s questions or choose “Let AI estimate”."}
+              </p>
+            </div>
+          ) : null}
+          {/* Legacy static missing list removed from primary UX; keep test id absent during interview. */}
+          {missing.length > 0 &&
+            study.phase !== "NEEDS_INFORMATION" &&
+            !(study.discovery_questions?.length) && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900" data-testid="missing-information-box">
               <p className="font-semibold">{ar ? "معلومات ناقصة" : "Missing information"}</p>
-              <p className="mt-1 text-[11px] text-amber-800">
-                {ar
-                  ? "لا يلزم تعبئة كل عنصر يدوياً. اضغط الزر الأخضر فيستخدم الذكاء الاصطناعي تقديرات واضحة ويكمل الدراسة."
-                  : "You do not need to answer every item. Press the green button and AI will fill explicit estimates, then continue the study."}
-              </p>
               <ul className="mt-1 list-disc ps-4">
                 {missing.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
-              {study.phase === "NEEDS_INFORMATION" && (
-                <button
-                  type="button"
-                  onClick={() => approveStage("profile")}
-                  disabled={loading}
-                  data-testid="confirm-profile-btn"
-                  className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {loading
-                    ? ar
-                      ? "جارٍ تعبئة التقديرات..."
-                      : "Filling estimates..."
-                    : ar
-                      ? "تأكيد ومتابعة — الذكاء الاصطناعي سيقدّر الباقي الآن"
-                      : "Confirm & continue — AI will estimate the rest now"}
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -707,8 +717,10 @@ export default function StudyWorkspacePage() {
         </div>
       )}
 
-      {/* Keep Confirm available even when missing list is empty but phase is still gated */}
-      {study?.phase === "NEEDS_INFORMATION" && missing.length === 0 && (
+      {/* Legacy confirm shortcut: only when no Discovery Interview questions are present */}
+      {study?.phase === "NEEDS_INFORMATION" &&
+        missing.length === 0 &&
+        !(study.discovery_questions?.length) && (
         <div className="mb-3 flex gap-2">
           <button
             type="button"
