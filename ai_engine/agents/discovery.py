@@ -1,3 +1,4 @@
+"""Discovery agent: mandatory archetype classification then structured questions."""
 from __future__ import annotations
 
 import json
@@ -7,138 +8,60 @@ from langchain_core.messages import AIMessage, SystemMessage
 
 from ..config import get_llm
 from ..models.study_state import StudyState, ProjectProfile
+from ..archetypes import (
+    classify_archetype,
+    normalize_archetype,
+    questions_for_language,
+    ARCHETYPE_LABELS,
+)
 
 SYSTEM_PROMPT_AR = """
 أنت مستشار أعمال خبير متخصص في السوق السعودي.
-مهمتك: فهم المشروع الذي يصفه المستخدم وتصنيفه بدقة.
-
-خطوات العمل:
-1. اقرأ وصف المشروع بعناية
-2. حدد نوع المشروع (SaaS / عقار / مركز بيانات / تجزئة / صناعة / خدمات)
-3. حدد مرحلته (فكرة / MVP / تشغيل / توسع)
-4. اسأل الأسئلة المناسبة لنوع المشروع فقط — لا تسأل نفس الأسئلة لكل المشاريع
-5. اكتشف المعلومات الناقصة
+مهمتك: فهم المشروع وتصنيفه ثم طلب معلومات مناسبة لنوعه فقط.
 
 قواعد صارمة:
-- فضّل استنتاج المرحلة (فكرة/MVP/تشغيل/توسع) وهدف القرار
-  (استثمار/تمويل/جدوى/توسع) من وصف المشروع عندما يكون واضحاً.
-  لا تُرجع "unknown" لهذه الحقول إذا كان النص يدل عليها.
-- ضع في missing_information فقط الفجوات الحقيقية (التسعير، العملاء، CAC، التكاليف).
-  لا توقف التصنيف بسبب المرحلة/هدف القرار إذا أمكن استنتاجهما.
+- صنّف المشروع أولاً إلى أحد: saas_digital | real_estate | data_center | industrial | retail | services | other
+- اسأل فقط أسئلة مناسبة لهذا التصنيف
+- ممنوع سؤال CAC أو Churn أو ARR أو MRR أو تسعير SaaS لمشاريع العقار أو مراكز البيانات أو الصناعة أو التجزئة
+- مشاريع التنقل/التوصيل/الأسواق تُصنَّف services وليست saas_digital
 - لا تخترع أرقاماً مالية دقيقة في هذه المرحلة
-- لا تعطِ توصية مالية قبل اكتمال البيانات
-- إذا لم تفهم المشروع، اسأل قبل التصنيف
-- أجب دائماً بالعربية ما لم يكتب المستخدم بالإنجليزية
 
-في النهاية أخرج JSON بهذا الشكل (داخل ```json ... ```):
+أخرج JSON داخل ```json ... ```:
 {
-  "archetype": "saas_digital|real_estate|data_center|retail|industrial|services|franchise|unknown",
+  "archetype": "saas_digital|real_estate|data_center|industrial|retail|services|other",
   "sector": "وصف القطاع",
   "stage": "idea|mvp|operational|expansion",
   "decision_goal": "investment|funding|feasibility|expansion",
-  "missing_information": ["قائمة", "بالمعلومات", "الناقصة"],
-  "recommended_model": "saas_v1|real_estate_v1|data_center_v1|general_v1",
-  "next_questions": ["السؤال الأول؟", "السؤال الثاني؟"]
+  "missing_information": ["فجوات حقيقية فقط"],
+  "recommended_model": "model_id"
 }
 """
 
 SYSTEM_PROMPT_EN = """
-You are an expert business advisor specializing in the Saudi Arabian market.
-Your task: understand and classify the project the user describes.
-
-Steps:
-1. Read the project description carefully
-2. Identify project type (SaaS / Real Estate / Data Center / Retail / Industrial / Services)
-3. Identify stage (idea / MVP / operational / expansion)
-4. Ask questions appropriate to THIS project type only
-5. Identify missing information
+You are an expert business advisor for the Saudi market.
+Task: understand and classify the project, then ask ONLY archetype-appropriate questions.
 
 Strict rules:
-- Prefer inferring stage (idea/mvp/operational/expansion) and decision_goal
-  (investment/funding/feasibility/expansion) from the description when clear.
-  Avoid returning "unknown" for those fields when the text already implies them.
-- Put only true blockers in missing_information (pricing, customers, CAC, costs).
-  Do not block on stage/decision_goal when they can be inferred.
-- Never invent precise financial numbers in this step
-- Never give a financial recommendation before data is complete
-- If you don't understand the project, ask before classifying
-- Reply in English if user writes in English
+- Classify first into: saas_digital | real_estate | data_center | industrial | retail | services | other
+- Ask only questions appropriate for that archetype
+- NEVER ask CAC, Churn, ARR, MRR, or SaaS pricing for real estate, data centers, industrial, or retail
+- Mobility / ride-hailing / marketplaces classify as services (NOT saas_digital)
+- Do not invent precise financial numbers in this step
 
-At the end, output JSON inside ```json ... ```:
+Output JSON inside ```json ... ```:
 {
-  "archetype": "saas_digital|real_estate|data_center|retail|industrial|services|franchise|unknown",
+  "archetype": "saas_digital|real_estate|data_center|industrial|retail|services|other",
   "sector": "sector description",
   "stage": "idea|mvp|operational|expansion",
   "decision_goal": "investment|funding|feasibility|expansion",
-  "missing_information": ["list", "of", "gaps"],
-  "recommended_model": "saas_v1|real_estate_v1|data_center_v1|general_v1",
-  "next_questions": ["Question 1?", "Question 2?"]
+  "missing_information": ["true gaps only"],
+  "recommended_model": "model_id"
 }
 """
 
-ARCHETYPE_QUESTIONS = {
-    "saas_digital": {
-        "ar": [
-            "ما سعر الاشتراك الشهري أو السنوي؟",
-            "كم عدد العملاء المستهدفين في السنة الأولى؟",
-            "ما تكلفة اكتساب العميل الواحد (CAC)؟",
-            "ما نسبة التسرب الشهري المتوقعة (Churn)?",
-            "ما التكلفة الشهرية للبنية التحتية والـ API؟",
-            "ما حجم الفريق والتكلفة التشغيلية؟",
-        ],
-        "en": [
-            "What is the monthly or annual subscription price?",
-            "How many customers targeted in year 1?",
-            "What is your expected Customer Acquisition Cost (CAC)?",
-            "What is your expected monthly churn rate?",
-            "What are your monthly infrastructure and API costs?",
-            "What is your team size and operational cost?",
-        ],
-    },
-    "real_estate": {
-        "ar": [
-            "هل الأرض مملوكة أم مستأجرة؟ وما مساحتها؟",
-            "ما حالة الرخصة والتصاريح؟",
-            "ما تكلفة البناء الإجمالية (BOQ)؟",
-            "ما عدد الوحدات وأنواعها؟",
-            "ما نسبة الإنجاز الحالية؟",
-            "ما متوسط سعر البيع أو الإيجار المستهدف للوحدة؟",
-        ],
-        "en": [
-            "Is the land owned or leased? What is the area?",
-            "What is the license and permit status?",
-            "What is the total construction cost (BOQ)?",
-            "How many units and what types?",
-            "What is the current completion percentage?",
-            "What is the target sale or rent price per unit?",
-        ],
-    },
-    "data_center": {
-        "ar": [
-            "ما سعة الطاقة الكهربائية (ميجاواط)؟",
-            "ما Tier المستهدف (I/II/III/IV)؟",
-            "ما PUE المستهدف؟",
-            "ما سعة Rack الإجمالية؟",
-            "ما نسبة الإشغال المستهدفة في السنة الأولى؟",
-            "ما تكلفة الكيلوواط ساعة؟",
-            "ما نموذج الإيراد (Colocation/Wholesale/Retail)?",
-        ],
-        "en": [
-            "What is the power capacity (MW)?",
-            "What Tier is targeted (I/II/III/IV)?",
-            "What is the target PUE?",
-            "What is total Rack capacity?",
-            "What is target occupancy in year 1?",
-            "What is the cost per kWh?",
-            "What is the revenue model (Colocation/Wholesale/Retail)?",
-        ],
-    },
-}
-
 
 def run_discovery(state: StudyState) -> StudyState:
-    # Confirm Profile already accepted the profile — do not re-gate on missing fields.
-    if state.profile_confirmed:
+    if state.profile_confirmed and state.profile and state.profile.archetype_confirmed:
         state.phase = "EVIDENCE_REVIEW"
         state.next_action = "review_evidence"
         state.error = None
@@ -146,56 +69,119 @@ def run_discovery(state: StudyState) -> StudyState:
 
     lang = state.language
     system_prompt = SYSTEM_PROMPT_AR if lang == "ar" else SYSTEM_PROMPT_EN
-    llm = get_llm("questions")
+    llm = get_llm("classification")
 
-    context = ""
-    if state.profile and state.profile.archetype != "unknown":
-        archetype = state.profile.archetype
-        questions = ARCHETYPE_QUESTIONS.get(archetype, {}).get(lang, [])
-        if questions:
-            q_text = "\n".join(f"- {q}" for q in questions)
-            if lang == "ar":
-                context = f"\n\nبناءً على تصنيف المشروع ({archetype})، هذه الأسئلة ذات الصلة:\n{q_text}"
-            else:
-                context = f"\n\nBased on project type ({archetype}), relevant questions:\n{q_text}"
+    last_user = _last_user_text(state)
+    heuristic = classify_archetype(last_user) if last_user else "other"
 
-    messages = [SystemMessage(content=system_prompt + context)] + state.messages
+    messages = [SystemMessage(content=system_prompt)] + list(state.messages[-8:] if state.messages else [])
 
     try:
         response = llm.invoke(messages)
-        response_text = response.content
+        response_text = response.content if hasattr(response, "content") else str(response)
     except Exception as e:
-        state.error = str(e)
-        state.next_action = "retry"
-        return state
-
-    profile_data = _extract_json(response_text)
-    if profile_data:
-        stage = str(profile_data.get("stage") or "").strip() or "unknown"
-        decision_goal = str(profile_data.get("decision_goal") or "").strip() or "unknown"
-        # Prefer inferred labels over blank/unknown when description already implies them.
-        if stage.lower() in {"unknown", "n/a", "na", "none", ""}:
-            stage = "idea"
-        if decision_goal.lower() in {"unknown", "n/a", "na", "none", ""}:
-            decision_goal = "feasibility"
-
-        state.profile = ProjectProfile(
-            archetype=profile_data.get("archetype", "unknown"),
-            sector=profile_data.get("sector", ""),
-            stage=stage,
-            decision_goal=decision_goal,
-            language=lang,
-            missing_information=profile_data.get("missing_information", []) or [],
-            recommended_model=profile_data.get("recommended_model", ""),
+        response_text = (
+            f"Classified as {heuristic} via keyword fallback ({e}). "
+            "Please confirm the project archetype to continue."
         )
-        if state.profile.missing_information:
-            state.phase = "NEEDS_INFORMATION"
-        else:
-            state.phase = "EVIDENCE_REVIEW"
+        profile_data = {
+            "archetype": heuristic,
+            "sector": "",
+            "stage": "idea",
+            "decision_goal": "feasibility",
+            "missing_information": [],
+            "recommended_model": f"{heuristic}_v1",
+        }
+        return _apply_profile(state, profile_data, response_text, lang, heuristic)
 
-    state.messages.append(AIMessage(content=response_text))
-    state.next_action = "review_profile" if state.profile else "answer_questions"
+    profile_data = _extract_json(response_text) or {}
+    llm_arch = normalize_archetype(profile_data.get("archetype"))
+    if heuristic in {"services", "real_estate", "data_center", "industrial"} and llm_arch in {
+        "saas_digital",
+        "other",
+        "unknown",
+    }:
+        chosen = heuristic
+    elif llm_arch not in {"other", "unknown"}:
+        chosen = llm_arch
+    else:
+        chosen = heuristic
+
+    profile_data["archetype"] = chosen
+    return _apply_profile(state, profile_data, response_text, lang, chosen)
+
+
+def _apply_profile(
+    state: StudyState,
+    profile_data: dict,
+    response_text: str,
+    lang: str,
+    archetype: str,
+) -> StudyState:
+    stage = str(profile_data.get("stage") or "").strip() or "idea"
+    decision_goal = str(profile_data.get("decision_goal") or "").strip() or "feasibility"
+    if stage.lower() in {"unknown", "n/a", "na", "none", ""}:
+        stage = "idea"
+    if decision_goal.lower() in {"unknown", "n/a", "na", "none", ""}:
+        decision_goal = "feasibility"
+
+    confirmed = bool(state.profile and state.profile.archetype_confirmed)
+    state.profile = ProjectProfile(
+        archetype=archetype if archetype != "unknown" else "other",  # type: ignore[arg-type]
+        sector=str(profile_data.get("sector") or ""),
+        stage=stage,
+        decision_goal=decision_goal,
+        language=lang,  # type: ignore[arg-type]
+        missing_information=list(profile_data.get("missing_information") or []),
+        recommended_model=str(profile_data.get("recommended_model") or f"{archetype}_v1"),
+        archetype_confirmed=confirmed,
+    )
+
+    state.discovery_questions = questions_for_language(archetype, lang)
+
+    label = ARCHETYPE_LABELS.get(archetype, ARCHETYPE_LABELS["other"])[
+        lang if lang in ("ar", "en") else "en"
+    ]
+    if not confirmed:
+        state.phase = "ARCHETYPE_CLASSIFICATION"
+        state.next_action = "confirm_archetype"
+        hint = (
+            f"تم اقتراح التصنيف: **{label}** (`{archetype}`). أكّد التصنيف ثم أجب على الأسئلة المنظمة."
+            if lang == "ar"
+            else f"Suggested archetype: **{label}** (`{archetype}`). Confirm the archetype, then answer the structured questions."
+        )
+        state.messages.append(AIMessage(content=f"{response_text}\n\n{hint}"))
+    elif state.profile.missing_information or _unanswered_required(state):
+        state.phase = "NEEDS_INFORMATION"
+        state.next_action = "answer_structured_questions"
+        state.messages.append(AIMessage(content=response_text))
+    else:
+        state.phase = "EVIDENCE_REVIEW"
+        state.next_action = "review_evidence"
+        state.messages.append(AIMessage(content=response_text))
+
+    state.error = None
     return state
+
+
+def _unanswered_required(state: StudyState) -> bool:
+    answers = state.structured_answers or {}
+    for q in state.discovery_questions or []:
+        if q.get("required", True) and not q.get("answered") and q.get("id") not in answers:
+            return True
+    return False
+
+
+def _last_user_text(state: StudyState) -> str:
+    for msg in reversed(list(state.messages or [])):
+        role = getattr(msg, "type", None) or getattr(msg, "role", None)
+        content = getattr(msg, "content", None)
+        if isinstance(msg, dict):
+            role = msg.get("type") or msg.get("role")
+            content = msg.get("content")
+        if role in {"human", "user"} and content:
+            return str(content)
+    return ""
 
 
 def _extract_json(text: str) -> dict | None:

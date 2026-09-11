@@ -98,10 +98,13 @@ def _gap_list_from_messages(state: StudyState) -> list[str]:
     return gaps
 
 
-def _estimate_text_for_gap(gap: str, sector: str) -> str:
+
+def _estimate_text_for_gap(gap: str, sector: str, archetype: str = "other") -> str:
     """Build a concrete provisional estimate so Evidence panels are never empty."""
     g = (gap or "").lower()
     sector_label = sector or "this sector"
+    arch = (archetype or "other").lower()
+
     if any(k in g for k in ("stage", "مرحلة", "maturity")):
         return (
             f"Estimated project stage for {sector_label}: idea / pre-launch "
@@ -112,17 +115,92 @@ def _estimate_text_for_gap(gap: str, sector: str) -> str:
             f"Estimated decision goal: feasibility go/no-go for a Saudi {sector_label} "
             "venture (provisional ai_assumption)."
         )
+
+    # Archetype-specific estimates — never inject SaaS CAC/ARR/churn into non-SaaS.
+    if arch == "real_estate":
+        if any(k in g for k in ("land", "أرض", "boq", "construction", "بناء", "unit", "وحدة", "price", "سعر")):
+            return (
+                f"Indicative Saudi residential development inputs for {sector_label}: "
+                "land + construction BOQ, sellable units, and absorption-led sales pricing "
+                "(provisional ai_assumption)."
+            )
+        if any(k in g for k in ("capex", "investment", "تمويل", "استثمار", "تكلفة")):
+            return (
+                f"Indicative development CAPEX for Saudi {sector_label}: land + hard costs "
+                "typically dominate; finance via equity and/or construction loan "
+                "(provisional ai_assumption)."
+            )
+    elif arch == "data_center":
+        if any(k in g for k in ("mw", "rack", "pue", "power", "occupancy", "kw", "سعة", "طاقة")):
+            return (
+                f"Indicative Saudi data-center inputs for {sector_label}: IT MW capacity, "
+                "rack count, target PUE, power tariff, and year-1 occupancy "
+                "(provisional ai_assumption)."
+            )
+        if any(k in g for k in ("capex", "investment", "تمويل", "استثمار", "تكلفة")):
+            return (
+                f"Indicative DC CAPEX for Saudi {sector_label}: shell + fit-out + power "
+                "infrastructure scaled to MW capacity (provisional ai_assumption)."
+            )
+    elif arch in {"services", "other"}:
+        if any(k in g for k in ("take", "trip", "driver", "commission", "عمولة", "رحلة", "سائق")):
+            return (
+                f"Indicative mobility/marketplace inputs for Saudi {sector_label}: take-rate, "
+                "monthly trips, active drivers, and driver acquisition cost "
+                "(provisional ai_assumption)."
+            )
+    elif arch == "industrial":
+        if any(k in g for k in ("capacity", "utilization", "raw", "unit", "إنتاج", "تشغيل")):
+            return (
+                f"Indicative industrial inputs for Saudi {sector_label}: production capacity, "
+                "raw material / unit cost, selling price, and utilization "
+                "(provisional ai_assumption)."
+            )
+    elif arch == "saas_digital":
+        if any(k in g for k in ("cac", "acquisition", "customer", "عميل", "اكتساب", "churn", "arr", "mrr")):
+            return (
+                f"Indicative year-1 SaaS metrics for Saudi {sector_label}: CAC, churn, and "
+                "ARR/MRR calibrated to local B2B/B2C channels (provisional ai_assumption)."
+            )
+
     if any(k in g for k in ("price", "pricing", "revenue", "سعر", "إيراد", "نموذج")):
+        if arch == "saas_digital":
+            return (
+                f"Indicative SaaS revenue model for Saudi {sector_label}: subscription pricing "
+                "with ARR/MRR build-up (provisional ai_assumption)."
+            )
+        if arch == "real_estate":
+            return (
+                f"Indicative sales revenue model for Saudi {sector_label}: unit selling price "
+                "× absorption schedule (provisional ai_assumption)."
+            )
+        if arch == "data_center":
+            return (
+                f"Indicative colocation revenue for Saudi {sector_label}: pricing per kW × "
+                "occupied IT load (provisional ai_assumption)."
+            )
         return (
-            f"Indicative revenue model for Saudi {sector_label}: commission/take-rate around "
-            "15–25% of gross booking value, with ARPU calibrated in discovery "
+            f"Indicative revenue model for Saudi {sector_label} calibrated in discovery "
             "(provisional ai_assumption)."
         )
+
+    # Block SaaS CAC language on non-SaaS archetypes even if gap text mentions customers.
     if any(k in g for k in ("cac", "acquisition", "customer", "عميل", "اكتساب")):
+        if arch == "saas_digital":
+            return (
+                f"Indicative year-1 CAC for Saudi {sector_label}: SAR 40–120 per acquired active "
+                "user, depending on digital vs. offline channels (provisional ai_assumption)."
+            )
+        if arch == "services":
+            return (
+                f"Indicative driver/supply acquisition cost for Saudi {sector_label}: "
+                "sign-on incentives + onboarding (provisional ai_assumption)."
+            )
         return (
-            f"Indicative year-1 CAC for Saudi {sector_label}: SAR 40–120 per acquired active "
-            "user, depending on digital vs. offline channels (provisional ai_assumption)."
+            f"Indicative demand/traction estimate for Saudi {sector_label} without SaaS CAC/ARR "
+            "metrics (provisional ai_assumption)."
         )
+
     if any(k in g for k in ("market", "size", "tam", "سوق", "حجم")):
         return (
             f"Indicative Saudi addressable market for {sector_label}: multi-billion SAR "
@@ -131,8 +209,8 @@ def _estimate_text_for_gap(gap: str, sector: str) -> str:
         )
     if any(k in g for k in ("capex", "investment", "تمويل", "استثمار", "تكلفة")):
         return (
-            f"Indicative initial investment range for Saudi {sector_label}: SAR 2M–8M "
-            "for MVP + first-city launch (provisional ai_assumption)."
+            f"Indicative initial investment range for Saudi {sector_label} "
+            "(provisional ai_assumption)."
         )
     return (
         f"Provisional Saudi-market estimate for '{gap}' in {sector_label}: "
@@ -140,26 +218,68 @@ def _estimate_text_for_gap(gap: str, sector: str) -> str:
     )
 
 
+def _default_gaps_for_archetype(archetype: str, sector: str) -> list[str]:
+    arch = (archetype or "other").lower()
+    label = sector or "this project"
+    if arch == "real_estate":
+        return [
+            f"Land cost and construction BOQ for {label}",
+            "Unit count, selling price, and absorption rate",
+            "Financing structure (equity / construction loan / off-plan)",
+        ]
+    if arch == "data_center":
+        return [
+            f"IT MW capacity, rack count, and target PUE for {label}",
+            "Power cost and year-1 occupancy",
+            "Pricing per kW / month",
+        ]
+    if arch == "services":
+        return [
+            f"Take rate, monthly trips, and active drivers for {label}",
+            "Driver acquisition cost and average trip value",
+            "Initial investment and monthly fixed opex",
+        ]
+    if arch == "industrial":
+        return [
+            f"Production capacity and utilization for {label}",
+            "Raw material / unit cost and selling price",
+            "Machinery / plant CAPEX",
+        ]
+    if arch == "retail":
+        return [
+            f"Store count, average ticket, and monthly transactions for {label}",
+            "Gross margin and rent / lease",
+        ]
+    if arch == "saas_digital":
+        return [
+            f"Target customers, pricing, and ARR for {label}",
+            "CAC, churn, and acquisition channels",
+        ]
+    return [
+        f"Initial market assumptions for {label}",
+        "Indicative revenue model estimate",
+        "Indicative year-1 operating cost / investment estimate",
+    ]
+
+
 def _provisional_estimate_claims(state: StudyState) -> list:
     from ..models.study_state import Claim
 
     sector = ""
-    if state.profile and state.profile.sector:
-        sector = state.profile.sector
+    archetype = "other"
+    if state.profile:
+        sector = state.profile.sector or ""
+        archetype = state.profile.archetype or "other"
 
     gaps = _gap_list_from_messages(state)
     if not gaps:
-        gaps = [
-            f"Initial market assumptions for {sector or 'this project'}",
-            "Indicative pricing / revenue model estimate",
-            "Indicative year-1 customer / traction estimate",
-        ]
+        gaps = _default_gaps_for_archetype(archetype, sector)
 
     claims = []
     for gap in gaps:
         claims.append(
             Claim(
-                statement=_estimate_text_for_gap(gap, sector),
+                statement=_estimate_text_for_gap(gap, sector, archetype),
                 source_type="ai_assumption",
                 confidence=0.45,
                 source_url=None,

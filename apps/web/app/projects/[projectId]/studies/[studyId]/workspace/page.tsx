@@ -5,6 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 import { getToken, API_BASE } from "@/lib/api";
+import { ArchetypeClassificationPanel } from "@/components/study/ArchetypeClassificationPanel";
+import { DiscoveryQuestionsPanel } from "@/components/study/DiscoveryQuestionsPanel";
+import { AssumptionReviewPanel } from "@/components/study/AssumptionReviewPanel";
 
 type Message = {
   role: "user" | "assistant" | "system";
@@ -26,6 +29,22 @@ type Assumption = {
   low?: string | null;
   base?: string | null;
   high?: string | null;
+  ai_estimated?: boolean;
+  label_en?: string | null;
+  label_ar?: string | null;
+  unit?: string | null;
+};
+
+type DiscoveryQuestion = {
+  id: string;
+  prompt: string;
+  question_type: string;
+  options?: string[];
+  required?: boolean;
+  unit?: string | null;
+  field_key?: string | null;
+  answer?: string | string[] | number | boolean | null;
+  answered?: boolean;
 };
 
 type StudyInfo = {
@@ -37,11 +56,16 @@ type StudyInfo = {
     stage: string;
     decision_goal: string;
     missing_information?: string[];
+    archetype_confirmed?: boolean;
   } | null;
   claims?: Claim[];
   assumptions?: Assumption[];
   claims_count?: number;
   assumptions_count?: number;
+  discovery_questions?: DiscoveryQuestion[];
+  structured_answers?: Record<string, unknown>;
+  assumptions_version?: number;
+  archetype_options?: { id: string; label: string; label_en?: string }[];
   financial_results?: Record<string, unknown> | null;
   verdict: string | null;
   decision_rationale: string | null;
@@ -54,6 +78,7 @@ type StudyInfo = {
 
 const PHASE_LABELS: Record<string, { ar: string; en: string }> = {
   DRAFT: { ar: "مسودة", en: "Draft" },
+  ARCHETYPE_CLASSIFICATION: { ar: "تصنيف المشروع", en: "Archetype Classification" },
   UNDERSTANDING: { ar: "فهم المشروع", en: "Understanding" },
   NEEDS_INFORMATION: { ar: "جمع المعلومات", en: "Gathering Info" },
   EVIDENCE_REVIEW: { ar: "مراجعة الأدلة", en: "Evidence Review" },
@@ -62,6 +87,7 @@ const PHASE_LABELS: Record<string, { ar: string; en: string }> = {
   ANALYZED: { ar: "تم التحليل", en: "Analyzed" },
   DECISION_READY: { ar: "القرار جاهز", en: "Decision Ready" },
   FUNDING_READY: { ar: "جاهز للتمويل", en: "Funding Ready" },
+  REPORT_READY: { ar: "التقرير جاهز", en: "Report Ready" },
 };
 
 const VERDICT_COLORS: Record<string, string> = {
@@ -122,6 +148,7 @@ export default function StudyWorkspacePage() {
   const [hydrating, setHydrating] = useState(studyId !== "new");
   const [study, setStudy] = useState<StudyInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedArchetype, setSelectedArchetype] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const filledPanelsRef = useRef<HTMLDivElement>(null);
 
@@ -268,6 +295,108 @@ export default function StudyWorkspacePage() {
     }
   }
 
+
+  async function confirmArchetype() {
+    if (!study || loading) return;
+    const token = getToken();
+    if (!token) {
+      setError(ar ? "الرجاء تسجيل الدخول" : "Please sign in");
+      return;
+    }
+    const archetype = selectedArchetype || study.profile?.archetype;
+    if (!archetype || archetype === "unknown") {
+      setError(ar ? "اختر نوع المشروع أولاً" : "Select a project archetype first");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/archetype`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: studyFetchHeaders(token),
+        body: JSON.stringify({ archetype, approved: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to confirm archetype");
+      applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitStructuredAnswers(answers: { id: string; value: unknown }[]) {
+    if (!study || loading) return;
+    const token = getToken();
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const payload: Record<string, unknown> = {};
+      for (const a of answers) payload[a.id] = a.value;
+      const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/structured-answers`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: studyFetchHeaders(token),
+        body: JSON.stringify({ answers: payload, mark_answered: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to submit answers");
+      applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function regenerateAssumptions() {
+    if (!study || loading) return;
+    const token = getToken();
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/assumptions/regenerate`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: studyFetchHeaders(token),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to regenerate");
+      applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function editAssumption(key: string, value: string) {
+    if (!study || loading) return;
+    const token = getToken();
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/assumptions/edit`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: studyFetchHeaders(token),
+        body: JSON.stringify({ key, value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to edit assumption");
+      applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function approveStage(stage: string) {
     if (!study || loading) return;
     const token = getToken();
@@ -399,6 +528,40 @@ export default function StudyWorkspacePage() {
         </div>
       )}
 
+
+      {study?.phase === "ARCHETYPE_CLASSIFICATION" && (
+        <ArchetypeClassificationPanel
+          ar={ar}
+          loading={loading}
+          suggested={study.profile?.archetype}
+          selected={selectedArchetype}
+          onSelect={setSelectedArchetype}
+          onConfirm={() => void confirmArchetype()}
+        />
+      )}
+
+      {(study?.phase === "NEEDS_INFORMATION" || study?.phase === "ARCHETYPE_CLASSIFICATION") &&
+        (study?.discovery_questions?.length || 0) > 0 &&
+        study.profile?.archetype_confirmed && (
+          <DiscoveryQuestionsPanel
+            questions={study.discovery_questions || []}
+            ar={ar}
+            loading={loading}
+            onSubmit={submitStructuredAnswers}
+          />
+        )}
+
+      {study?.phase === "ASSUMPTIONS_REVIEW" && (study.assumptions?.length || 0) > 0 && (
+        <AssumptionReviewPanel
+          assumptions={study.assumptions || []}
+          ar={ar}
+          loading={loading}
+          onApprove={() => approveStage("assumptions")}
+          onRegenerate={regenerateAssumptions}
+          onEdit={editAssumption}
+        />
+      )}
+
       {(claims.length > 0 || assumptions.length > 0 || financial || study?.verdict) && (
         <div
           ref={filledPanelsRef}
@@ -430,8 +593,15 @@ export default function StudyWorkspacePage() {
               </h2>
               <ul className="mt-2 space-y-2 text-xs text-ink-700">
                 {assumptions.map((item) => (
-                  <li key={item.key} className="rounded-lg bg-slate-50 p-2">
-                    <p className="font-medium">{item.key}</p>
+                  <li key={item.key} className="rounded-lg bg-slate-50 p-2" data-ai-estimated={item.ai_estimated ? "true" : "false"}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium">{item.label_en || item.label_ar || item.key}</p>
+                      {(item.ai_estimated || (item.source || "").toLowerCase().includes("ai estimated")) && (
+                        <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-800">
+                          {ar ? "مقدّر بالذكاء الاصطناعي" : "AI Estimated"}
+                        </span>
+                      )}
+                    </div>
                     <p>{item.value}</p>
                     {(item.low || item.base || item.high) && (
                       <p className="mt-1 text-[11px] text-ink-500">

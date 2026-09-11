@@ -33,6 +33,9 @@ class StudyStateRow(Base):
     evidence_approved = Column(Boolean, nullable=False, server_default=text("false"))
     assumptions_json = Column(JSON, nullable=False, server_default="[]")
     assumptions_approved = Column(Boolean, nullable=False, server_default=text("false"))
+    assumptions_version = Column(Integer, nullable=False, server_default=text("0"))
+    discovery_questions_json = Column(JSON, nullable=False, server_default="[]")
+    structured_answers_json = Column(JSON, nullable=False, server_default="{}")
     financial_results_json = Column(JSON, nullable=True)
     verdict = Column(String(32), nullable=True)
     decision_rationale = Column(Text, nullable=True)
@@ -99,6 +102,9 @@ def _save_study(study_id: str, state_dict: dict, user_id: str):
                 row.evidence_approved = state_dict.get("evidence_approved", False)
                 row.assumptions_json = [a if isinstance(a, dict) else a for a in state_dict.get("assumptions", [])]
                 row.assumptions_approved = state_dict.get("assumptions_approved", False)
+                row.assumptions_version = state_dict.get("assumptions_version", 0)
+                row.discovery_questions_json = state_dict.get("discovery_questions", [])
+                row.structured_answers_json = state_dict.get("structured_answers", {})
                 row.financial_results_json = state_dict.get("financial_results")
                 row.verdict = state_dict.get("verdict")
                 row.decision_rationale = state_dict.get("decision_rationale")
@@ -122,6 +128,9 @@ def _save_study(study_id: str, state_dict: dict, user_id: str):
                     evidence_approved=state_dict.get("evidence_approved", False),
                     assumptions_json=[a if isinstance(a, dict) else a for a in state_dict.get("assumptions", [])],
                     assumptions_approved=state_dict.get("assumptions_approved", False),
+                    assumptions_version=state_dict.get("assumptions_version", 0),
+                    discovery_questions_json=state_dict.get("discovery_questions", []),
+                    structured_answers_json=state_dict.get("structured_answers", {}),
                     financial_results_json=state_dict.get("financial_results"),
                     verdict=state_dict.get("verdict"),
                     decision_rationale=state_dict.get("decision_rationale"),
@@ -184,6 +193,9 @@ def _row_to_dict(row: StudyStateRow) -> dict:
             "evidence_approved": row.evidence_approved,
             "assumptions": row.assumptions_json or [],
             "assumptions_approved": row.assumptions_approved,
+            "assumptions_version": getattr(row, "assumptions_version", 0) or 0,
+            "discovery_questions": getattr(row, "discovery_questions_json", None) or [],
+            "structured_answers": getattr(row, "structured_answers_json", None) or {},
             "financial_results": row.financial_results_json,
             "verdict": row.verdict,
             "decision_rationale": row.decision_rationale,
@@ -251,12 +263,87 @@ class StudyApprovalRequest(BaseModel):
     feedback: Optional[str] = None
 
 
+class ArchetypeSelectRequest(BaseModel):
+    archetype: str
+    approved: bool = True
+
+
+class StructuredAnswersRequest(BaseModel):
+    answers: dict
+    mark_answered: bool = True
+
+
+class AssumptionEditRequest(BaseModel):
+    key: str
+    value: str
+    low: Optional[str] = None
+    base: Optional[str] = None
+    high: Optional[str] = None
+    explanation: Optional[str] = None
+
+
+
 def _normalize_profile_label(value: str | None, *, fallback: str) -> str:
     cleaned = (value or "").strip()
     if not cleaned or cleaned.lower() in {"unknown", "n/a", "na", "none", "null", "-", "غير معروف"}:
         return fallback
     return cleaned
 
+
+
+def _finalize_archetype_confirmation(state, req: StudyApprovalRequest):
+    """Lock archetype, attach schema questions, then collect structured answers."""
+    from langchain_core.messages import AIMessage
+    from ai_engine.archetypes import (
+        normalize_archetype,
+        questions_for_language,
+        ARCHETYPE_LABELS,
+    )
+    from ai_engine.models.study_state import ProjectProfile
+
+    chosen = None
+    if req.feedback and "archetype=" in req.feedback:
+        chosen = normalize_archetype(req.feedback.split("archetype=", 1)[1].strip().split()[0])
+    if state.profile and state.profile.archetype and state.profile.archetype != "unknown":
+        if not chosen:
+            chosen = normalize_archetype(state.profile.archetype)
+    chosen = chosen or "other"
+
+    if state.profile is None:
+        state.profile = ProjectProfile(archetype=chosen)  # type: ignore[arg-type]
+    else:
+        state.profile.archetype = chosen  # type: ignore[assignment]
+    state.profile.archetype_confirmed = True
+    state.profile_confirmed = False
+    state.discovery_questions = questions_for_language(chosen, state.language)
+    state.structured_answers = state.structured_answers or {}
+
+    label = ARCHETYPE_LABELS.get(chosen, ARCHETYPE_LABELS["other"])[
+        state.language if state.language in ("ar", "en") else "en"
+    ]
+    if state.language == "ar":
+        state.messages.append(
+            AIMessage(content=f"تم تأكيد التصنيف: **{label}**. أجب على الأسئلة المنظمة التالية قبل المتابعة.")
+        )
+    else:
+        state.messages.append(
+            AIMessage(content=f"Archetype confirmed: **{label}**. Answer the structured questions next.")
+        )
+
+    unanswered = [
+        q for q in state.discovery_questions
+        if q.get("required", True) and q.get("id") not in (state.structured_answers or {})
+    ]
+    if unanswered:
+        state.phase = "NEEDS_INFORMATION"
+        state.next_action = "answer_structured_questions"
+    else:
+        state.phase = "EVIDENCE_REVIEW"
+        state.next_action = "review_evidence"
+        state.profile_confirmed = True
+    state.error = None
+    state.blocking_reason = None
+    return state
 
 def _finalize_profile_confirmation(state):
     """Confirm Profile means: proceed even if gaps remain; AI must fill estimates next."""
@@ -375,6 +462,31 @@ def _public_messages(raw_messages) -> list[dict]:
     return out
 
 
+
+def _attach_archetype_meta(payload: dict, state_like) -> dict:
+    """Expose classification options + schema hints for the workspace UI."""
+    try:
+        from ai_engine.archetypes import classification_payload, get_assumption_schema, normalize_archetype
+        lang = "en"
+        profile = None
+        if hasattr(state_like, "get"):
+            profile = state_like.get("profile")
+            lang = state_like.get("language") or "en"
+        else:
+            profile = getattr(state_like, "profile", None)
+            lang = getattr(state_like, "language", "en") or "en"
+            if profile is not None and hasattr(profile, "model_dump"):
+                profile = profile.model_dump()
+        payload["archetype_options"] = classification_payload(lang)
+        arch = "other"
+        if isinstance(profile, dict):
+            arch = normalize_archetype(profile.get("archetype"))
+        payload["assumption_schema"] = get_assumption_schema(arch)
+    except Exception:
+        payload.setdefault("archetype_options", [])
+        payload.setdefault("assumption_schema", [])
+    return payload
+
 def _study_payload(study_id: str, record: dict, *, response: str | None = None) -> dict:
     """Full study payload so the UI can show AI-filled information."""
     s = record["state"] if "state" in record else record
@@ -390,6 +502,10 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
         "assumptions": assumptions,
         "claims_count": len(claims),
         "assumptions_count": len(assumptions),
+        "discovery_questions": s.get("discovery_questions") or [],
+        "structured_answers": s.get("structured_answers") or {},
+        "assumptions_version": s.get("assumptions_version", 0),
+        "archetype_options": None,
         "financial_results": s.get("financial_results"),
         "verdict": s.get("verdict"),
         "decision_rationale": s.get("decision_rationale"),
@@ -403,7 +519,7 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
     }
     if response is not None:
         payload["response"] = response
-    return payload
+    return _attach_archetype_meta(payload, s)
 
 
 def _payload_from_state(study_id: str, state, *, response: str | None = None, record_meta: dict | None = None) -> dict:
@@ -419,6 +535,10 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
         "assumptions": assumptions,
         "claims_count": len(claims),
         "assumptions_count": len(assumptions),
+        "discovery_questions": getattr(state, "discovery_questions", None) or [],
+        "structured_answers": getattr(state, "structured_answers", None) or {},
+        "assumptions_version": getattr(state, "assumptions_version", 0) or 0,
+        "archetype_options": None,
         "financial_results": state.financial_results,
         "verdict": state.verdict,
         "decision_rationale": state.decision_rationale,
@@ -432,7 +552,7 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
     }
     if response is not None:
         payload["response"] = response
-    return payload
+    return _attach_archetype_meta(payload, state)
 
 
 @router.post("")
@@ -530,20 +650,23 @@ async def approve_stage(
     state = _state_from_record(record)
 
     valid_stages = {
-        "profile": ("NEEDS_INFORMATION", "profile_confirmed"),
-        "evidence": ("EVIDENCE_REVIEW", "evidence_approved"),
-        "assumptions": ("ASSUMPTIONS_REVIEW", "assumptions_approved"),
+        "archetype": (("ARCHETYPE_CLASSIFICATION",), "profile_confirmed"),
+        "profile": (("NEEDS_INFORMATION", "ARCHETYPE_CLASSIFICATION", "UNDERSTANDING"), "profile_confirmed"),
+        "evidence": (("EVIDENCE_REVIEW",), "evidence_approved"),
+        "assumptions": (("ASSUMPTIONS_REVIEW",), "assumptions_approved"),
     }
 
     if stage not in valid_stages:
         raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}")
 
-    expected_phase, flag_field = valid_stages[stage]
+    expected_phases, flag_field = valid_stages[stage]
+    if isinstance(expected_phases, str):
+        expected_phases = (expected_phases,)
 
-    if state.phase != expected_phase:
+    if state.phase not in expected_phases:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot approve '{stage}' in phase '{state.phase}'. Expected phase: '{expected_phase}'.",
+            detail=f"Cannot approve '{stage}' in phase '{state.phase}'. Expected one of: {list(expected_phases)}.",
         )
 
     if stage == "assumptions" and not state.assumptions:
@@ -569,7 +692,9 @@ async def approve_stage(
     # Advance phase BEFORE running the next agent. Otherwise the orchestrator
     # re-routes to the same gate agent (e.g. discovery) and Confirm appears stuck,
     # especially when missing_information is still non-empty.
-    if stage == "profile":
+    if stage == "archetype":
+        state = _finalize_archetype_confirmation(state, req)
+    elif stage == "profile":
         state = _finalize_profile_confirmation(state)
     elif stage == "evidence":
         state.phase = "ASSUMPTIONS_REVIEW"
@@ -583,6 +708,159 @@ async def approve_stage(
 
     _save_study(study_id, state.model_dump(), user_id)
 
+    return _payload_from_state(study_id, state, record_meta=record)
+
+
+
+@router.post("/{study_id}/archetype")
+async def select_archetype(study_id: str, req: ArchetypeSelectRequest, user=Depends(get_current_user)):
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    _, run_study_step = _import_engine()
+    state = _state_from_record(record)
+
+    from ai_engine.archetypes import normalize_archetype, questions_for_language, ARCHETYPE_LABELS
+    from ai_engine.models.study_state import ProjectProfile
+    from langchain_core.messages import AIMessage
+
+    chosen = normalize_archetype(req.archetype)
+    if state.profile is None:
+        state.profile = ProjectProfile(archetype=chosen)  # type: ignore[arg-type]
+    else:
+        state.profile.archetype = chosen  # type: ignore[assignment]
+    state.profile.archetype_confirmed = bool(req.approved)
+    state.discovery_questions = questions_for_language(chosen, state.language)
+    state.phase = "ARCHETYPE_CLASSIFICATION" if not req.approved else "NEEDS_INFORMATION"
+    state.next_action = "confirm_archetype" if not req.approved else "answer_structured_questions"
+    label = ARCHETYPE_LABELS.get(chosen, ARCHETYPE_LABELS["other"])[state.language if state.language in ("ar", "en") else "en"]
+    state.messages.append(AIMessage(content=f"Archetype set to {label} (`{chosen}`)."))
+    state.error = None
+    if req.approved:
+        fake = StudyApprovalRequest(approved=True)
+        state = _finalize_archetype_confirmation(state, fake)
+        try:
+            state = await run_study_step(state)
+        except Exception as e:
+            state.error = f"AI service error: {e}"
+    _save_study(study_id, state.model_dump(), user_id)
+    return _payload_from_state(study_id, state, record_meta=record)
+
+
+@router.post("/{study_id}/structured-answers")
+async def submit_structured_answers(study_id: str, req: StructuredAnswersRequest, user=Depends(get_current_user)):
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    _, run_study_step = _import_engine()
+    state = _state_from_record(record)
+
+    answers = dict(state.structured_answers or {})
+    answers.update(req.answers or {})
+    state.structured_answers = answers
+    if req.mark_answered and state.discovery_questions:
+        for q in state.discovery_questions:
+            qid = q.get("id")
+            if qid in answers:
+                q["answered"] = True
+                q["answer"] = answers[qid]
+
+    # If all required answered, allow profile confirm / evidence
+    unanswered = [
+        q for q in (state.discovery_questions or [])
+        if q.get("required", True) and q.get("id") not in answers
+    ]
+    if unanswered:
+        state.phase = "NEEDS_INFORMATION"
+        state.next_action = "answer_structured_questions"
+    else:
+        state.profile_confirmed = True
+        if state.profile:
+            state.profile.missing_information = []
+            state.profile.archetype_confirmed = True
+        state.phase = "EVIDENCE_REVIEW"
+        state.next_action = "review_evidence"
+        try:
+            state = await run_study_step(state)
+        except Exception as e:
+            state.error = f"AI service error: {e}"
+
+    _save_study(study_id, state.model_dump(), user_id)
+    return _payload_from_state(study_id, state, record_meta=record)
+
+
+@router.post("/{study_id}/assumptions/edit")
+async def edit_assumption(study_id: str, req: AssumptionEditRequest, user=Depends(get_current_user)):
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    state = _state_from_record(record)
+    from ai_engine.archetypes import assert_no_saas_leakage, normalize_archetype
+
+    arch = normalize_archetype(state.profile.archetype if state.profile else "other")
+    leaked = assert_no_saas_leakage(arch, [req.key])
+    if leaked:
+        raise HTTPException(status_code=400, detail=f"SaaS assumption key not allowed for {arch}: {leaked}")
+
+    updated = False
+    for a in state.assumptions or []:
+        if a.key == req.key:
+            a.value = req.value
+            if req.low is not None:
+                a.low = req.low
+            if req.base is not None:
+                a.base = req.base
+            if req.high is not None:
+                a.high = req.high
+            a.source = "user"
+            a.origin = "user"
+            a.ai_estimated = False
+            a.confidence = "confirmed"
+            updated = True
+            break
+    if not updated:
+        from ai_engine.models.study_state import Assumption
+        state.assumptions = list(state.assumptions or [])
+        state.assumptions.append(
+            Assumption(
+                key=req.key,
+                value=req.value,
+                source="user",
+                confidence="confirmed",
+                low=req.low,
+                base=req.base or req.value,
+                high=req.high,
+                origin="user",
+                ai_estimated=False,
+            )
+        )
+    state.assumptions_version = int(state.assumptions_version or 0) + 1
+    state.assumptions_approved = False
+    state.phase = "ASSUMPTIONS_REVIEW"
+    state.next_action = "review_assumptions"
+    _save_study(study_id, state.model_dump(), user_id)
+    return _payload_from_state(study_id, state, record_meta=record)
+
+
+@router.post("/{study_id}/assumptions/regenerate")
+async def regenerate_assumptions(study_id: str, user=Depends(get_current_user)):
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+    _, run_study_step = _import_engine()
+    state = _state_from_record(record)
+    state.assumptions_approved = False
+    state.phase = "ASSUMPTIONS_REVIEW"
+    state.error = None
+    try:
+        state = await run_study_step(state)
+    except Exception as e:
+        state.error = f"AI service error: {e}"
+    _save_study(study_id, state.model_dump(), user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
 

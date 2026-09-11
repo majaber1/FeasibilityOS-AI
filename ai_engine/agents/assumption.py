@@ -1,3 +1,4 @@
+"""Assumption agent: fills archetype schema only; AI estimates are labeled."""
 from __future__ import annotations
 
 import json
@@ -6,129 +7,200 @@ import re
 from langchain_core.messages import AIMessage, SystemMessage
 
 from ..config import get_llm
-from ..models.study_state import StudyState
+from ..models.study_state import StudyState, Assumption
+from ..archetypes import (
+    get_assumption_schema,
+    schema_keys_for,
+    assert_no_saas_leakage,
+    normalize_archetype,
+)
 
 SYSTEM_PROMPT_AR = """
-أنت محلل افتراضات خبير في دراسات الجدوى للسوق السعودي.
-مهمتك: تحديد وتقييم الافتراضات الأساسية التي تبنى عليها دراسة الجدوى.
+أنت محلل افتراضات لدراسات الجدوى في السوق السعودي.
+املأ فقط مفاتيح الافتراضات المعطاة لنوع المشروع. لا تُضف مقاييس SaaS (CAC/Churn/ARR/MRR)
+إلا إذا كان التصنيف saas_digital.
 
-خطوات العمل:
-1. راجع معلومات المشروع والأدلة المتاحة
-2. حدد الافتراضات الأساسية (سعر، طلب، تكلفة، نمو، تنظيمات)
-3. لكل افتراض، حدد: القيمة الأساسية، الحد الأدنى، الحد الأعلى
-4. قيّم مستوى الثقة: confirmed / medium / low
-5. وثّق مصدر كل افتراض
+لكل افتراض:
+- value / low / base / high كنصوص
+- source: "user" أو "AI Estimated Assumption" إذا قدّرت القيمة
+- confidence: confirmed|medium|low
+- ai_estimated: true إذا كانت القيمة تقدير ذكاء اصطناعي
 
-قواعد صارمة:
-- لا تخترع أرقاماً بدون أساس
-- إذا لم تجد مصدراً، صنّف الثقة كـ "low"
-- الافتراضات يجب أن تكون قابلة للقياس
-- أجب بالعربية ما لم يكتب المستخدم بالإنجليزية
-
-أخرج JSON داخل ```json ... ```:
-{
-  "assumptions": [
-    {
-      "key": "اسم الافتراض",
-      "value": "القيمة الأساسية",
-      "source": "المصدر",
-      "confidence": "confirmed|medium|low",
-      "low": "الحد الأدنى",
-      "base": "الأساس",
-      "high": "الحد الأعلى"
-    }
-  ],
-  "assumptions_complete": true/false
-}
+أخرج JSON:
+```json
+{{
+  "assumptions": [ {{"key":"...", "value":"...", "source":"...", "confidence":"medium", "low":"...", "base":"...", "high":"...", "ai_estimated": false}} ],
+  "assumptions_complete": true
+}}
+```
 """
 
 SYSTEM_PROMPT_EN = """
-You are an assumptions analyst expert in feasibility studies for the Saudi market.
-Your task: identify and evaluate key assumptions the feasibility study is built on.
+You are an assumptions analyst for Saudi feasibility studies.
+Fill ONLY the provided assumption keys for this project archetype.
+Do NOT add SaaS metrics (CAC/Churn/ARR/MRR) unless archetype is saas_digital.
 
-Steps:
-1. Review project information and available evidence
-2. Identify key assumptions (price, demand, cost, growth, regulations)
-3. For each assumption: base value, low bound, high bound
-4. Assess confidence: confirmed / medium / low
-5. Document the source of each assumption
+For each assumption:
+- value / low / base / high as strings
+- source: "user" or "AI Estimated Assumption" when you estimate
+- confidence: confirmed|medium|low
+- ai_estimated: true when AI estimated
 
-Strict rules:
-- Never invent numbers without basis
-- If no source found, classify confidence as "low"
-- Assumptions must be measurable
-- Reply in English if user writes in English
-
-Output JSON inside ```json ... ```:
-{
-  "assumptions": [
-    {
-      "key": "assumption name",
-      "value": "base value",
-      "source": "source",
-      "confidence": "confirmed|medium|low",
-      "low": "low bound",
-      "base": "base",
-      "high": "high bound"
-    }
-  ],
-  "assumptions_complete": true/false
-}
+Output JSON:
+```json
+{{
+  "assumptions": [ {{"key":"...", "value":"...", "source":"...", "confidence":"medium", "low":"...", "base":"...", "high":"...", "ai_estimated": false}} ],
+  "assumptions_complete": true
+}}
+```
 """
 
 
 def run_assumptions(state: StudyState) -> StudyState:
     lang = state.language
+    archetype = normalize_archetype(state.profile.archetype if state.profile else "other")
+    schema = get_assumption_schema(archetype)
+    allowed = schema_keys_for(archetype)
+    schema_by_key = {f["key"]: f for f in schema}
+
     system_prompt = SYSTEM_PROMPT_AR if lang == "ar" else SYSTEM_PROMPT_EN
     llm = get_llm("assumptions")
 
-    context_parts = []
-    if state.profile:
-        context_parts.append(f"Project: {state.profile.archetype} / {state.profile.sector}")
+    context_parts = [
+        f"Archetype: {archetype}",
+        "Allowed assumption keys ONLY:\n"
+        + "\n".join(
+            f"- {f['key']}: {f['label_en']} ({f['input_type']}, unit={f.get('unit')})" for f in schema
+        ),
+    ]
+    if state.structured_answers:
+        context_parts.append(
+            "Structured answers already collected:\n"
+            + json.dumps(state.structured_answers, ensure_ascii=False)
+        )
     if state.claims:
-        claims_text = "\n".join(f"- {c.statement} ({c.source_type}, confidence: {c.confidence})" for c in state.claims)
+        claims_text = "\n".join(
+            f"- {c.statement} ({c.source_type}, conf={c.confidence})" for c in state.claims[:12]
+        )
         context_parts.append(f"Evidence:\n{claims_text}")
 
-    extra = ""
-    if context_parts:
-        extra = "\n\nContext:\n" + "\n".join(context_parts)
+    extra = "\n\nContext:\n" + "\n".join(context_parts)
+    messages = [SystemMessage(content=system_prompt + extra)] + list(
+        state.messages[-4:] if state.messages else []
+    )
 
-    messages = [SystemMessage(content=system_prompt + extra)] + state.messages
-
+    assumption_data: dict | None = None
+    response_text = ""
     try:
         response = llm.invoke(messages)
-        response_text = response.content
+        response_text = response.content if hasattr(response, "content") else str(response)
+        assumption_data = _extract_json(response_text)
     except Exception as e:
-        state.error = str(e)
-        state.next_action = "retry"
-        return state
+        response_text = f"Assumption generation fallback ({e})."
+        assumption_data = None
 
-    assumption_data = _extract_json(response_text)
-    if assumption_data:
-        from ..models.study_state import Assumption
+    seeded: dict[str, Assumption] = {}
+    for key, raw in (state.structured_answers or {}).items():
+        if key not in allowed:
+            continue
+        meta = schema_by_key.get(key, {})
+        val = _as_str(raw)
+        seeded[key] = Assumption(
+            key=key,
+            value=val,
+            source="user",
+            confidence="confirmed",
+            low=val,
+            base=val,
+            high=val,
+            origin="user",
+            input_type=meta.get("input_type"),
+            unit=meta.get("unit"),
+            label_en=meta.get("label_en"),
+            label_ar=meta.get("label_ar"),
+            ai_estimated=False,
+        )
 
-        assumptions = []
-        for a in assumption_data.get("assumptions", []):
-            assumptions.append(Assumption(
-                key=a.get("key", ""),
-                value=a.get("value", ""),
-                source=a.get("source", ""),
-                confidence=a.get("confidence", "low"),
-                low=a.get("low"),
-                base=a.get("base"),
-                high=a.get("high"),
-            ))
-        state.assumptions = assumptions
+    for a in (assumption_data or {}).get("assumptions") or []:
+        key = str(a.get("key") or "").strip()
+        if key not in allowed:
+            continue
+        meta = schema_by_key.get(key, {})
+        ai_est = bool(a.get("ai_estimated")) or str(a.get("source") or "").lower().startswith("ai")
+        if key in seeded and seeded[key].origin == "user":
+            continue
+        conf = str(a.get("confidence") or "low")
+        if conf not in {"confirmed", "medium", "low"}:
+            conf = "low"
+        source = str(a.get("source") or ("AI Estimated Assumption" if ai_est else "model"))
+        if ai_est and "AI Estimated" not in source:
+            source = "AI Estimated Assumption"
+        seeded[key] = Assumption(
+            key=key,
+            value=_as_str(a.get("value")),
+            source=source,
+            confidence=conf,  # type: ignore[arg-type]
+            low=_as_str(a.get("low")) or None,
+            base=_as_str(a.get("base")) or None,
+            high=_as_str(a.get("high")) or None,
+            origin="ai_estimated" if ai_est else "user",
+            input_type=meta.get("input_type"),
+            unit=meta.get("unit"),
+            label_en=meta.get("label_en"),
+            label_ar=meta.get("label_ar"),
+            ai_estimated=ai_est,
+        )
 
-        if assumption_data.get("assumptions_complete", False):
-            state.phase = "READY_FOR_ANALYSIS"
-            state.assumptions_approved = True
-        else:
-            state.phase = "ASSUMPTIONS_REVIEW"
+    for field in schema:
+        key = field["key"]
+        if key in seeded:
+            continue
+        if not field.get("required", True):
+            continue
+        seeded[key] = Assumption(
+            key=key,
+            value="",
+            source="AI Estimated Assumption",
+            confidence="low",
+            origin="ai_estimated",
+            input_type=field.get("input_type"),
+            unit=field.get("unit"),
+            label_en=field.get("label_en"),
+            label_ar=field.get("label_ar"),
+            ai_estimated=True,
+        )
 
-    state.messages.append(AIMessage(content=response_text))
+    assumptions = list(seeded.values())
+    leaked = assert_no_saas_leakage(archetype, [a.key for a in assumptions])
+    if leaked:
+        assumptions = [a for a in assumptions if a.key not in leaked]
+
+    prev_sig = [(a.key, a.value, a.base) for a in (state.assumptions or [])]
+    new_sig = [(a.key, a.value, a.base) for a in assumptions]
+    state.assumptions = assumptions
+    if new_sig != prev_sig or state.assumptions_version == 0:
+        state.assumptions_version = int(state.assumptions_version or 0) + 1
+
+    state.phase = "ASSUMPTIONS_REVIEW"
+    state.assumptions_approved = False
     state.next_action = "review_assumptions"
+    state.error = None
+
+    summary_lines = [
+        f"Assumptions prepared for archetype `{archetype}` (version {state.assumptions_version}).",
+        f"Count: {len(assumptions)}. AI-estimated: {sum(1 for a in assumptions if a.ai_estimated)}.",
+        "Review, edit, regenerate, or approve before financial analysis.",
+    ]
+    if response_text:
+        summary_lines.append(response_text[:1500])
+    state.messages.append(AIMessage(content="\n".join(summary_lines)))
     return state
+
+
+def _as_str(v) -> str:
+    if v is None:
+        return ""
+    return v if isinstance(v, str) else str(v)
 
 
 def _extract_json(text: str) -> dict | None:
