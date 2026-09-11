@@ -1,0 +1,96 @@
+{
+  "created_at": "2026-09-10T22:05:41.457021+00:00",
+  "studies": {
+    "residential": {
+      "study_id": "study_6c7b908df981",
+      "archetype": "real_estate",
+      "recommended_model": "real_estate_v1",
+      "phase": "NEEDS_INFORMATION",
+      "n_questions": 21,
+      "questions": [
+        "What is the current status of land acquisition and the total cost incurred so far?",
+        "Do you have a validated market study that supports the assumed absorption rate and ASP for the villas?",
+        "Can you provide a detailed BOQ or cost breakdown for construction, including inflation assumptions?",
+        "What financing mix are you planning (equity, bank loans, mortgage facilitation) and what are the expected terms?",
+        "Which regulatory approvals are required for the project and what is the timeline to obtain them?",
+        "Do you have pre\u2011sale commitments or off\u2011plan sales agreements in place? If so, how many units are covered?",
+        "How do you plan to manage Wafi compliance for the mortgage facilitation process?",
+        "[missing] Detailed land acquisition status and cost breakdown",
+        "[missing] Exact average selling price (ASP) per villa and pricing strategy",
+        "[missing] Assumed absorption rate and market demand validation",
+        "[missing] Construction cost breakdown (BOQ) and inflation assumptions",
+        "[missing] Financing structure (equity vs debt, mortgage facilitation terms)",
+        "[missing] Regulatory approvals and Wafi compliance timeline",
+        "[missing] Projected cash flow and break\u2011even analysis",
+        "\"What is the current status of land acquisition and the total cost incurred so far?\",",
+        "\"Do you have a validated market study that supports the assumed absorption rate and ASP for the villas?\",",
+        "\"Can you provide a detailed BOQ or cost breakdown for construction, including inflation assumptions?\",",
+        "\"What financing mix are you planning (equity, bank loans, mortgage facilitation) and what are the expected terms?\",",
+        "\"Which regulatory approvals are required for the project and what is the timeline to obtain them?\",",
+        "\"Do you have pre\u2011sale commitments or off\u2011plan sales agreements in place? If so, how many units are covered?\","
+      ],
+      "saas_marker_hits": [],
+      "error": null
+    },
+    "datacenter": {
+      "study_id": "study_11bc143d2d39",
+      "archetype": "data_center",
+      "recommended_model": "data_center_v1",
+      "phase": "NEEDS_INFORMATION",
+      "n_questions": 25,
+      "questions": [
+        "What is the planned leasing price per kW per month and will you offer volume discounts or tiered pricing?",
+        "What occupancy levels do you expect in Year\u202f1, Year\u202f3, and Year\u202f5, and what is the assumed ramp\u2011up schedule?",
+        "Which power tariff will you be billed at, and are there any negotiated rates or caps with the utility?",
+        "Can you provide a breakdown of expected operating expenses (staff, maintenance, cooling, security, insurance, taxes)?",
+        "What financing structure are you targeting (percentage debt vs. equity, interest rate assumptions, loan tenor)?",
+        "What is the projected construction timeline from groundbreaking to commercial operation, and what key permits are required?",
+        "Who are the main competitors in the Jeddah colocation market and what market share do you anticipate capturing?",
+        "What risk mitigation measures are planned for power redundancy, cooling failures, and ESG compliance?",
+        "[missing] Target price per kW/month (leasing rate) and any tiered pricing structure",
+        "[missing] Projected occupancy/utilization ramp schedule (e.g., % of capacity over 1\u20115\u202fyears)",
+        "[missing] Assumed power tariff and any negotiated utility rates",
+        "[missing] Detailed OPEX assumptions (staffing, maintenance, cooling, security, insurance, taxes)",
+        "[missing] Financing structure (debt/equity mix, interest rates, repayment schedule)",
+        "[missing] Construction timeline and key milestones (permits, build\u2011out, commissioning)",
+        "[missing] Regulatory approvals required for a Tier\u2011III data center in Jeddah Economic City",
+        "[missing] Competitive landscape and market demand forecasts for colocation in the region",
+        "[missing] Risk mitigation plans (e.g., power redundancy, disaster recovery, ESG considerations)",
+        "\"What is the planned leasing price per kW per month and will you offer volume discounts or tiered pricing?\",",
+        "\"What occupancy levels do you expect in Year\u202f1, Year\u202f3, and Year\u202f5, and what is the assumed ramp\u2011up schedule?\",",
+        "\"Which power tariff will you be billed at, and are there any negotiated rates or caps with the utility?\","
+      ],
+      "saas_marker_hits": [],
+      "error": null
+    }
+  },
+  "uber_risk_attempt": {
+    "http": 200,
+    "phase": "ANALYZED",
+    "verdict": null,
+    "n_risks": 0,
+    "error": "Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1qkp4szebbay8786f2t1ajg` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199998, Requested 6141. Please try again in 44m12.048s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}"
+  },
+  "uber_discovery": {
+    "archetype": "services",
+    "recommended_model": "general_v1",
+    "missing_information": [
+      "Detailed cost breakdown of the SAR\u202f5\u202fM seed allocation",
+      "Regulatory approval status and timeline with the Transport General Authority",
+      "Customer Acquisition Cost (CAC) and Lifetime Value (LTV) assumptions",
+      "12\u2011month financial projections (revenues, margins, cash burn)",
+      "Market size and target market share for Riyadh (and later Jeddah/Dammam)",
+      "Insurance costs for passengers and drivers",
+      "Driver incentive program cost structure",
+      "Payment provider integration fees",
+      "Founding team experience and roles",
+      "Existing or pending strategic partnership agreements"
+    ],
+    "saas_marker_hits": [
+      "cac :: Customer Acquisition Cost (CAC) and Lifetime Value (LTV) assumptions",
+      "ltv :: Customer Acquisition Cost (CAC) and Lifetime Value (LTV) assumptions",
+      "customer acquisition cost :: Customer Acquisition Cost (CAC) and Lifetime Value (LTV) assumptions",
+      "lifetime value :: Customer Acquisition Cost (CAC) and Lifetime Value (LTV) assumptions"
+    ]
+  }
+}

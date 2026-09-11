@@ -5,6 +5,7 @@ import re
 
 from langchain_core.messages import AIMessage, SystemMessage
 
+from ..archetypes import risk_prompt_block
 from ..config import get_llm
 from ..models.study_state import StudyState
 
@@ -91,6 +92,7 @@ def run_risk_analysis(state: StudyState) -> StudyState:
     llm = get_llm("risk")
 
     context_parts = []
+    archetype = state.profile.archetype if state.profile else "unknown"
     if state.profile:
         context_parts.append(f"Project: {state.profile.archetype} / {state.profile.sector} / Stage: {state.profile.stage}")
     if state.financial_results:
@@ -104,8 +106,12 @@ def run_risk_analysis(state: StudyState) -> StudyState:
     extra = ""
     if context_parts:
         extra = "\n\nContext:\n" + "\n".join(context_parts)
+    extra += risk_prompt_block(archetype, lang)
 
-    messages = [SystemMessage(content=system_prompt + extra)] + state.messages
+    # Prefer structured context over full chat history to stay within TPM limits
+    # on Groq fallback models after primary (120b) TPD exhaustion.
+    recent = list(state.messages[-2:]) if state.messages else []
+    messages = [SystemMessage(content=system_prompt + extra)] + recent
 
     try:
         response = llm.invoke(messages)
@@ -117,8 +123,9 @@ def run_risk_analysis(state: StudyState) -> StudyState:
 
     risk_data = _extract_json(response_text)
     if risk_data:
-        state.decision_risks = risk_data.get("critical_risks", [])
-        if risk_data.get("risk_assessment_complete", False):
+        state.decision_risks = risk_data.get("critical_risks", []) or risk_data.get("risks", [])
+        # Advance when risks are present even if the model omits the completion flag.
+        if risk_data.get("risk_assessment_complete", False) or state.decision_risks:
             state.phase = "DECISION_READY"
 
     state.messages.append(AIMessage(content=response_text))

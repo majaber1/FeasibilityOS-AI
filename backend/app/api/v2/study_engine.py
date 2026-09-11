@@ -97,7 +97,11 @@ def _save_study(study_id: str, state_dict: dict, user_id: str):
                 row.profile_confirmed = state_dict.get("profile_confirmed", False)
                 row.claims_json = [c if isinstance(c, dict) else c for c in state_dict.get("claims", [])]
                 row.evidence_approved = state_dict.get("evidence_approved", False)
-                row.assumptions_json = [a if isinstance(a, dict) else a for a in state_dict.get("assumptions", [])]
+                row.assumptions_json = {
+                    "_v": int(state_dict.get("assumptions_version") or 0),
+                    "items": [a if isinstance(a, dict) else a for a in state_dict.get("assumptions", [])],
+                    "history": state_dict.get("assumptions_history") or [],
+                }
                 row.assumptions_approved = state_dict.get("assumptions_approved", False)
                 row.financial_results_json = state_dict.get("financial_results")
                 row.verdict = state_dict.get("verdict")
@@ -120,7 +124,11 @@ def _save_study(study_id: str, state_dict: dict, user_id: str):
                     profile_confirmed=state_dict.get("profile_confirmed", False),
                     claims_json=[c if isinstance(c, dict) else c for c in state_dict.get("claims", [])],
                     evidence_approved=state_dict.get("evidence_approved", False),
-                    assumptions_json=[a if isinstance(a, dict) else a for a in state_dict.get("assumptions", [])],
+                    assumptions_json={
+                        "_v": int(state_dict.get("assumptions_version") or 0),
+                        "items": [a if isinstance(a, dict) else a for a in state_dict.get("assumptions", [])],
+                        "history": state_dict.get("assumptions_history") or [],
+                    },
                     assumptions_approved=state_dict.get("assumptions_approved", False),
                     financial_results_json=state_dict.get("financial_results"),
                     verdict=state_dict.get("verdict"),
@@ -170,6 +178,15 @@ def _serialize_messages(messages) -> list:
 
 
 def _row_to_dict(row: StudyStateRow) -> dict:
+    raw_assumptions = row.assumptions_json or []
+    assumptions_version = 0
+    if isinstance(raw_assumptions, dict) and "items" in raw_assumptions:
+        assumptions_version = int(raw_assumptions.get("_v") or 0)
+        assumptions = raw_assumptions.get("items") or []
+        assumptions_history = raw_assumptions.get("history") or []
+    else:
+        assumptions = raw_assumptions if isinstance(raw_assumptions, list) else []
+        assumptions_history = []
     return {
         "state": {
             "study_id": row.study_id,
@@ -182,8 +199,10 @@ def _row_to_dict(row: StudyStateRow) -> dict:
             "profile_confirmed": row.profile_confirmed,
             "claims": row.claims_json or [],
             "evidence_approved": row.evidence_approved,
-            "assumptions": row.assumptions_json or [],
+            "assumptions": assumptions,
             "assumptions_approved": row.assumptions_approved,
+            "assumptions_version": assumptions_version,
+            "assumptions_history": assumptions_history,
             "financial_results": row.financial_results_json,
             "verdict": row.verdict,
             "decision_rationale": row.decision_rationale,
@@ -381,6 +400,7 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
     claims = s.get("claims") or []
     assumptions = s.get("assumptions") or []
     profile = s.get("profile")
+    fr = s.get("financial_results") or {}
     payload = {
         "study_id": study_id,
         "project_id": s.get("project_id"),
@@ -390,7 +410,13 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
         "assumptions": assumptions,
         "claims_count": len(claims),
         "assumptions_count": len(assumptions),
+        "assumptions_version": s.get("assumptions_version") or 0,
+        "assumptions_history": s.get("assumptions_history") or [],
+        "decision_version": s.get("decision_version") or 0,
         "financial_results": s.get("financial_results"),
+        "funding_package": (fr or {}).get("funding_package") if isinstance(fr, dict) else None,
+        "report_outline": (fr or {}).get("report_outline") if isinstance(fr, dict) else None,
+        "report": (fr or {}).get("report") if isinstance(fr, dict) else None,
         "verdict": s.get("verdict"),
         "decision_rationale": s.get("decision_rationale"),
         "decision_conditions": s.get("decision_conditions") or [],
@@ -410,6 +436,7 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
     claims = [c.model_dump() if hasattr(c, "model_dump") else c for c in (state.claims or [])]
     assumptions = [a.model_dump() if hasattr(a, "model_dump") else a for a in (state.assumptions or [])]
     profile = state.profile.model_dump() if state.profile and hasattr(state.profile, "model_dump") else state.profile
+    fr = state.financial_results or {}
     payload = {
         "study_id": study_id,
         "project_id": state.project_id,
@@ -419,7 +446,13 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
         "assumptions": assumptions,
         "claims_count": len(claims),
         "assumptions_count": len(assumptions),
+        "assumptions_version": getattr(state, "assumptions_version", 0) or 0,
+        "assumptions_history": getattr(state, "assumptions_history", None) or [],
+        "decision_version": getattr(state, "decision_version", 0) or 0,
         "financial_results": state.financial_results,
+        "funding_package": fr.get("funding_package") if isinstance(fr, dict) else None,
+        "report_outline": fr.get("report_outline") if isinstance(fr, dict) else None,
+        "report": fr.get("report") if isinstance(fr, dict) else None,
         "verdict": state.verdict,
         "decision_rationale": state.decision_rationale,
         "decision_conditions": state.decision_conditions or [],

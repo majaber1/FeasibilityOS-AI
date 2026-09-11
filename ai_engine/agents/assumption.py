@@ -5,6 +5,7 @@ import re
 
 from langchain_core.messages import AIMessage, SystemMessage
 
+from ..archetypes import assumption_prompt_block
 from ..config import get_llm
 from ..models.study_state import StudyState
 
@@ -83,6 +84,7 @@ def run_assumptions(state: StudyState) -> StudyState:
     llm = get_llm("assumptions")
 
     context_parts = []
+    archetype = state.profile.archetype if state.profile else "unknown"
     if state.profile:
         context_parts.append(f"Project: {state.profile.archetype} / {state.profile.sector}")
     if state.claims:
@@ -92,8 +94,28 @@ def run_assumptions(state: StudyState) -> StudyState:
     extra = ""
     if context_parts:
         extra = "\n\nContext:\n" + "\n".join(context_parts)
+    extra += assumption_prompt_block(archetype, lang)
+    extra += (
+        "\n\nIMPORTANT: every assumption field (key, value, source, confidence, low, base, high) "
+        "MUST be a JSON string, even when numeric (e.g. \"900000000\")."
+    )
 
-    messages = [SystemMessage(content=system_prompt + extra)] + state.messages
+    # If this turn is an explicit challenge, require applying the requested value.
+    last = state.messages[-1] if state.messages else None
+    last_text = ""
+    if last is not None:
+        last_text = getattr(last, "content", None) or (last.get("content") if isinstance(last, dict) else "") or ""
+    if "CHALLENGE" in last_text.upper() or "RECALCULATE WITH" in last_text.upper():
+        extra += (
+            "\n\nCHALLENGE MODE: The user's latest message revises a major assumption. "
+            "You MUST apply the requested key/value change in the assumptions JSON, "
+            "set assumptions_complete=true, and keep other assumptions stable unless "
+            "they directly depend on the challenged value."
+        )
+
+    # Truncate chat history — long discovery threads exceed Groq 20b TPM (413).
+    recent = list(state.messages[-2:]) if state.messages else []
+    messages = [SystemMessage(content=system_prompt + extra)] + recent
 
     try:
         response = llm.invoke(messages)
@@ -107,24 +129,84 @@ def run_assumptions(state: StudyState) -> StudyState:
     if assumption_data:
         from ..models.study_state import Assumption
 
+        def _as_str(v):
+            if v is None:
+                return None
+            return v if isinstance(v, str) else str(v)
+
         assumptions = []
         for a in assumption_data.get("assumptions", []):
+            conf = _as_str(a.get("confidence") or "low") or "low"
+            if conf not in {"confirmed", "medium", "low"}:
+                conf = "low"
             assumptions.append(Assumption(
-                key=a.get("key", ""),
-                value=a.get("value", ""),
-                source=a.get("source", ""),
-                confidence=a.get("confidence", "low"),
-                low=a.get("low"),
-                base=a.get("base"),
-                high=a.get("high"),
+                key=_as_str(a.get("key")) or "",
+                value=_as_str(a.get("value")) or "",
+                source=_as_str(a.get("source")) or "",
+                confidence=conf,
+                low=_as_str(a.get("low")),
+                base=_as_str(a.get("base")),
+                high=_as_str(a.get("high")),
             ))
-        state.assumptions = assumptions
+        prev_items = list(state.assumptions or [])
+        prev_sig = [
+            (a.key, a.value, a.base) for a in prev_items
+        ] if prev_items else []
+        new_sig = [(a.key, a.value, a.base) for a in assumptions]
+        changed = new_sig != prev_sig
+
+        if changed or state.assumptions_version == 0:
+            from datetime import datetime, timezone
+
+            prev_version = int(state.assumptions_version or 0)
+            prev_npv = None
+            if state.financial_results and isinstance(state.financial_results, dict):
+                prev_npv = state.financial_results.get("npv")
+            changed_keys = sorted({k for k, _, _ in set(new_sig) ^ set(prev_sig)})
+            history = list(getattr(state, "assumptions_history", None) or [])
+            history.append({
+                "version": prev_version,
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
+                "assumptions": [
+                    {
+                        "key": a.key,
+                        "value": a.value,
+                        "source": a.source,
+                        "confidence": a.confidence,
+                        "low": a.low,
+                        "base": a.base,
+                        "high": a.high,
+                    }
+                    for a in prev_items
+                ],
+                "npv_at_version": prev_npv,
+                "changed_keys": changed_keys,
+                "note": (
+                    "Assumptions updated; prior financial results invalidated for recalculation."
+                    if prev_items else
+                    "Initial assumptions version recorded."
+                ),
+            })
+            state.assumptions_history = history[-20:]  # keep last 20
+
+            state.assumptions = assumptions
+            state.assumptions_version = prev_version + 1
+            # Invalidate downstream so challenge/recalc must rebuild the model.
+            state.financial_results = None
+            state.financial_snapshot_id = None
+            state.verdict = None
+            state.decision_rationale = None
+            state.decision_conditions = []
+            state.decision_risks = []
+        else:
+            state.assumptions = assumptions
 
         if assumption_data.get("assumptions_complete", False):
             state.phase = "READY_FOR_ANALYSIS"
             state.assumptions_approved = True
         else:
             state.phase = "ASSUMPTIONS_REVIEW"
+            state.assumptions_approved = False
 
     state.messages.append(AIMessage(content=response_text))
     state.next_action = "review_assumptions"

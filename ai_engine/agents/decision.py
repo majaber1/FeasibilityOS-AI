@@ -5,6 +5,7 @@ import re
 
 from langchain_core.messages import AIMessage, SystemMessage
 
+from ..archetypes import recommended_model_for, risk_themes_for
 from ..config import get_llm
 from ..models.study_state import StudyState
 
@@ -88,10 +89,15 @@ def run_decision(state: StudyState) -> StudyState:
 
     context_parts = []
     if state.profile:
+        archetype = state.profile.archetype
         context_parts.append(
-            f"Project: {state.profile.archetype} / {state.profile.sector} / "
-            f"Stage: {state.profile.stage} / Goal: {state.profile.decision_goal}"
+            f"Project: {archetype} / {state.profile.sector} / "
+            f"Stage: {state.profile.stage} / Goal: {state.profile.decision_goal} / "
+            f"Model: {state.profile.recommended_model or recommended_model_for(archetype)}"
         )
+        themes = risk_themes_for(archetype)
+        if themes:
+            context_parts.append("Decision must reflect archetype-specific risks: " + "; ".join(themes))
     if state.claims:
         claims_text = "\n".join(f"- {c.statement} ({c.source_type}, conf: {c.confidence})" for c in state.claims[:10])
         context_parts.append(f"Evidence:\n{claims_text}")
@@ -117,7 +123,11 @@ def run_decision(state: StudyState) -> StudyState:
     if context_parts:
         extra = "\n\nFull Context:\n" + "\n".join(context_parts)
 
-    messages = [SystemMessage(content=system_prompt + extra)] + state.messages
+    # Decision context is already complete in `extra`. Do NOT append the full
+    # chat history — long Uber-like threads exceed Groq TPM on fallback models
+    # (gpt-oss-20b ~8k TPM) and block verdict generation (413 request too large).
+    recent = list(state.messages[-2:]) if state.messages else []
+    messages = [SystemMessage(content=system_prompt + extra)] + recent
 
     try:
         response = llm.invoke(messages)
@@ -134,7 +144,13 @@ def run_decision(state: StudyState) -> StudyState:
         state.decision_conditions = decision_data.get("conditions", [])
         state.decision_risks = decision_data.get("key_risks", state.decision_risks)
         state.decision_version += 1
-        state.phase = "DECISION_READY"
+        # Insufficient evidence overrides firm investment verdicts when claim
+        # confidence is below threshold (or evidence volume is too low).
+        from .report_builder import apply_evidence_verdict_override
+
+        apply_evidence_verdict_override(state)
+        # After a verdict is issued, advance into funding readiness.
+        state.phase = "FUNDING_READY"
 
     state.messages.append(AIMessage(content=response_text))
     state.next_action = "present_decision"

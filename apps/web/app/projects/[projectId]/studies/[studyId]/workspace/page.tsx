@@ -28,6 +28,27 @@ type Assumption = {
   high?: string | null;
 };
 
+type ReportSection = {
+  title?: string;
+  summary?: string;
+  items?: unknown[];
+  metrics?: Record<string, unknown>;
+  verdict?: string | null;
+  rationale?: string | null;
+  conditions?: string[];
+  decision_version?: number;
+};
+
+type FeasibilityReport = {
+  title?: string;
+  generated_at?: string;
+  verdict?: string | null;
+  section_order?: string[];
+  sections?: Record<string, ReportSection>;
+  evidence_confidence_mean?: number | null;
+  evidence_confidence_threshold?: number;
+};
+
 type StudyInfo = {
   study_id: string;
   phase: string;
@@ -43,6 +64,19 @@ type StudyInfo = {
   claims_count?: number;
   assumptions_count?: number;
   financial_results?: Record<string, unknown> | null;
+  assumptions_version?: number;
+  assumptions_history?: Array<Record<string, unknown>>;
+  funding_package?: {
+    archetype?: string;
+    readiness_status?: string;
+    readiness_focus?: string[];
+    recommended_instruments?: Array<{ name?: string; fit?: string; notes?: string }>;
+    avoid_instruments?: string[];
+    verdict_context?: string | null;
+    npv?: number | null;
+  } | null;
+  report?: FeasibilityReport | null;
+  report_outline?: Record<string, unknown> | null;
   verdict: string | null;
   decision_rationale: string | null;
   decision_conditions?: string[];
@@ -62,6 +96,7 @@ const PHASE_LABELS: Record<string, { ar: string; en: string }> = {
   ANALYZED: { ar: "تم التحليل", en: "Analyzed" },
   DECISION_READY: { ar: "القرار جاهز", en: "Decision Ready" },
   FUNDING_READY: { ar: "جاهز للتمويل", en: "Funding Ready" },
+  REPORT_READY: { ar: "التقرير جاهز", en: "Report Ready" },
 };
 
 const VERDICT_COLORS: Record<string, string> = {
@@ -327,6 +362,19 @@ export default function StudyWorkspacePage() {
   const claims = study?.claims || [];
   const assumptions = study?.assumptions || [];
   const financial = study?.financial_results || null;
+  const report =
+    study?.report ||
+    ((financial && typeof financial === "object" && "report" in financial
+      ? (financial.report as FeasibilityReport)
+      : null) ??
+      null);
+  const reportSections = report?.sections || null;
+  const funding =
+    study?.funding_package ||
+    ((financial && typeof financial === "object" && "funding_package" in financial
+      ? (financial.funding_package as StudyInfo["funding_package"])
+      : null) ??
+      null);
   const missing = study?.profile?.missing_information || [];
 
   return (
@@ -353,6 +401,20 @@ export default function StudyWorkspacePage() {
           </div>
         )}
       </header>
+
+      {!getToken() && (
+        <div
+          className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          data-testid="workspace-auth-required"
+        >
+          {ar
+            ? "يلزم تسجيل الدخول لفتح مساحة عمل الدراسة مباشرة. "
+            : "Sign in is required to open this study workspace URL directly. "}
+          <Link href="/login" className="font-semibold underline">
+            {ar ? "تسجيل الدخول" : "Sign in"}
+          </Link>
+        </div>
+      )}
 
       {study?.profile && (
         <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs" data-testid="study-profile-panel">
@@ -398,6 +460,207 @@ export default function StudyWorkspacePage() {
           )}
         </div>
       )}
+
+      {funding && (
+        <div
+          className="mb-3 rounded-xl border border-slate-200 bg-white p-3 text-xs"
+          data-testid="funding-readiness-panel"
+        >
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink-900">
+              {ar ? "الجاهزية والتمويل" : "Readiness & funding"}
+            </h2>
+            <span
+              className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-ink-700"
+              data-testid="funding-readiness-status"
+            >
+              {funding.readiness_status || "—"}
+              {funding.archetype ? ` · ${funding.archetype}` : ""}
+            </span>
+          </div>
+          {(funding.readiness_focus || []).length > 0 && (
+            <p className="mb-2 text-[11px] text-ink-500" data-testid="funding-readiness-focus">
+              Focus: {(funding.readiness_focus || []).join(", ")}
+            </p>
+          )}
+          <div className="grid gap-3 md:grid-cols-2" data-testid="funding-instruments">
+            <div>
+              <h3 className="font-semibold text-ink-800">
+                {ar ? "أدوات موصى بها" : "Recommended instruments"}
+              </h3>
+              <ul className="mt-1 list-disc space-y-1 ps-4 text-[11px] text-ink-700">
+                {(funding.recommended_instruments || []).slice(0, 6).map((inst, idx) => (
+                  <li key={`${inst.name || "inst"}-${idx}`}>
+                    <span className="font-medium">{inst.name}</span>
+                    {inst.fit ? ` — ${inst.fit}` : ""}
+                    {inst.notes ? ` (${inst.notes})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-ink-800">
+                {ar ? "تجنب لهذه الفئة" : "Avoid for this archetype"}
+              </h3>
+              <ul className="mt-1 list-disc space-y-1 ps-4 text-[11px] text-ink-700">
+                {(funding.avoid_instruments || []).slice(0, 6).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reportSections && (
+        <div
+          className="mb-3 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3"
+          data-testid="feasibility-report-panel"
+        >
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink-900">
+              {report?.title || (ar ? "تقرير الجدوى" : "Feasibility Report")}
+            </h2>
+            {report?.verdict && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${VERDICT_COLORS[report.verdict] ?? "bg-slate-100"}`}
+                data-testid="report-verdict"
+              >
+                {report.verdict}
+              </span>
+            )}
+          </div>
+          {typeof report?.evidence_confidence_mean === "number" && (
+            <p className="mb-2 text-[11px] text-ink-500" data-testid="report-evidence-confidence">
+              Evidence confidence mean: {report.evidence_confidence_mean.toFixed(2)}
+              {typeof report.evidence_confidence_threshold === "number"
+                ? ` (threshold ${report.evidence_confidence_threshold.toFixed(2)})`
+                : ""}
+            </p>
+          )}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="report-sections">
+            {(report?.section_order || Object.keys(reportSections)).map((key) => {
+              const section = reportSections[key];
+              if (!section) return null;
+              return (
+                <section
+                  key={key}
+                  className="rounded-lg bg-slate-50 p-2 text-xs text-ink-700"
+                  data-testid={`report-section-${key}`}
+                >
+                  <h3 className="font-semibold text-ink-900">{section.title || key}</h3>
+                  {section.summary && <p className="mt-1 text-[11px] text-ink-500">{section.summary}</p>}
+                  {section.verdict && (
+                    <p className="mt-1 font-medium" data-testid="report-decision-verdict">
+                      Verdict: {section.verdict}
+                    </p>
+                  )}
+                  {section.rationale && (
+                    <p className="mt-1 whitespace-pre-wrap text-[11px]">{section.rationale}</p>
+                  )}
+                  {section.metrics && (
+                    <ul className="mt-1 space-y-0.5 text-[11px]">
+                      {Object.entries(section.metrics)
+                        .filter(([, v]) => v != null && typeof v !== "object")
+                        .slice(0, 6)
+                        .map(([k, v]) => (
+                          <li key={k}>
+                            {k}: {String(v)}
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                  {Array.isArray(section.items) && section.items.length > 0 && (
+                    <ul className="mt-1 max-h-28 list-disc space-y-1 overflow-y-auto ps-4 text-[11px]">
+                      {section.items.slice(0, 8).map((item, idx) => (
+                        <li key={idx}>
+                          {typeof item === "string"
+                            ? item
+                            : typeof item === "object" && item !== null
+                              ? "statement" in item
+                                ? String((item as Claim).statement)
+                                : "key" in item
+                                  ? `${(item as Assumption).key}: ${(item as Assumption).value}`
+                                  : JSON.stringify(item).slice(0, 120)
+                              : String(item)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {(section.conditions || []).length > 0 && (
+                    <ul className="mt-1 list-disc ps-4 text-[11px] text-ink-600">
+                      {section.conditions!.map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(() => {
+        const history = study?.assumptions_history || [];
+        const changeRaw =
+          financial && typeof financial === "object" ? financial.financial_change : null;
+        const change =
+          changeRaw && typeof changeRaw === "object"
+            ? (changeRaw as Record<string, unknown>)
+            : null;
+        if (history.length === 0 && !change) return null;
+        return (
+          <div
+            className="mb-3 rounded-xl border border-slate-200 bg-white p-3 text-xs"
+            data-testid="assumption-history-panel"
+          >
+            <h2 className="text-sm font-semibold text-ink-900">
+              {ar ? "تفسير تغيّر NPV وإصدارات الافتراضات" : "NPV change & assumption versions"}
+            </h2>
+            <p className="mt-1 text-[11px] text-ink-500" data-testid="assumptions-version-label">
+              {ar ? "إصدار الافتراضات الحالي:" : "Current assumptions version:"}{" "}
+              {study?.assumptions_version ?? 0}
+            </p>
+            {change && (
+              <div className="mt-2 rounded-lg bg-slate-50 p-2" data-testid="npv-change-explanation">
+                <p className="font-medium text-ink-800">
+                  NPV: {String(change.previous_npv ?? "—")}
+                  {" → "}
+                  {String(
+                    (financial as Record<string, unknown>).npv ?? change.npv ?? "—",
+                  )}
+                  {change.npv_delta != null ? ` (Δ ${String(change.npv_delta)})` : ""}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-[11px] text-ink-600">
+                  {String(change.explanation || "")}
+                </p>
+              </div>
+            )}
+            <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto" data-testid="assumption-history-list">
+              {[...history].reverse().map((entry, idx) => (
+                <li key={idx} className="rounded-lg bg-slate-50 p-2">
+                  <p className="font-medium">
+                    v{String(entry.version ?? "?")}
+                    {entry.kind ? ` · ${String(entry.kind)}` : ""}
+                    {entry.npv_at_version != null ? ` · NPV ${String(entry.npv_at_version)}` : ""}
+                  </p>
+                  {Array.isArray(entry.changed_keys) && entry.changed_keys.length > 0 && (
+                    <p className="text-[11px] text-ink-500">
+                      Changed: {(entry.changed_keys as unknown[]).map(String).join(", ")}
+                    </p>
+                  )}
+                  {entry.note ? (
+                    <p className="mt-1 whitespace-pre-wrap text-[11px] text-ink-600">
+                      {String(entry.note)}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {(claims.length > 0 || assumptions.length > 0 || financial || study?.verdict) && (
         <div

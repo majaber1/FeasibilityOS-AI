@@ -1,0 +1,83 @@
+{
+  "generated_at": "rescored",
+  "studies": {
+    "uber": {
+      "phase": "REPORT_READY",
+      "verdict": "NO_GO",
+      "assumptions_version": 1,
+      "decision_version": 4,
+      "npv": -4057142.86,
+      "archetype": "services",
+      "funding_archetype": "services",
+      "readiness_status": "NOT_READY",
+      "instruments": [
+        "Angel / venture seed",
+        "Venture debt (later)",
+        "Corporate strategic investment",
+        "Govtech / mobility innovation grants"
+      ],
+      "avoid": [
+        "real-estate development finance",
+        "Wafi off-plan escrow",
+        "infra project finance"
+      ],
+      "has_report_outline": true,
+      "expected_hit": true,
+      "forbidden_hit": false,
+      "stage_ok": true
+    },
+    "residential": {
+      "phase": "REPORT_READY",
+      "verdict": "NO_GO",
+      "assumptions_version": 2,
+      "decision_version": 2,
+      "npv": -788520863.7,
+      "archetype": "real_estate",
+      "funding_archetype": "real_estate",
+      "readiness_status": "NOT_READY",
+      "instruments": [
+        "Development / construction facility",
+        "Off-plan escrow / Wafi-aligned collections",
+        "Mezzanine / preferred equity",
+        "Mortgage take-out facilitation"
+      ],
+      "avoid": [
+        "SaaS venture rounds",
+        "angel SAFE for software",
+        "hyperscaler colo prepay structures"
+      ],
+      "has_report_outline": true,
+      "expected_hit": true,
+      "forbidden_hit": false,
+      "stage_ok": true
+    },
+    "datacenter": {
+      "phase": "REPORT_READY",
+      "verdict": "NO_GO",
+      "assumptions_version": 0,
+      "decision_version": 2,
+      "npv": -946455883.75,
+      "archetype": "data_center",
+      "funding_archetype": "data_center",
+      "readiness_status": "NOT_READY",
+      "instruments": [
+        "Infrastructure / project finance",
+        "Strategic hyperscaler / colo pre-leases",
+        "Infrastructure equity funds",
+        "Green / energy-efficiency facilities"
+      ],
+      "avoid": [
+        "consumer mortgage products",
+        "early-stage SaaS seed",
+        "short-term working-capital only"
+      ],
+      "has_report_outline": true,
+      "expected_hit": true,
+      "forbidden_hit": false,
+      "stage_ok": true
+    }
+  },
+  "funding_pass": true,
+  "funding_diff_pass": true,
+  "instruments_differ": true
+}

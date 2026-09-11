@@ -162,7 +162,11 @@ def _assumption_lookup(state: StudyState) -> dict[str, float]:
 
 
 def _deterministic_extract(state: StudyState) -> dict | None:
-    """Build capex/revenues/costs from structured assumptions when LLM extraction fails."""
+    """Build capex/revenues/costs from structured assumptions when LLM extraction fails.
+
+    Builders are archetype-aware: marketplace/services, real_estate, and data_center
+    each have their own driver set. Marketplace is no longer the only fallback.
+    """
     vals = _assumption_lookup(state)
     if not vals:
         return None
@@ -173,40 +177,92 @@ def _deterministic_extract(state: StudyState) -> dict | None:
                 return value
         return None
 
-    capex = first("initial investment", "capex", "seed", "استثمار", "رأس المال")
-    atv = first("average trip", "atv", "ticket", "قيمة الرحلة", "متوسط")
-    take_rate = first("take-rate", "take rate", "commission", "عمولة")
-    rides = first("monthly rides", "rides/mo", "rides per month", "رحلات")
-    fixed_opex = first("fixed opex", "monthly fixed", "opex", "تشغيل")
-    variable = first("variable cost", "per ride", "تكلفة متغيرة")
+    archetype = (state.profile.archetype if state.profile else "") or ""
     discount = first("discount rate", "معدل الخصم") or 0.12
-
-    if take_rate is not None and take_rate > 1:
-        take_rate = take_rate / 100.0
     if discount is not None and discount > 1:
         discount = discount / 100.0
 
+    capex = first(
+        "initial investment", "capex", "seed", "land_cost", "construction_boq",
+        "machinery_capex", "استثمار", "رأس المال", "تكلفة الأرض", "تكلفة البناء",
+    )
     annual_revenues = None
     annual_costs = None
 
-    if atv is not None and take_rate is not None and rides is not None:
-        monthly_revenue = atv * take_rate * rides
-        # Simple ramp: Y1 base, Y2 +40%, Y3 +40% again
-        annual_revenues = [
-            monthly_revenue * 12,
-            monthly_revenue * 12 * 1.4,
-            monthly_revenue * 12 * 1.4 * 1.3,
-        ]
+    # --- Real estate: land + BOQ CAPEX; sell-through revenue ---
+    if archetype == "real_estate" or any(
+        k in vals for k in ("asp_per_unit", "unit_count", "annual_absorption_units", "construction_boq", "land_cost")
+    ):
+        land = first("land_cost", "land cost", "تكلفة الأرض") or 0.0
+        boq = first("construction_boq", "boq", "construction cost", "تكلفة البناء") or 0.0
+        if capex is None and (land or boq):
+            capex = land + boq
+        units = first("unit_count", "units", "عدد الوحدات")
+        asp = first("asp_per_unit", "asp", "sale price", "سعر البيع")
+        absorption = first("annual_absorption_units", "absorption", "وحدات سنوية")
+        if units and asp and absorption and absorption > 0:
+            years = max(1, int(round(units / absorption)))
+            annual_sale = absorption * asp
+            # Sell-through then taper
+            annual_revenues = [annual_sale * (0.9 if i == years - 1 else 1.0) for i in range(min(years, 5))]
+            while len(annual_revenues) < 3:
+                annual_revenues.append(0.0)
+            annual_revenues = annual_revenues[:5]
+            opex = first("annual_opex", "operating cost", "تشغيل") or (boq * 0.02 if boq else 0.0)
+            annual_costs = [opex for _ in annual_revenues]
 
-    if fixed_opex is not None:
-        var = variable or 0.0
-        ride_count = rides or 0.0
-        monthly_cost = fixed_opex + (var * ride_count)
-        annual_costs = [
-            monthly_cost * 12,
-            monthly_cost * 12 * 1.15,
-            monthly_cost * 12 * 1.25,
-        ]
+    # --- Data center: MW × $/kW/mo × occupancy; power OPEX ---
+    elif archetype == "data_center" or any(
+        k in vals for k in ("it_load_mw", "price_per_kw_month", "year1_occupancy", "pue")
+    ):
+        mw = first("it_load_mw", "mw", "power capacity", "ميجاواط")
+        price_kw = first("price_per_kw_month", "kw/month", "per kw", "سعر الكيلوواط")
+        occ = first("year1_occupancy", "occupancy", "utilization", "إشغال")
+        pue = first("pue") or 1.4
+        tariff = first("power_tariff_per_kwh", "kwh", "تعرفة") or 0.18
+        opex = first("annual_opex", "opex")
+        if mw is not None and price_kw is not None and occ is not None:
+            if occ > 1:
+                occ = occ / 100.0
+            kw = mw * 1000.0
+            y1 = kw * price_kw * 12.0 * occ
+            annual_revenues = [y1, y1 * 1.35, y1 * 1.35 * 1.25]
+            # Power cost ≈ IT load × PUE × 8760 × tariff × occupancy
+            power_cost = kw * pue * 8760.0 * tariff * occ
+            base_opex = opex if opex is not None else power_cost * 0.35
+            annual_costs = [
+                power_cost + base_opex,
+                power_cost * 1.25 + base_opex * 1.1,
+                power_cost * 1.45 + base_opex * 1.2,
+            ]
+        if capex is None:
+            capex = first("initial_investment", "initial investment", "capex")
+
+    # --- Marketplace / services (ride-hailing etc.) ---
+    else:
+        atv = first("average_trip_value", "average trip", "atv", "ticket", "قيمة الرحلة", "متوسط")
+        take_rate = first("take_rate", "take-rate", "take rate", "commission", "عمولة")
+        rides = first("monthly_rides_year1", "monthly rides", "rides/mo", "rides per month", "رحلات")
+        fixed_opex = first("monthly_fixed_opex", "fixed opex", "monthly fixed", "opex", "تشغيل")
+        variable = first("variable_cost_per_ride", "variable cost", "per ride", "تكلفة متغيرة")
+        if take_rate is not None and take_rate > 1:
+            take_rate = take_rate / 100.0
+        if atv is not None and take_rate is not None and rides is not None:
+            monthly_revenue = atv * take_rate * rides
+            annual_revenues = [
+                monthly_revenue * 12,
+                monthly_revenue * 12 * 1.4,
+                monthly_revenue * 12 * 1.4 * 1.3,
+            ]
+        if fixed_opex is not None:
+            var = variable or 0.0
+            ride_count = rides or 0.0
+            monthly_cost = fixed_opex + (var * ride_count)
+            annual_costs = [
+                monthly_cost * 12,
+                monthly_cost * 12 * 1.15,
+                monthly_cost * 12 * 1.25,
+            ]
 
     if capex is None and annual_revenues is None and annual_costs is None:
         return None
@@ -335,7 +391,7 @@ def run_financial_analysis(state: StudyState) -> StudyState:
     explain_prompt = explain_prompt.replace("{{", "{").replace("}}", "}")
 
     try:
-        response = llm.invoke([SystemMessage(content=explain_prompt)] + state.messages)
+        response = llm.invoke([SystemMessage(content=explain_prompt)])
         response_text = response.content
     except Exception as e:
         state.error = None
@@ -362,6 +418,66 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         computed["analysis_complete"] = True
         computed["warnings"] = []
         state.financial_results = computed
+
+
+    # Record NPV against the active assumptions version for auditability (display only).
+    try:
+        from datetime import datetime, timezone
+        fr = state.financial_results if isinstance(state.financial_results, dict) else {}
+        cur_v = int(getattr(state, "assumptions_version", 0) or 0)
+        history = list(getattr(state, "assumptions_history", None) or [])
+        prev_npv = None
+        for entry in reversed(history):
+            if entry.get("npv_at_version") is not None and int(entry.get("version") or -1) < cur_v:
+                prev_npv = entry.get("npv_at_version")
+                break
+        change = {
+            "assumptions_version": cur_v,
+            "npv": fr.get("npv"),
+            "irr": fr.get("irr"),
+            "payback_months": fr.get("payback_months"),
+            "previous_npv": prev_npv,
+            "npv_delta": (None if prev_npv is None or fr.get("npv") is None
+                         else float(fr.get("npv")) - float(prev_npv)),
+            "changed_keys": (history[-1].get("changed_keys") if history else []),
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "explanation": (
+                f"NPV recalculated under assumptions_version={cur_v}."
+                + (f" Prior NPV at earlier version was {prev_npv}." if prev_npv is not None else "")
+                + (f" Changed keys: {', '.join((history[-1].get('changed_keys') or [])[:12])}."
+                   if history and history[-1].get("changed_keys") else "")
+            ),
+        }
+        fr = {**fr, "financial_change": change}
+        # Also stamp the newest history row that matches this version once results exist.
+        if history and int(history[-1].get("version") or -1) == cur_v - 0:
+            # current version's results; keep prior rows' npv_at_version intact
+            pass
+        # Append a results marker tied to current version (does not alter calc inputs).
+        history.append({
+            "version": cur_v,
+            "recorded_at": change["recorded_at"],
+            "assumptions": [
+                {
+                    "key": a.key,
+                    "value": a.value,
+                    "source": a.source,
+                    "confidence": a.confidence,
+                    "low": a.low,
+                    "base": a.base,
+                    "high": a.high,
+                }
+                for a in (state.assumptions or [])
+            ],
+            "npv_at_version": fr.get("npv"),
+            "changed_keys": change.get("changed_keys") or [],
+            "note": change["explanation"],
+            "kind": "financial_results",
+        })
+        state.assumptions_history = history[-20:]
+        state.financial_results = fr
+    except Exception:
+        pass
 
     state.error = None
     state.phase = "ANALYZED"
