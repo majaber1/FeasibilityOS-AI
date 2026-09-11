@@ -335,9 +335,14 @@ def run_evidence(state: StudyState) -> StudyState:
                 if lang == "ar"
                 else "AI model could not be initialized, so provisional reviewable estimates were created from the confirmed gaps."
             )
-            state.messages.append(AIMessage(content=note + f"\n\n(Details: {e})"))
+            from ..utils.safe_messages import sanitize_error_for_user
+
+            sanitize_error_for_user(e, language=lang, context="evidence.init")
+            state.messages.append(AIMessage(content=note))
             return state
-        state.error = str(e)
+        from ..utils.safe_messages import sanitize_error_for_user
+
+        state.error = sanitize_error_for_user(e, language=lang, context="evidence.init")
         state.next_action = "retry"
         return state
 
@@ -358,9 +363,14 @@ def run_evidence(state: StudyState) -> StudyState:
                 if lang == "ar"
                 else "AI model unavailable, so provisional reviewable estimates were created from the confirmed gaps."
             )
-            state.messages.append(AIMessage(content=note + f"\n\n(Details: {e})"))
+            from ..utils.safe_messages import sanitize_error_for_user
+
+            sanitize_error_for_user(e, language=lang, context="evidence.invoke")
+            state.messages.append(AIMessage(content=note))
             return state
-        state.error = str(e)
+        from ..utils.safe_messages import sanitize_error_for_user
+
+        state.error = sanitize_error_for_user(e, language=lang, context="evidence.invoke")
         state.next_action = "retry"
         return state
 
@@ -423,7 +433,19 @@ def run_evidence(state: StudyState) -> StudyState:
             else "Could not parse model JSON; provisional estimates were created for review."
         )
 
-    state.messages.append(AIMessage(content=response_text))
+    from ..utils.safe_messages import sanitize_chat_content
+
+    public = sanitize_chat_content(
+        response_text,
+        language=lang,
+        fallback=(
+            "تم تحديث الأدلة. راجع المطالبات في اللوحة الجانبية."
+            if lang == "ar"
+            else "Evidence updated. Review claims in the side panel."
+        ),
+    )
+    if public:
+        state.messages.append(AIMessage(content=public))
     state.next_action = "review_evidence"
     return state
 

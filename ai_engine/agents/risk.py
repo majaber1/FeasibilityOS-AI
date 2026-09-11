@@ -107,17 +107,23 @@ def run_risk_analysis(state: StudyState) -> StudyState:
 
     messages = [SystemMessage(content=system_prompt + extra)] + state.messages
 
+    lang = getattr(state, "language", "en") or "en"
     try:
         response = llm.invoke(messages)
         response_text = response.content
         risk_data = _extract_json(response_text)
     except Exception as e:
         # Deterministic fallback so journeys can complete when Groq is rate-limited.
+        from ..utils.safe_messages import sanitize_error_for_user
+
+        sanitize_error_for_user(e, language=lang, context="risk.invoke")
         arch = state.profile.archetype if state.profile else "other"
         variant = getattr(state.profile, "services_variant", None) if state.profile else None
         risk_data = _fallback_risks(arch, services_variant=variant)
         response_text = (
-            f"Risk assessment fallback ({e}).\n\n```json\n{json.dumps(risk_data, ensure_ascii=False)}\n```"
+            "تعذر الاتصال بنموذج المخاطر؛ تم إعداد تقييم أولي للمراجعة."
+            if lang == "ar"
+            else "Risk model unavailable; a provisional risk assessment was prepared for review."
         )
 
     if risk_data:
@@ -126,7 +132,19 @@ def run_risk_analysis(state: StudyState) -> StudyState:
             state.phase = "DECISION_READY"
             state.error = None
 
-    state.messages.append(AIMessage(content=response_text))
+    from ..utils.safe_messages import sanitize_chat_content
+
+    public = sanitize_chat_content(
+        response_text,
+        language=lang,
+        fallback=(
+            "تم تحديث تقييم المخاطر. راجع اللوحة الجانبية."
+            if lang == "ar"
+            else "Risk assessment updated. Review the side panel."
+        ),
+    )
+    if public:
+        state.messages.append(AIMessage(content=public))
     state.next_action = "review_risks"
     return state
 

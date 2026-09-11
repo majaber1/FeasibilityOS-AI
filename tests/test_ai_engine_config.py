@@ -38,8 +38,10 @@ def test_env_override_still_remaps_retired_ids():
             "GROQ_MODEL_FAST": "llama-3.1-8b-instant",
         },
     ):
-        assert _model_for_task("decision") == "openai/gpt-oss-120b"
+        # Phase 5A: decision/risk prefer FAST to stay within free-tier TPD.
+        assert _model_for_task("decision") == "openai/gpt-oss-20b"
         assert _model_for_task("classification") == "openai/gpt-oss-20b"
+        assert _model_for_task("questions") == "openai/gpt-oss-120b"
 
 
 def test_explicit_current_override_is_honored():
@@ -50,5 +52,7 @@ def test_explicit_current_override_is_honored():
             "GROQ_MODEL_FAST": "openai/gpt-oss-20b",
         },
     ):
-        assert _model_for_task("decision") == "qwen/qwen3.6-27b"
+        # decision/risk stay on FAST; smart tasks honor PRIMARY override.
+        assert _model_for_task("decision") == "openai/gpt-oss-20b"
         assert _model_for_task("extraction") == "openai/gpt-oss-20b"
+        assert _model_for_task("questions") == "qwen/qwen3.6-27b"

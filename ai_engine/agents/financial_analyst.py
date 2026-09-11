@@ -420,16 +420,20 @@ def run_financial_analysis(state: StudyState) -> StudyState:
     # Convert doubled braces (documentation leftovers) back to single braces for the model.
     explain_prompt = explain_prompt.replace("{{", "{").replace("}}", "}")
 
+    lang = getattr(state, "language", "en") or "en"
     try:
         response = llm.invoke([SystemMessage(content=explain_prompt)] + state.messages)
         response_text = response.content
     except Exception as e:
+        from ..utils.safe_messages import sanitize_error_for_user
+
+        sanitize_error_for_user(e, language=lang, context="financial.explain")
         state.error = None
         state.financial_results = computed
         state.financial_results["analysis_complete"] = True
-        state.financial_results["warnings"] = [str(e)]
+        state.financial_results["warnings"] = ["explain_model_unavailable"]
         state.phase = "ANALYZED"
-        state.messages.append(AIMessage(content=json.dumps(computed, ensure_ascii=False, indent=2)))
+        state.messages.append(AIMessage(content=_financial_chat_summary(computed, lang)))
         state.next_action = "review_financials"
         return state
 
@@ -451,9 +455,30 @@ def run_financial_analysis(state: StudyState) -> StudyState:
 
     state.error = None
     state.phase = "ANALYZED"
-    state.messages.append(AIMessage(content=response_text))
+    from ..utils.safe_messages import sanitize_chat_content
+
+    public = sanitize_chat_content(response_text, language=lang) or _financial_chat_summary(
+        state.financial_results or computed, lang
+    )
+    state.messages.append(AIMessage(content=public))
     state.next_action = "review_financials"
     return state
+
+
+def _financial_chat_summary(computed: dict, lang: str) -> str:
+    """User-safe financial summary — structured numbers live in financial_results only."""
+    npv = computed.get("npv")
+    irr = computed.get("irr")
+    payback = computed.get("payback_months")
+    if lang == "ar":
+        return (
+            "اكتمل التحليل المالي. راجع لوحة النتائج للتفاصيل "
+            f"(صافي القيمة الحالية: {npv}، معدل العائد الداخلي: {irr}، فترة الاسترداد بالأشهر: {payback})."
+        )
+    return (
+        "Financial analysis complete. Review the results panel for details "
+        f"(NPV: {npv}, IRR: {irr}, payback months: {payback})."
+    )
 
 
 def _extract_json(text: str) -> dict | None:

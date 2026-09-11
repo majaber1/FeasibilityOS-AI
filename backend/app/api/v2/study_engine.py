@@ -16,6 +16,22 @@ from ..auth import get_current_user
 router = APIRouter(prefix="/api/v2/studies", tags=["v2-studies"])
 
 
+def _safe_ai_error(exc, language: str = "en", context: str = "") -> str:
+    """User-safe AI error for API payloads; technical detail stays in logs only."""
+    try:
+        from ai_engine.utils.safe_messages import sanitize_error_for_user
+        return sanitize_error_for_user(exc, language=language, context=context)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("AI error (%s): %s", context, exc)
+        return (
+            "تعذر إكمال خطوة الذكاء الاصطناعي حالياً. حاول مرة أخرى بعد لحظات."
+            if (language or "en").startswith("ar")
+            else "We could not complete this AI step right now. Please try again in a moment."
+        )
+
+
+
 class StudyStateRow(Base):
     __tablename__ = "study_states_v2"
     __table_args__ = {"extend_existing": True}
@@ -467,7 +483,20 @@ def _state_from_record(record: dict):
 
 
 def _public_messages(raw_messages) -> list[dict]:
-    """Normalize persisted / LangChain messages for the workspace UI."""
+    """Normalize persisted / LangChain messages for the workspace UI.
+
+    Strips internal instruction prompts, raw JSON/tool traces, and system noise.
+    Structured data remains in profile / assumptions / financial payloads only.
+    """
+    try:
+        from ai_engine.utils.safe_messages import (
+            is_internal_instruction,
+            sanitize_chat_content,
+        )
+    except Exception:
+        is_internal_instruction = lambda _t: False  # noqa: E731
+        sanitize_chat_content = lambda text, **_k: (text or "")  # noqa: E731
+
     out: list[dict] = []
     for msg in raw_messages or []:
         if isinstance(msg, dict):
@@ -480,13 +509,19 @@ def _public_messages(raw_messages) -> list[dict]:
             continue
         if not content:
             continue
+        text = str(content)
+        if mtype in ("system",):
+            continue
         if mtype in ("ai", "assistant"):
             role = "assistant"
-        elif mtype in ("system",):
-            role = "system"
+            text = sanitize_chat_content(text) or ""
         else:
             role = "user"
-        out.append({"role": role, "content": str(content)})
+            if is_internal_instruction(text):
+                continue
+        if not text:
+            continue
+        out.append({"role": role, "content": text})
     return out
 
 
@@ -611,7 +646,7 @@ async def create_study(req: StudyCreateRequest, user=Depends(get_current_user)):
         try:
             state = await run_study_step(state)
         except Exception as e:
-            state.error = f"AI service error: {e}"
+            state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
 
     _save_study(study_id, state.model_dump(), user_id)
 
@@ -654,7 +689,7 @@ async def send_message(study_id: str, req: StudyMessageRequest, user=Depends(get
     try:
         state = await run_study_step(state)
     except Exception as e:
-        state.error = f"AI service error: {e}"
+        state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
 
     _save_study(study_id, state.model_dump(), user_id)
 
@@ -747,7 +782,7 @@ async def approve_stage(
     try:
         state = await run_study_step(state)
     except Exception as e:
-        state.error = f"AI service error: {e}"
+        state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
 
     # State-machine guard: never persist ASSUMPTIONS_REVIEW with zero rows.
     if stage == "evidence" and state.phase == "ASSUMPTIONS_REVIEW" and not (state.assumptions or []):
@@ -756,7 +791,7 @@ async def approve_stage(
             state = run_assumptions(state)
             state.error = None
         except Exception as e:
-            state.error = f"Assumption generation failed: {e}"
+            state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_generation")
 
     _save_study(study_id, state.model_dump(), user_id)
 
@@ -815,7 +850,7 @@ async def select_archetype(study_id: str, req: ArchetypeSelectRequest, user=Depe
         try:
             state = await run_study_step(state)
         except Exception as e:
-            state.error = f"AI service error: {e}"
+            state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
     _save_study(study_id, state.model_dump(), user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 
@@ -857,7 +892,7 @@ async def submit_structured_answers(study_id: str, req: StructuredAnswersRequest
         try:
             state = await run_study_step(state)
         except Exception as e:
-            state.error = f"AI service error: {e}"
+            state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
 
     _save_study(study_id, state.model_dump(), user_id)
     return _payload_from_state(study_id, state, record_meta=record)
@@ -943,13 +978,13 @@ async def assumption_action(study_id: str, req: AssumptionActionRequest, user=De
         try:
             state = await run_study_step(state)
         except Exception as e:
-            state.error = f"AI service error: {e}"
+            state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
         if not state.assumptions:
             try:
                 from ai_engine.agents.assumption import run_assumptions
                 state = run_assumptions(state)
             except Exception as e:
-                state.error = f"Assumption rebuild failed: {e}"
+                state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_rebuild")
         _save_study(study_id, state.model_dump(), user_id)
         return _payload_from_state(study_id, state, record_meta=record)
 
@@ -1003,13 +1038,13 @@ async def regenerate_assumptions(study_id: str, user=Depends(get_current_user)):
     try:
         state = await run_study_step(state)
     except Exception as e:
-        state.error = f"AI service error: {e}"
+        state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
     if not state.assumptions:
         try:
             from ai_engine.agents.assumption import run_assumptions
             state = run_assumptions(state)
         except Exception as e:
-            state.error = f"Assumption rebuild failed: {e}"
+            state.error = _safe_ai_error(e, getattr(state, "language", "en"), "assumption_rebuild")
     _save_study(study_id, state.model_dump(), user_id)
     return _payload_from_state(study_id, state, record_meta=record)
 

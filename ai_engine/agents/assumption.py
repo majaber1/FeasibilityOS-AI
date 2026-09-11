@@ -126,8 +126,15 @@ def run_assumptions(state: StudyState) -> StudyState:
                 or "Assumption generation used Rule Fallback (LLM response not parseable)."
             )
     except Exception as e:
+        from ..utils.safe_messages import sanitize_error_for_user
+
         llm_unavailable = True
-        response_text = f"Rule Fallback: assumption generation LLM unavailable ({e})."
+        sanitize_error_for_user(e, language=lang, context="assumption.invoke")
+        response_text = (
+            "تعذر الاتصال بنموذج الافتراضات؛ تم استخدام تقديرات قواعدية قابلة للمراجعة."
+            if lang == "ar"
+            else "Assumption model unavailable; rule-based estimates were prepared for review."
+        )
         assumption_data = None
 
     seeded: dict[str, Assumption] = {}
@@ -259,8 +266,11 @@ def run_assumptions(state: StudyState) -> StudyState:
         f"Count: {len(assumptions)}. AI-estimated: {sum(1 for a in assumptions if a.ai_estimated)}.",
         "Review, edit, regenerate, or approve before financial analysis.",
     ]
-    if response_text:
-        summary_lines.append(response_text[:1500])
+    from ..utils.safe_messages import sanitize_chat_content
+
+    extra = sanitize_chat_content(response_text, language=lang)
+    if extra:
+        summary_lines.append(extra[:500])
     state.messages.append(AIMessage(content="\n".join(summary_lines)))
     return state
 

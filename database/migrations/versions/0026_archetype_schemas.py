@@ -1,13 +1,16 @@
 """Add archetype workflow fields to study_states_v2
 
-Revision ID: 0026_archetype_assumption_schemas
+Revision ID: 0026_archetype_schemas
 Revises: 0025_v2_study_engine
 Create Date: 2026-09-11
+
+Note: shortened from 0026_archetype_assumption_schemas (33 chars) because
+alembic_version.version_num is VARCHAR(32).
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0026_archetype_assumption_schemas"
+revision = "0026_archetype_schemas"
 down_revision = "0025_v2_study_engine"
 branch_labels = None
 depends_on = None
