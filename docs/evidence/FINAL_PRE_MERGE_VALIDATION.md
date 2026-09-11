@@ -109,17 +109,20 @@ Fresh accounts prepared in `/opt/cursor/artifacts/final-browser-scenario-targets
 |----------|---------------------|------------------|---------|---------|------------------|
 | **A** SaaS AI compliance | `saas_digital` | ARR/CAC/churn present | n/a | `REPORT_READY` / `DEFER` | assumptions + financial screenshots |
 | **B** Cyber MSSP | `services` / `professional` | consultants, utilization, contracts, MRC | no SaaS / no mobility | `REPORT_READY` | assumptions + financial screenshots |
-| **C** Residential RE | `real_estate` | land / BOQ / units / price | no SaaS | `REPORT_READY` / `GO_WITH_CONDITIONS` | API journey + UI target (see note) |
-| **D** Data center | `data_center` | MW / racks / PUE / occupancy | no SaaS | `REPORT_READY` | API journey + UI target |
-| **E** Uber mobility | `services` / `mobility` | take_rate / trips / drivers | no SaaS | `REPORT_READY` / `GO_WITH_CONDITIONS` | API journey + UI target |
+| **C** Residential RE | `real_estate` | land / BOQ / units / price | no SaaS | `REPORT_READY` / `GO_WITH_CONDITIONS` | financial screenshot |
+| **D** Data center | `data_center` | MW / racks / PUE / occupancy | no SaaS | `REPORT_READY` | financial screenshot |
+| **E** Uber mobility | `services` / `mobility` | take_rate / trips / drivers | no SaaS | `REPORT_READY` / `GO_WITH_CONDITIONS` | assumptions + financial screenshots |
 
-Browser screenshots:
+Browser screenshots (complete A–E):
 
 - `/opt/cursor/artifacts/final-scen-A-assumptions.webp`
 - `/opt/cursor/artifacts/final-scen-A-financial.webp`
 - `/opt/cursor/artifacts/final-scen-B-assumptions.webp`
 - `/opt/cursor/artifacts/final-scen-B-financial.webp`
-- C/D/E financial captures under `/opt/cursor/artifacts/final-scen-{C,D,E}-*.webp` when available from the acceptance agent
+- `/opt/cursor/artifacts/final-scen-C-financial.webp`
+- `/opt/cursor/artifacts/final-scen-D-financial.webp`
+- `/opt/cursor/artifacts/final-scen-E-assumptions.webp`
+- `/opt/cursor/artifacts/final-scen-E-financial.webp`
 
 Full A–E API continuation after regenerate (numeric Rule Fallback) → financial → decision → **REPORT_READY**:  
 `/opt/cursor/artifacts/final-scenario-repaired-journey.json` — **5/5 PASS**
@@ -129,7 +132,7 @@ Full A–E API continuation after regenerate (numeric Rule Fallback) → financi
 A prior Discovery UI bug (CAC input not rendering) can block a pure click-path through structured questions. Validation therefore:
 
 1. Used fresh accounts + API to reach a correct `ASSUMPTIONS_REVIEW` state for each archetype  
-2. Validated Assumptions Review UI + Approve → Financial in browser (A, B proven with screenshots)  
+2. Validated Assumptions Review UI + Approve → Financial in browser for A–E (screenshots above)  
 3. Completed Financial → Risk/Decision → Report for all five via authenticated API against the same studies
 
 ---
