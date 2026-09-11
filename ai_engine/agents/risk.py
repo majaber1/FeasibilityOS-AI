@@ -114,7 +114,8 @@ def run_risk_analysis(state: StudyState) -> StudyState:
     except Exception as e:
         # Deterministic fallback so journeys can complete when Groq is rate-limited.
         arch = state.profile.archetype if state.profile else "other"
-        risk_data = _fallback_risks(arch)
+        variant = getattr(state.profile, "services_variant", None) if state.profile else None
+        risk_data = _fallback_risks(arch, services_variant=variant)
         response_text = (
             f"Risk assessment fallback ({e}).\n\n```json\n{json.dumps(risk_data, ensure_ascii=False)}\n```"
         )
@@ -130,7 +131,7 @@ def run_risk_analysis(state: StudyState) -> StudyState:
     return state
 
 
-def _fallback_risks(archetype: str) -> dict:
+def _fallback_risks(archetype: str, services_variant: str | None = None) -> dict:
     by_arch = {
         "saas_digital": ["Customer acquisition cost inflation", "Churn above plan", "Saudi data-residency compliance"],
         "real_estate": ["Absorption delay", "Construction cost overrun", "Wafi / off-plan regulatory timing"],
@@ -139,7 +140,14 @@ def _fallback_risks(archetype: str) -> dict:
         "services": ["Billable utilization shortfall", "Key consultant attrition", "Retainer churn"],
         "retail": ["Inventory turns miss", "Footfall below plan", "Lease cost escalation"],
     }
-    critical = by_arch.get(archetype, ["Market demand uncertainty", "Funding gap", "Execution capacity"])
+    if archetype == "services" and services_variant == "mobility":
+        critical = [
+            "Driver supply / take-rate pressure",
+            "Trip volume below plan",
+            "Regulatory / licensing delay for ride-hailing",
+        ]
+    else:
+        critical = by_arch.get(archetype, ["Market demand uncertainty", "Funding gap", "Execution capacity"])
     return {
         "risks": [
             {
