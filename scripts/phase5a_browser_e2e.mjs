@@ -1,10 +1,14 @@
 /**
  * Phase 5A mandatory browser E2E against local frontend :3000 (BFF → API :8000).
- * Fresh account per scenario; screenshots under /opt/cursor/artifacts.
  */
-import { chromium } from "playwright";
+import { createRequire } from "module";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(path.join(__dirname, "../apps/web/package.json"));
+const { chromium } = require("playwright");
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const ART = "/opt/cursor/artifacts";
@@ -13,7 +17,6 @@ const PASSWORD = "Phase5ATrust9!";
 const LEAK_RE =
   /\borg_[a-zA-Z0-9]+\b|req_[a-zA-Z0-9]+|chatcmpl-|console\.groq\.com|platform\.openai\.com|\/billing|\b\d+\s*[KkMm]?\s*TPM\b|\bTPD\b|Traceback \(most recent call last\)|llama-3\.|gpt-oss-|Error code:\s*429|<tool_call>|\"tool_calls\"\s*:|Fill evidence now|Output JSON inside|Strict rules:/i;
 
-/** ARCHETYPE_OPTIONS ids in apps/web/components/study/archetypeOptions.ts */
 const SCENARIOS = [
   {
     id: "saas",
@@ -71,7 +74,7 @@ function leakHits(text) {
   return [...new Set(hits)].slice(0, 20);
 }
 
-async function screenshot(page, name) {
+async function shot(page, name) {
   const file = path.join(ART, name);
   await page.screenshot({ path: file, fullPage: true });
   return file;
@@ -128,10 +131,19 @@ async function sendChat(page, text) {
   await page.locator("form button[type=submit]").last().click();
 }
 
+async function clickSafe(locator) {
+  await locator.scrollIntoViewIfNeeded().catch(() => {});
+  try {
+    await locator.click({ timeout: 12000 });
+  } catch {
+    await locator.click({ force: true, timeout: 12000 });
+  }
+}
+
 async function assertNoLeaks(page, result, stage) {
   const body = await page.locator("body").innerText();
   const hits = leakHits(body);
-  result.leak_checks.push({ stage, hits });
+  result.leakChecks.push({ stage, hits });
   if (hits.length) result.errors.push(`LEAK@${stage}: ${hits.join(", ")}`);
 }
 
@@ -142,21 +154,21 @@ async function registerAndCreateProject(page, scenario) {
   await page.getByTestId("register-name").fill(`Phase5A ${scenario.name}`);
   await page.getByTestId("register-email").fill(email);
   await page.getByTestId("register-password").fill(PASSWORD);
-  await page.getByTestId("register-submit").click();
+  await clickSafe(page.getByTestId("register-submit"));
   await page.getByTestId("projects-workspace").waitFor({ timeout: 60000 });
   await ensureEnglish(page);
 
-  await page.getByTestId("add-project-btn").click();
+  await clickSafe(page.getByTestId("add-project-btn"));
   await page.getByTestId("project-name-input").fill(scenario.name);
   await page.getByTestId("project-industry-select").selectOption(scenario.industry);
   await page.getByTestId("project-investment-input").fill(String(scenario.investment));
-  await page.getByTestId("save-project-btn").click();
+  await clickSafe(page.getByTestId("save-project-btn"));
   await page.getByTestId("project-workspace").waitFor({ timeout: 60000 });
   return email;
 }
 
 async function openAiWorkspace(page) {
-  await page.getByTestId("open-ai-study-workspace").click();
+  await clickSafe(page.getByTestId("open-ai-study-workspace"));
   await page.getByTestId("v2-study-workspace").waitFor({ timeout: 60000 });
   await ensureEnglish(page);
 }
@@ -164,7 +176,7 @@ async function openAiWorkspace(page) {
 async function maybeApproveEvidence(page, result) {
   const btn = page.getByRole("button", { name: /Approve Evidence|الموافقة على الأدلة/i });
   if (await btn.isVisible().catch(() => false)) {
-    await btn.click();
+    await clickSafe(btn);
     await waitIdle(page, 360000);
     result.phases.push("evidence_approved");
   }
@@ -172,7 +184,7 @@ async function maybeApproveEvidence(page, result) {
 
 async function runScenario(browser, scenario, { doPersistence = false } = {}) {
   const context = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
+    viewport: { width: 1440, height: 1200 },
     locale: "en-US",
   });
   const page = await context.newPage();
@@ -182,14 +194,14 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
     id: scenario.id,
     ok: false,
     email: null,
-    expected_archetype: scenario.archetype,
-    observed_archetype: null,
+    expectedArchetype: scenario.archetype,
+    observedArchetype: null,
     phases: [],
     screenshots: [],
-    leak_checks: [],
+    leakChecks: [],
     errors: [],
-    final_phase: null,
-    study_url: null,
+    finalPhase: null,
+    studyUrl: null,
     persistence: null,
   };
 
@@ -201,7 +213,7 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
     await waitIdle(page, 360000);
     await waitPhase(page, [/Archetype Classification/i], 360000);
     result.phases.push("ARCHETYPE_CLASSIFICATION");
-    result.screenshots.push(await screenshot(page, `phase5a-${scenario.id}-classification.png`));
+    result.screenshots.push(await shot(page, `phase5a-${scenario.id}-classification.png`));
     await assertNoLeaks(page, result, "classification");
 
     const profile = (await page.getByTestId("study-profile-panel").textContent().catch(() => "")) || "";
@@ -209,25 +221,25 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
     const found = `${profile}\n${suggestion}`.match(
       /\b(saas_digital|services|real_estate|data_center|industrial|retail|other)\b/,
     );
-    result.observed_archetype = found ? found[1] : null;
+    result.observedArchetype = found ? found[1] : null;
 
-    if (["uber", "cyber"].includes(scenario.id) && result.observed_archetype === "data_center") {
+    if (["uber", "cyber"].includes(scenario.id) && result.observedArchetype === "data_center") {
       result.errors.push("WRONG_CLASSIFICATION: services/mobility suggested as data_center");
     }
-    if (result.observed_archetype && result.observed_archetype !== scenario.archetype) {
+    if (result.observedArchetype && result.observedArchetype !== scenario.archetype) {
       result.errors.push(
-        `CLASSIFICATION_MISMATCH suggested=${result.observed_archetype} expected=${scenario.archetype}`,
+        `CLASSIFICATION_MISMATCH suggested=${result.observedArchetype} expected=${scenario.archetype}`,
       );
     }
 
-    await page.getByTestId(`archetype-option-${scenario.archetype}`).click();
-    await page.getByTestId("confirm-archetype-btn").click();
+    await clickSafe(page.getByTestId(`archetype-option-${scenario.archetype}`));
+    await clickSafe(page.getByTestId("confirm-archetype-btn"));
     await waitIdle(page, 360000);
     result.phases.push("archetype_confirmed");
 
     const confirmProfile = page.getByTestId("confirm-profile-btn");
     if (await confirmProfile.isVisible({ timeout: 25000 }).catch(() => false)) {
-      await confirmProfile.click();
+      await clickSafe(confirmProfile);
       await waitIdle(page, 420000);
       result.phases.push("profile_confirmed");
     }
@@ -247,11 +259,11 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
           await input.first().fill(type === "number" ? "100" : "100000");
         }
       }
-      await page.getByTestId("discovery-questions-submit").click();
+      await clickSafe(page.getByTestId("discovery-questions-submit"));
       await waitIdle(page, 360000);
       result.phases.push("discovery_submitted");
       if (await confirmProfile.isVisible().catch(() => false)) {
-        await confirmProfile.click();
+        await clickSafe(confirmProfile);
         await waitIdle(page, 420000);
         result.phases.push("profile_confirmed");
       }
@@ -262,22 +274,22 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
     await waitPhase(page, [/Assumptions Review/i], 420000).catch((e) =>
       result.errors.push(String(e.message || e)),
     );
-    result.screenshots.push(await screenshot(page, `phase5a-${scenario.id}-assumptions.png`));
+    result.screenshots.push(await shot(page, `phase5a-${scenario.id}-assumptions.png`));
     await assertNoLeaks(page, result, "assumptions");
 
     const approveAll = page.getByTestId("approve-all-eligible-assumptions-btn");
     if (await approveAll.isVisible().catch(() => false)) {
       if (await approveAll.isEnabled()) {
-        await approveAll.click();
+        await clickSafe(approveAll);
       } else {
         const rows = page.locator('[data-testid^="assumption-approve-"]');
         const rc = await rows.count();
         for (let i = 0; i < rc; i++) {
           const btn = rows.nth(i);
-          if (await btn.isEnabled().catch(() => false)) await btn.click();
+          if (await btn.isEnabled().catch(() => false)) await clickSafe(btn);
           await page.waitForTimeout(250);
         }
-        if (await approveAll.isEnabled().catch(() => false)) await approveAll.click();
+        if (await approveAll.isEnabled().catch(() => false)) await clickSafe(approveAll);
       }
       await waitIdle(page, 420000);
       result.phases.push("assumptions_approved");
@@ -299,23 +311,22 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
     await waitPhase(page, [/Report Ready/i, /Decision Ready/i, /Funding Ready/i], 240000).catch((e) =>
       result.errors.push(String(e.message || e)),
     );
-    result.final_phase = await phaseText(page);
-    result.screenshots.push(await screenshot(page, `phase5a-${scenario.id}-report.png`));
+    result.finalPhase = await phaseText(page);
+    result.screenshots.push(await shot(page, `phase5a-${scenario.id}-report.png`));
     await assertNoLeaks(page, result, "report");
-    result.study_url = page.url();
+    result.studyUrl = page.url();
 
-    if (!/Report Ready|Decision Ready|Funding Ready/i.test(result.final_phase || "")) {
-      result.errors.push(`DID_NOT_REACH_REPORT phase=${result.final_phase}`);
+    if (!/Report Ready|Decision Ready|Funding Ready/i.test(result.finalPhase || "")) {
+      result.errors.push(`DID_NOT_REACH_REPORT phase=${result.finalPhase}`);
     }
 
     if (doPersistence) {
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.getByTestId("v2-study-workspace").waitFor({ timeout: 60000 });
       const afterRefresh = await phaseText(page);
-      result.screenshots.push(await screenshot(page, "phase5a-persistence-refresh.png"));
+      result.screenshots.push(await shot(page, "phase5a-persistence-refresh.png"));
       await assertNoLeaks(page, result, "refresh");
 
-      // Clear session and re-login
       await page.evaluate(() => {
         try {
           localStorage.removeItem("sb_token");
@@ -326,18 +337,18 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
       await ensureEnglish(page);
       await page.getByTestId("login-email").fill(result.email);
       await page.getByTestId("login-password").fill(PASSWORD);
-      await page.getByTestId("login-submit").click();
+      await clickSafe(page.getByTestId("login-submit"));
       await page.waitForTimeout(2500);
-      await page.goto(result.study_url, { waitUntil: "domcontentloaded" });
+      await page.goto(result.studyUrl, { waitUntil: "domcontentloaded" });
       await page.getByTestId("v2-study-workspace").waitFor({ timeout: 90000 });
       const afterLogin = await phaseText(page);
-      result.screenshots.push(await screenshot(page, "phase5a-persistence-relogin.png"));
+      result.screenshots.push(await shot(page, "phase5a-persistence-relogin.png"));
       await assertNoLeaks(page, result, "relogin");
-      result.persistence = { refresh_phase: afterRefresh, relogin_phase: afterLogin };
+      result.persistence = { refreshPhase: afterRefresh, reloginPhase: afterLogin };
       if (!afterRefresh || !afterLogin) result.errors.push("PERSISTENCE_FAILED");
     }
 
-    const hardLeak = result.leak_checks.some((c) => c.hits.length > 0);
+    const hardLeak = result.leakChecks.some((c) => c.hits.length > 0);
     const wrongDc = result.errors.some((e) => e.includes("WRONG_CLASSIFICATION"));
     const noReport = result.errors.some((e) => e.includes("DID_NOT_REACH_REPORT"));
     const persistFail = result.errors.some((e) => e.includes("PERSISTENCE_FAILED"));
@@ -345,10 +356,8 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
   } catch (err) {
     result.errors.push(String(err && err.stack ? err.stack : err));
     try {
-      result.screenshots.push(await screenshot(page, `phase5a-${scenario.id}-error.png`));
-    } catch {
-      /* ignore */
-    }
+      result.screenshots.push(await shot(page, `phase5a-${scenario.id}-error.png`));
+    } catch {}
     result.ok = false;
   } finally {
     await context.close();
@@ -358,10 +367,16 @@ async function runScenario(browser, scenario, { doPersistence = false } = {}) {
 
 async function main() {
   fs.mkdirSync(ART, { recursive: true });
+  const only = (process.env.PHASE5A_ONLY || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const scenarios = only.length ? SCENARIOS.filter((s) => only.includes(s.id)) : SCENARIOS;
+
   const browser = await chromium.launch({ headless: true });
   const results = [];
 
-  for (const scenario of SCENARIOS) {
+  for (const scenario of scenarios) {
     console.log(`\n=== START ${scenario.id} ===`);
     const r = await runScenario(browser, scenario, { doPersistence: scenario.id === "saas" });
     results.push(r);
@@ -370,8 +385,8 @@ async function main() {
         {
           id: r.id,
           ok: r.ok,
-          phase: r.final_phase,
-          arch: r.observed_archetype,
+          phase: r.finalPhase,
+          arch: r.observedArchetype,
           errors: r.errors,
           phases: r.phases,
         },
@@ -384,16 +399,16 @@ async function main() {
 
   await browser.close();
   const summary = {
-    generated_at: new Date().toISOString(),
-    all_ok: results.every((r) => r.ok),
+    generatedAt: new Date().toISOString(),
+    allOk: results.every((r) => r.ok),
     results,
   };
   fs.writeFileSync(path.join(ART, "phase5a_browser_e2e_results.json"), JSON.stringify(summary, null, 2));
   console.log("\n=== SUMMARY ===");
   console.log(
-    JSON.stringify({ all_ok: summary.all_ok, rows: results.map((r) => [r.id, r.ok, r.final_phase]) }, null, 2),
+    JSON.stringify({ allOk: summary.allOk, rows: results.map((r) => [r.id, r.ok, r.finalPhase]) }, null, 2),
   );
-  process.exit(summary.all_ok ? 0 : 1);
+  process.exit(summary.allOk ? 0 : 1);
 }
 
 main().catch((e) => {

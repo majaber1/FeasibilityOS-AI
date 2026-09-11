@@ -233,6 +233,13 @@ _MOBILITY_SIGNALS = (
     "marketplace", "two-sided marketplace", "gig platform",
     "سائق", "مشاوير", "توصيل", "سوق إلكتروني",
 )
+# Consulting / cybersecurity / professional services — never silently become data_center.
+_PROFESSIONAL_SERVICES_SIGNALS = (
+    "consulting", "consultancy", "cybersecurity", "cyber security", "cyber-security",
+    "professional services", "managed services", "managed security", "managed soc",
+    "mssp", "soc services", "penetration test", "retainer", "advisory",
+    "billable consultants", "استشارات", "خدمات مهنية", "أمن سيبراني",
+)
 _STRONG_DC_SIGNALS = (
     "data center", "datacenter", "مركز بيانات", "colocation", "colo ",
     "hyperscaler", "pue", "tier iii", "tier 3", "tier iv", "tier 4",
@@ -257,17 +264,28 @@ def _resolve_archetype(
     """
     t = text or ""
     mobility = _has_any(t, _MOBILITY_SIGNALS)
-    strong_dc = _has_any(t, _STRONG_DC_SIGNALS)
+    professional = _has_any(t, _PROFESSIONAL_SERVICES_SIGNALS)
+    # Negated "not a data center" must not count as a strong DC signal.
+    t_dc = re.sub(
+        r"\bnot\s+(a\s+)?(data[\s\-]?center|datacenter|colo(?:cation)?)\b",
+        " ",
+        (t or "").lower(),
+    )
+    strong_dc = _has_any(t_dc, _STRONG_DC_SIGNALS)
 
-    if mobility and not strong_dc:
+    if (mobility or professional) and not strong_dc:
         if heuristic == "data_center" or llm_arch == "data_center":
+            reason = "mobility_vs_data_center" if mobility else "services_vs_data_center"
             logger.info(
-                "classification_guard blocked data_center for mobility text "
+                "classification_guard blocked data_center for %s text "
                 "(heuristic=%s llm=%s)",
+                "mobility" if mobility else "professional_services",
                 heuristic,
                 llm_arch,
             )
-            return "services", True, "mobility_vs_data_center"
+            return "services", True, reason
+
+    if mobility and not strong_dc:
         if heuristic == "services":
             if llm_arch in {"saas_digital", "industrial", "other", "unknown", "retail"}:
                 return (
@@ -279,6 +297,16 @@ def _resolve_archetype(
                 return "services", False, None
             if llm_arch not in {"other", "unknown"} and llm_arch != "services":
                 return "services", True, "mobility_llm_conflict"
+
+    if professional and not strong_dc and heuristic == "services":
+        if llm_arch in {"saas_digital", "industrial", "other", "unknown", "retail"}:
+            return (
+                "services",
+                llm_arch not in {"services", "other", "unknown"},
+                "professional_keep_services",
+            )
+        if llm_arch == "services":
+            return "services", False, None
 
     if heuristic == "services" and llm_arch == "data_center" and not strong_dc:
         logger.info("classification_guard blocked services→data_center LLM override")

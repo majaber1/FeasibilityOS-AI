@@ -107,6 +107,21 @@ def test_uber_never_becomes_data_center():
     assert chosen2 == "services"
 
 
+def test_cyber_consulting_never_becomes_data_center():
+    from ai_engine.archetypes.classifier import classify_archetype
+
+    text = (
+        "Cybersecurity consulting and managed SOC services for Saudi companies. "
+        "Professional services retainers, billable consultants, project delivery — "
+        "not a software product and not a data center."
+    )
+    assert classify_archetype(text) == "services"
+    chosen, ambiguous, reason = _resolve_archetype("data_center", "data_center", text)
+    assert chosen == "services"
+    assert ambiguous is True
+    assert reason == "services_vs_data_center"
+
+
 def test_true_data_center_still_allowed():
     chosen, ambiguous, reason = _resolve_archetype(
         "data_center",

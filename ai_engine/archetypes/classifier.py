@@ -43,11 +43,33 @@ def classify_archetype(text: str) -> str:
     ):
         return "saas_digital"
 
+    # Professional / managed services before DC / industrial so phrases like
+    # "not a data center" or "SOC services" never hijack into data_center.
+    services_kw = (
+        "uber", "careem", "ride", "hailing", "ride-hailing", "rideshare", "taxi",
+        "driver", "take rate", "take-rate", "marketplace", "delivery platform",
+        "خدمة", "توصيل", "سائق", "مشاوير",
+        "consulting", "consultancy", "cybersecurity", "cyber security",
+        "professional services", "managed services", "managed security",
+        "retainer", "advisory", "services company", "service business",
+        "agency", "soc ", " mssp", "penetration test", "استشارات", "خدمات مهنية",
+        "billable consultants", "managed soc",
+    )
+    if any(k in t for k in services_kw):
+        return "services"
+
+    # Ignore negated DC mentions ("not a data center", "ليس مركز بيانات").
+    t_dc = re.sub(
+        r"\bnot\s+(a\s+)?(data[\s\-]?center|datacenter|colo(?:cation)?)\b",
+        " ",
+        t,
+    )
+    t_dc = re.sub(r"ليس\s+(مركز\s*بيانات)", " ", t_dc)
     dc_kw = (
         "data center", "datacenter", "مركز بيانات", "rack", "racks", "ميجاواط", "mw ",
         "pue", "colocation", "colo", "hyperscaler", "tier iii", "tier 3", "power capacity",
     )
-    if any(k in t for k in dc_kw):
+    if any(k in t_dc for k in dc_kw):
         return "data_center"
 
     re_kw = (
@@ -57,20 +79,6 @@ def classify_archetype(text: str) -> str:
     )
     if any(k in t for k in re_kw):
         return "real_estate"
-
-    # Professional / managed services before industrial: words like "utilization"
-    # appear in consulting staffing models and must not force industrial.
-    services_kw = (
-        "uber", "careem", "ride", "hailing", "ride-hailing", "rideshare", "taxi",
-        "driver", "take rate", "take-rate", "marketplace", "delivery platform",
-        "خدمة", "توصيل", "سائق", "مشاوير",
-        "consulting", "consultancy", "cybersecurity", "cyber security",
-        "professional services", "managed services", "managed security",
-        "retainer", "advisory", "services company", "service business",
-        "agency", "soc ", "penetration test", "استشارات", "خدمات مهنية",
-    )
-    if any(k in t for k in services_kw):
-        return "services"
 
     industrial_kw = (
         "factory", "manufacturing", "industrial", "مصنع", "تصنيع",
