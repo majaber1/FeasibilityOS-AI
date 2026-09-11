@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export type ReviewAssumption = {
-  id?: string | null;
   key: string;
   value: string;
   source?: string;
@@ -11,12 +10,11 @@ export type ReviewAssumption = {
   low?: string | null;
   base?: string | null;
   high?: string | null;
+  origin?: string | null;
   ai_estimated?: boolean;
   label_en?: string | null;
   label_ar?: string | null;
   unit?: string | null;
-  status?: string | null;
-  reviewed?: boolean;
 };
 
 type Props = {
@@ -30,31 +28,12 @@ type Props = {
   onCardAction: (key: string, action: "approve" | "reject" | "regenerate") => Promise<void>;
 };
 
-function statusTone(status?: string | null) {
-  switch ((status || "PENDING_REVIEW").toUpperCase()) {
-    case "APPROVED":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    case "EDITED":
-      return "bg-sky-100 text-sky-800 border-sky-200";
-    case "REJECTED":
-      return "bg-rose-100 text-rose-800 border-rose-200";
-    default:
-      return "bg-amber-100 text-amber-900 border-amber-200";
-  }
+function isAiEstimated(a: ReviewAssumption) {
+  return Boolean(a.ai_estimated) || (a.source || "").toLowerCase().includes("ai estimated");
 }
 
-function sourceLabel(a: ReviewAssumption, ar: boolean) {
-  const raw = (a.source || "").toUpperCase();
-  if (raw.includes("AI") || a.ai_estimated) {
-    return ar ? "مصدر: تقدير ذكاء اصطناعي" : "Source: AI_ESTIMATED";
-  }
-  if (raw.includes("USER")) {
-    return ar ? "مصدر: المستخدم" : "Source: USER_PROVIDED";
-  }
-  if (raw.includes("RULE")) {
-    return ar ? "مصدر: قواعد" : "Source: RULE_BASED";
-  }
-  return ar ? `مصدر: ${a.source || "غير معروف"}` : `Source: ${a.source || "UNKNOWN"}`;
+function isEligible(a: ReviewAssumption) {
+  return Boolean(String(a.value || "").trim());
 }
 
 export function AssumptionReviewPanel({
@@ -69,10 +48,30 @@ export function AssumptionReviewPanel({
 }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [whyOpen, setWhyOpen] = useState<string | null>(null);
   const [cardBusy, setCardBusy] = useState<string | null>(null);
 
+  const eligible = useMemo(() => assumptions.filter(isEligible), [assumptions]);
+  const invalid = useMemo(() => assumptions.filter((a) => !isEligible(a)), [assumptions]);
   const hasAssumptions = assumptions.length > 0;
-  const approveDisabled = loading || !hasAssumptions || Boolean(error && !hasAssumptions);
+  const hasEligible = eligible.length > 0;
+
+  let disableReason: string | null = null;
+  if (loading) {
+    disableReason = ar ? "جارٍ الحفظ…" : "Saving in progress…";
+  } else if (!hasAssumptions) {
+    disableReason = ar
+      ? "لا توجد افتراضات — هذه مرحلة فارغة. أعد التوليد."
+      : "No assumptions generated — regenerate to continue.";
+  } else if (!hasEligible) {
+    disableReason = ar
+      ? "كل الافتراضات فارغة أو غير صالحة — عدّل أو أعد التوليد."
+      : "All assumptions are empty/invalid — edit or regenerate.";
+  } else if (error && !hasAssumptions) {
+    disableReason = error;
+  }
+
+  const approveDisabled = Boolean(disableReason);
 
   return (
     <section
@@ -86,8 +85,8 @@ export function AssumptionReviewPanel({
           </h2>
           <p className="mt-1 text-xs text-ink-600">
             {ar
-              ? "يمكنك اعتماد كل الافتراضات دفعة واحدة، أو اعتماد/تعديل/إعادة توليد كل افتراض على حدة."
-              : "Approve all assumptions at once, or approve / edit / regenerate each card individually."}
+              ? "راجع كل افتراض: اعتماد / تعديل / رفض / إعادة توليد. ثم اعتمد كل الافتراضات المؤهلة للمتابعة."
+              : "Review each assumption: Approve / Edit / Reject / Regenerate. Then approve all eligible assumptions to continue."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -104,20 +103,35 @@ export function AssumptionReviewPanel({
             type="button"
             disabled={approveDisabled}
             onClick={() => void onApproveAll()}
-            data-testid="approve-assumptions-btn"
-            title={
-              !hasAssumptions
-                ? ar
-                  ? "لا توجد افتراضات بعد — أعد التوليد أولاً"
-                  : "No assumptions yet — regenerate first"
-                : undefined
-            }
+            data-testid="approve-all-eligible-assumptions-btn"
+            title={disableReason || undefined}
             className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {ar ? "اعتماد كل الافتراضات" : "Approve All Assumptions"}
+            {ar ? "اعتماد كل الافتراضات المؤهلة" : "Approve all eligible assumptions"}
           </button>
         </div>
       </div>
+
+      {disableReason ? (
+        <p
+          className="mb-3 rounded-lg border border-amber-300 bg-amber-100/70 px-3 py-2 text-xs text-amber-950"
+          data-testid="approve-disabled-reason"
+          role="status"
+        >
+          {disableReason}
+        </p>
+      ) : null}
+
+      {invalid.length > 0 ? (
+        <p
+          className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800"
+          data-testid="invalid-assumptions-banner"
+        >
+          {ar
+            ? `${invalid.length} افتراض غير صالح يمنع الاعتماد الجماعي حتى يُعدَّل أو يُعاد توليده: ${invalid.map((a) => a.key).join(", ")}`
+            : `${invalid.length} invalid assumption(s) block bulk approval until edited or regenerated: ${invalid.map((a) => a.key).join(", ")}`}
+        </p>
+      ) : null}
 
       {!hasAssumptions ? (
         <div
@@ -125,12 +139,12 @@ export function AssumptionReviewPanel({
           data-testid="assumptions-empty-state"
         >
           <p className="text-sm font-semibold text-ink-800">
-            {ar ? "لا توجد افتراضات محفوظة لهذه المرحلة" : "No assumptions saved for this stage"}
+            {ar ? "مرحلة مراجعة الافتراضات بلا صفوف محفوظة" : "Assumptions review phase has no saved rows"}
           </p>
           <p className="mt-1 text-xs text-ink-600">
             {ar
-              ? "حدث خطأ أثناء التوليد أو لم تُحفظ الافتراضات. أعد التوليد للمتابعة."
-              : "Generation failed or assumptions were not persisted. Regenerate to continue."}
+              ? "هذا خلل في توليد/انتقال المرحلة — أعد التوليد لإصلاح الحالة."
+              : "This is a generation/transition defect — regenerate to repair the state."}
           </p>
           {error ? <p className="mt-2 text-xs text-rose-700">{error}</p> : null}
           <button
@@ -146,8 +160,8 @@ export function AssumptionReviewPanel({
         <ul className="space-y-2">
           {assumptions.map((a) => {
             const label = ar ? a.label_ar || a.key : a.label_en || a.key;
-            const ai = Boolean(a.ai_estimated) || (a.source || "").toUpperCase().includes("AI");
-            const status = (a.status || "PENDING_REVIEW").toUpperCase();
+            const ai = isAiEstimated(a);
+            const eligibleRow = isEligible(a);
             const busy = cardBusy === a.key || loading;
             return (
               <li
@@ -155,7 +169,7 @@ export function AssumptionReviewPanel({
                 className="rounded-xl border border-slate-200 bg-white p-3"
                 data-testid={`assumption-row-${a.key}`}
                 data-ai-estimated={ai ? "true" : "false"}
-                data-status={status}
+                data-eligible={eligibleRow ? "true" : "false"}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -163,19 +177,24 @@ export function AssumptionReviewPanel({
                     <p className="text-[11px] text-ink-500">
                       {a.key}
                       {a.unit ? ` · ${a.unit}` : ""}
-                      {a.id ? ` · id=${a.id}` : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(status)}`}>
-                      {status}
-                    </span>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                      {sourceLabel(a, ar)}
-                    </span>
-                    {a.confidence ? (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                        {a.confidence}
+                    {ai ? (
+                      <span
+                        className="rounded bg-violet-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-violet-800"
+                        data-testid="ai-estimated-badge"
+                      >
+                        {ar ? "افتراض مقدّر بالذكاء الاصطناعي" : "AI Estimated Assumption"}
+                      </span>
+                    ) : (
+                      <span className="rounded bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                        {ar ? "مؤكد من المستخدم" : "User confirmed"}
+                      </span>
+                    )}
+                    {!eligibleRow ? (
+                      <span className="rounded bg-rose-100 px-2 py-1 text-[10px] font-bold uppercase text-rose-800">
+                        {ar ? "غير صالح" : "Invalid"}
                       </span>
                     ) : null}
                   </div>
@@ -248,6 +267,22 @@ export function AssumptionReviewPanel({
                       <button
                         type="button"
                         disabled={busy}
+                        data-testid={`assumption-reject-${a.key}`}
+                        className="rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-[11px] font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-50"
+                        onClick={async () => {
+                          setCardBusy(a.key);
+                          try {
+                            await onCardAction(a.key, "reject");
+                          } finally {
+                            setCardBusy(null);
+                          }
+                        }}
+                      >
+                        {ar ? "رفض" : "Reject"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
                         data-testid={`assumption-regenerate-${a.key}`}
                         className="rounded-lg border border-teal-300 bg-teal-50 px-2.5 py-1.5 text-[11px] font-semibold text-teal-800 hover:bg-teal-100 disabled:opacity-50"
                         onClick={async () => {
@@ -261,9 +296,39 @@ export function AssumptionReviewPanel({
                       >
                         {ar ? "إعادة توليد" : "Regenerate"}
                       </button>
+                      <button
+                        type="button"
+                        data-testid={`assumption-why-${a.key}`}
+                        className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+                        onClick={() => setWhyOpen(whyOpen === a.key ? null : a.key)}
+                      >
+                        {ar ? "لماذا؟" : "Why"}
+                      </button>
                     </div>
                   </div>
                 )}
+
+                {whyOpen === a.key ? (
+                  <div
+                    className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-ink-700"
+                    data-testid={`assumption-why-panel-${a.key}`}
+                  >
+                    <p>
+                      <span className="font-semibold">{ar ? "المصدر:" : "Source:"}</span> {a.source || "—"}
+                    </p>
+                    <p>
+                      <span className="font-semibold">{ar ? "الأصل:" : "Origin:"}</span> {a.origin || "—"}
+                    </p>
+                    <p>
+                      <span className="font-semibold">{ar ? "الثقة:" : "Confidence:"}</span> {a.confidence || "—"}
+                    </p>
+                    {(a.low || a.base || a.high) && (
+                      <p>
+                        L/B/H: {a.low ?? "—"} / {a.base ?? "—"} / {a.high ?? "—"}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
               </li>
             );
           })}

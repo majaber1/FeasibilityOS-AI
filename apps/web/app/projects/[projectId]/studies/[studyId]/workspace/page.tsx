@@ -22,7 +22,6 @@ type Claim = {
 };
 
 type Assumption = {
-  id?: string | null;
   key: string;
   value: string;
   source?: string;
@@ -34,8 +33,6 @@ type Assumption = {
   label_en?: string | null;
   label_ar?: string | null;
   unit?: string | null;
-  status?: string | null;
-  reviewed?: boolean;
 };
 
 type DiscoveryQuestion = {
@@ -393,6 +390,7 @@ export default function StudyWorkspacePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to edit assumption");
       applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+      if (data.error) setError(data.error);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -670,36 +668,16 @@ export default function StudyWorkspacePage() {
         </div>
       )}
 
-      {(study?.phase === "EVIDENCE_REVIEW" || study?.phase === "ASSUMPTIONS_REVIEW") && (
+      {study?.phase === "EVIDENCE_REVIEW" && (
         <div className="mb-3 flex gap-2">
-          {study.phase === "EVIDENCE_REVIEW" && (
-            <button
-              type="button"
-              onClick={() => approveStage("evidence")}
-              disabled={loading || claims.length === 0}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {ar ? "الموافقة على الأدلة" : "Approve Evidence"}
-            </button>
-          )}
-          {study.phase === "ASSUMPTIONS_REVIEW" && (
-            <button
-              type="button"
-              onClick={() => approveStage("assumptions")}
-              disabled={loading || assumptions.length === 0 || Boolean(error && assumptions.length === 0)}
-              data-testid="approve-all-assumptions-btn"
-              title={
-                assumptions.length === 0
-                  ? ar
-                    ? "لا توجد افتراضات — أعد التوليد أولاً"
-                    : "No assumptions — regenerate first"
-                  : undefined
-              }
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {ar ? "اعتماد كل الافتراضات" : "Approve All Assumptions"}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => approveStage("evidence")}
+            disabled={loading || claims.length === 0}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {ar ? "الموافقة على الأدلة" : "Approve Evidence"}
+          </button>
         </div>
       )}
 

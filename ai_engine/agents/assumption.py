@@ -111,6 +111,9 @@ def run_assumptions(state: StudyState) -> StudyState:
     assumption_data: dict | None = None
     response_text = ""
     llm_unavailable = False
+    # get_llm must be inside try/except: client init failures previously aborted
+    # the agent after evidence approve had already set phase=ASSUMPTIONS_REVIEW,
+    # leaving assumptions=[] and disabling Approve in the UI.
     try:
         llm = get_llm("assumptions")
         response = llm.invoke(messages)
@@ -134,10 +137,9 @@ def run_assumptions(state: StudyState) -> StudyState:
         meta = schema_by_key.get(key, {})
         val = _as_str(raw)
         seeded[key] = Assumption(
-            id=f"asm_{key}",
             key=key,
             value=val,
-            source="USER_PROVIDED",
+            source="user",
             confidence="confirmed",
             low=val,
             base=val,
@@ -148,8 +150,6 @@ def run_assumptions(state: StudyState) -> StudyState:
             label_en=meta.get("label_en"),
             label_ar=meta.get("label_ar"),
             ai_estimated=False,
-            status="APPROVED",
-            reviewed=True,
         )
 
     for a in (assumption_data or {}).get("assumptions") or []:
@@ -163,14 +163,15 @@ def run_assumptions(state: StudyState) -> StudyState:
         conf = str(a.get("confidence") or "low")
         if conf not in {"confirmed", "medium", "low"}:
             conf = "low"
-        source = "AI_ESTIMATED" if ai_est else str(a.get("source") or "RULE_BASED")
+        source = str(a.get("source") or ("AI Estimated Assumption" if ai_est else "model"))
+        if ai_est and "AI Estimated" not in source:
+            source = "AI Estimated Assumption"
         default_val = _default_value_for_field(meta or {"key": key}, archetype)
         value = _as_str(a.get("value")).strip() or default_val
         low = _as_str(a.get("low")).strip() or value
         base = _as_str(a.get("base")).strip() or value
         high = _as_str(a.get("high")).strip() or value
         seeded[key] = Assumption(
-            id=f"asm_{key}",
             key=key,
             value=value,
             source=source,
@@ -184,8 +185,6 @@ def run_assumptions(state: StudyState) -> StudyState:
             label_en=meta.get("label_en"),
             label_ar=meta.get("label_ar"),
             ai_estimated=ai_est,
-            status="PENDING_REVIEW",
-            reviewed=False,
         )
 
     for field in schema:
@@ -197,10 +196,9 @@ def run_assumptions(state: StudyState) -> StudyState:
         default_val = _default_value_for_field(field, archetype)
         if llm_unavailable:
             seeded[key] = Assumption(
-                id=f"asm_{key}",
                 key=key,
                 value=default_val,
-                source="RULE_BASED",
+                source="Rule Fallback",
                 confidence="low",
                 low=default_val,
                 base=default_val,
@@ -211,15 +209,12 @@ def run_assumptions(state: StudyState) -> StudyState:
                 label_en=field.get("label_en"),
                 label_ar=field.get("label_ar"),
                 ai_estimated=False,
-                status="PENDING_REVIEW",
-                reviewed=False,
             )
         else:
             seeded[key] = Assumption(
-                id=f"asm_{key}",
                 key=key,
                 value=default_val,
-                source="AI_ESTIMATED",
+                source="AI Estimated Assumption",
                 confidence="low",
                 low=default_val,
                 base=default_val,
@@ -230,8 +225,6 @@ def run_assumptions(state: StudyState) -> StudyState:
                 label_en=field.get("label_en"),
                 label_ar=field.get("label_ar"),
                 ai_estimated=True,
-                status="PENDING_REVIEW",
-                reviewed=False,
             )
 
     assumptions = list(seeded.values())
@@ -274,7 +267,7 @@ def _as_str(v) -> str:
 
 
 def _default_value_for_field(field: dict, archetype: str) -> str:
-    """Deterministic placeholder so financial analysis can run when LLM is down."""
+    """Deterministic placeholders so financial extract can run when LLM is down."""
     key = field.get("key") or ""
     input_type = (field.get("input_type") or "").lower()
     defaults = {
@@ -303,6 +296,17 @@ def _default_value_for_field(field: dict, archetype: str) -> str:
         "active_contracts": "15",
         "consultants_headcount": "20",
         "utilization_rate": "70",
+        "monthly_recurring_contracts": "80000",
+        "delivery_cost_monthly": "35000",
+        "take_rate": "20",
+        "monthly_trips": "50000",
+        "drivers": "2000",
+        "driver_cac": "150",
+        "occupancy": "60",
+        "pricing_per_kw": "400",
+        "capex_total": "80000000",
+        "opex_annual": "12000000",
+        "financing": "50",
     }
     if key in defaults:
         return defaults[key]
@@ -310,7 +314,6 @@ def _default_value_for_field(field: dict, archetype: str) -> str:
         return "100000" if archetype in {"real_estate", "data_center"} else "10000"
     if input_type == "percent":
         return "10"
-    # Never return non-numeric placeholders — financial extract needs parseable values.
     return "10000"
 
 
