@@ -34,8 +34,9 @@ def _model_for_task(task: str) -> str:
         "extraction": fast,
         "questions": smart,
         "assumptions": smart,
-        "risk": smart,
-        "decision": smart,
+        # Prefer fast for risk/decision to stay within Groq free-tier TPD during E2E.
+        "risk": fast,
+        "decision": fast,
         "general": smart,
     }
     return routing.get(task, smart)

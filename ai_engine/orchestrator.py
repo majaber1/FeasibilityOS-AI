@@ -14,6 +14,7 @@ from .agents.decision import run_decision
 
 PHASE_TRANSITIONS = {
     "DRAFT": "discovery",
+    "ARCHETYPE_CLASSIFICATION": "discovery",
     "UNDERSTANDING": "discovery",
     "NEEDS_INFORMATION": "discovery",
     "EVIDENCE_REVIEW": "evidence",
@@ -22,6 +23,7 @@ PHASE_TRANSITIONS = {
     "ANALYZED": "risk",
     "DECISION_READY": "decision",
     "FUNDING_READY": END,
+    "REPORT_READY": END,
 }
 
 

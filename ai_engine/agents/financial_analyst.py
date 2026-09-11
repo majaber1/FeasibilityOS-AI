@@ -173,40 +173,126 @@ def _deterministic_extract(state: StudyState) -> dict | None:
                 return value
         return None
 
-    capex = first("initial investment", "capex", "seed", "استثمار", "رأس المال")
-    atv = first("average trip", "atv", "ticket", "قيمة الرحلة", "متوسط")
-    take_rate = first("take-rate", "take rate", "commission", "عمولة")
-    rides = first("monthly rides", "rides/mo", "rides per month", "رحلات")
-    fixed_opex = first("fixed opex", "monthly fixed", "opex", "تشغيل")
+    capex = first(
+        "initial_investment", "initial investment", "capex", "seed", "استثمار", "رأس المال",
+        "land_cost", "construction_boq", "capex_machinery",
+    )
+    # Prefer summing land + BOQ for real estate when both present.
+    land = first("land_cost", "land cost")
+    boq = first("construction_boq", "construction boq", "boq")
+    if land is not None or boq is not None:
+        capex = (land or 0.0) + (boq or 0.0)
+
+    atv = first("avg_trip_value", "average trip", "atv", "ticket", "قيمة الرحلة", "متوسط")
+    take_rate = first("take_rate", "take-rate", "take rate", "commission", "عمولة")
+    rides = first("monthly_trips", "monthly rides", "rides/mo", "rides per month", "رحلات")
+    fixed_opex = first("monthly_fixed_opex", "fixed opex", "monthly fixed", "opex", "تشغيل", "opex_year1")
     variable = first("variable cost", "per ride", "تكلفة متغيرة")
     discount = first("discount rate", "معدل الخصم") or 0.12
 
+    # Professional / managed services model
+    mrc = first("monthly_recurring_contracts", "monthly recurring", "mrc")
+    delivery_monthly = first("delivery_cost_monthly", "delivery cost")
+    gross_margin = first("gross_margin", "gross margin")
+
+    # Real estate sales model
+    units = first("units", "unit count")
+    selling_price = first("selling_price", "selling price")
+    absorption = first("absorption_rate", "absorption")
+
+    # Data center model
+    mw = first("mw_capacity", "mw")
+    pricing_kw = first("pricing_per_kw", "pricing per kw")
+    occupancy = first("occupancy")
+    power_cost = first("power_cost", "power cost")
+    capex_total = first("capex_total", "total capex")
+    opex_annual = first("opex_annual", "annual opex")
+    if capex_total is not None and (capex is None or capex == 0):
+        capex = capex_total
+
+    # SaaS
+    arr = first("arr", "annual recurring")
+    mrr = first("mrr")
+    pricing = first("pricing", "subscription")
+    customers = first("target_customers", "customers")
+
     if take_rate is not None and take_rate > 1:
         take_rate = take_rate / 100.0
+    if occupancy is not None and occupancy > 1:
+        occupancy = occupancy / 100.0
+    if gross_margin is not None and gross_margin > 1:
+        gross_margin = gross_margin / 100.0
     if discount is not None and discount > 1:
         discount = discount / 100.0
 
     annual_revenues = None
     annual_costs = None
 
-    if atv is not None and take_rate is not None and rides is not None:
+    if mrc is not None:
+        annual_revenues = [mrc * 12, mrc * 12 * 1.25, mrc * 12 * 1.5]
+        if delivery_monthly is not None:
+            annual_costs = [
+                delivery_monthly * 12,
+                delivery_monthly * 12 * 1.15,
+                delivery_monthly * 12 * 1.3,
+            ]
+        elif gross_margin is not None:
+            annual_costs = [r * (1.0 - gross_margin) for r in annual_revenues]
+    elif atv is not None and take_rate is not None and rides is not None:
         monthly_revenue = atv * take_rate * rides
-        # Simple ramp: Y1 base, Y2 +40%, Y3 +40% again
         annual_revenues = [
             monthly_revenue * 12,
             monthly_revenue * 12 * 1.4,
             monthly_revenue * 12 * 1.4 * 1.3,
         ]
-
-    if fixed_opex is not None:
-        var = variable or 0.0
-        ride_count = rides or 0.0
-        monthly_cost = fixed_opex + (var * ride_count)
-        annual_costs = [
-            monthly_cost * 12,
-            monthly_cost * 12 * 1.15,
-            monthly_cost * 12 * 1.25,
+    elif units is not None and selling_price is not None:
+        sold_y1 = min(units, absorption) if absorption is not None else units * 0.35
+        annual_revenues = [
+            sold_y1 * selling_price,
+            min(units, sold_y1 * 1.2) * selling_price,
+            min(units, sold_y1 * 1.35) * selling_price,
         ]
+    elif mw is not None and pricing_kw is not None:
+        occ = occupancy if occupancy is not None else 0.5
+        monthly = mw * 1000.0 * pricing_kw * occ
+        annual_revenues = [monthly * 12, monthly * 12 * 1.25, monthly * 12 * 1.4]
+        if power_cost is not None:
+            # rough power opex from MW * PUE~1.4 * hours
+            pue = first("pue") or 1.4
+            annual_power = mw * 1000.0 * 8760.0 * pue * power_cost * occ
+            base_opex = opex_annual or 0.0
+            annual_costs = [
+                annual_power + base_opex,
+                annual_power * 1.05 + base_opex * 1.05,
+                annual_power * 1.1 + base_opex * 1.1,
+            ]
+        elif opex_annual is not None:
+            annual_costs = [opex_annual, opex_annual * 1.05, opex_annual * 1.1]
+    elif arr is not None:
+        annual_revenues = [arr, arr * 1.4, arr * 1.4 * 1.3]
+    elif mrr is not None:
+        annual_revenues = [mrr * 12, mrr * 12 * 1.4, mrr * 12 * 1.4 * 1.3]
+    elif pricing is not None and customers is not None:
+        annual_revenues = [
+            pricing * customers,
+            pricing * customers * 1.5,
+            pricing * customers * 2.0,
+        ]
+
+    if fixed_opex is not None and annual_costs is None:
+        # monthly_fixed_opex vs annual opex_year1
+        if "opex_year1" in vals or any("opex_year1" in k for k in vals):
+            base = fixed_opex
+            annual_costs = [base, base * 1.1, base * 1.2]
+        else:
+            var = variable or 0.0
+            ride_count = rides or 0.0
+            monthly_cost = fixed_opex + (var * ride_count)
+            annual_costs = [
+                monthly_cost * 12,
+                monthly_cost * 12 * 1.15,
+                monthly_cost * 12 * 1.25,
+            ]
 
     if capex is None and annual_revenues is None and annual_costs is None:
         return None

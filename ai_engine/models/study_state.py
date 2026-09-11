@@ -1,18 +1,33 @@
 from __future__ import annotations
 
-from typing import Annotated, List, Optional, Literal
-from pydantic import BaseModel
+from typing import Annotated, Any, Dict, List, Optional, Literal
+from pydantic import BaseModel, Field
 from langgraph.graph import add_messages
 
 StudyPhase = Literal[
-    "DRAFT", "UNDERSTANDING", "NEEDS_INFORMATION",
-    "EVIDENCE_REVIEW", "ASSUMPTIONS_REVIEW", "READY_FOR_ANALYSIS",
-    "ANALYZED", "DECISION_READY", "FUNDING_READY"
+    "DRAFT",
+    "ARCHETYPE_CLASSIFICATION",
+    "UNDERSTANDING",
+    "NEEDS_INFORMATION",
+    "EVIDENCE_REVIEW",
+    "ASSUMPTIONS_REVIEW",
+    "READY_FOR_ANALYSIS",
+    "ANALYZED",
+    "DECISION_READY",
+    "FUNDING_READY",
+    "REPORT_READY",
 ]
 
 ProjectArchetype = Literal[
-    "saas_digital", "real_estate", "data_center",
-    "retail", "industrial", "services", "franchise", "unknown"
+    "saas_digital",
+    "real_estate",
+    "data_center",
+    "retail",
+    "industrial",
+    "services",
+    "other",
+    "franchise",
+    "unknown",
 ]
 
 DecisionVerdict = Literal[
@@ -28,6 +43,9 @@ class ProjectProfile(BaseModel):
     language: Literal["ar", "en"] = "ar"
     missing_information: List[str] = []
     recommended_model: str = ""
+    archetype_confirmed: bool = False
+    # For services only: "professional" (default) or "mobility" (Uber-like).
+    services_variant: Optional[str] = None
 
 
 class Assumption(BaseModel):
@@ -38,6 +56,12 @@ class Assumption(BaseModel):
     low: Optional[str] = None
     base: Optional[str] = None
     high: Optional[str] = None
+    origin: Literal["user", "ai_estimated", "document", "default", "rule_fallback"] = "user"
+    input_type: Optional[str] = None
+    unit: Optional[str] = None
+    label_en: Optional[str] = None
+    label_ar: Optional[str] = None
+    ai_estimated: bool = False
 
 
 class Claim(BaseModel):
@@ -67,6 +91,10 @@ class StudyState(BaseModel):
 
     assumptions: List[Assumption] = []
     assumptions_approved: bool = False
+    assumptions_version: int = 0
+
+    discovery_questions: List[Dict[str, Any]] = Field(default_factory=list)
+    structured_answers: Dict[str, Any] = Field(default_factory=dict)
 
     financial_snapshot_id: Optional[str] = None
     financial_results: Optional[dict] = None

@@ -122,23 +122,55 @@ def run_decision(state: StudyState) -> StudyState:
     try:
         response = llm.invoke(messages)
         response_text = response.content
+        decision_data = _extract_json(response_text)
     except Exception as e:
-        state.error = str(e)
-        state.next_action = "retry"
-        return state
+        decision_data = _fallback_decision(state)
+        response_text = (
+            f"Decision fallback ({e}).\n\n```json\n{json.dumps(decision_data, ensure_ascii=False)}\n```"
+        )
 
-    decision_data = _extract_json(response_text)
     if decision_data:
         state.verdict = decision_data.get("verdict", "INSUFFICIENT_EVIDENCE")
         state.decision_rationale = decision_data.get("rationale", "")
         state.decision_conditions = decision_data.get("conditions", [])
         state.decision_risks = decision_data.get("key_risks", state.decision_risks)
         state.decision_version += 1
-        state.phase = "DECISION_READY"
+        state.phase = "REPORT_READY"
+        state.error = None
 
     state.messages.append(AIMessage(content=response_text))
     state.next_action = "present_decision"
     return state
+
+
+def _fallback_decision(state: StudyState) -> dict:
+    fr = state.financial_results or {}
+    npv = fr.get("npv")
+    irr = fr.get("irr")
+    risks = list(state.decision_risks or [])[:3] or ["Execution risk", "Market risk"]
+    if isinstance(npv, (int, float)) and npv > 0:
+        verdict = "GO_WITH_CONDITIONS"
+        rationale = (
+            f"Base-case NPV is positive ({npv}) with IRR={irr}. "
+            "Proceed under staged conditions while monitoring critical risks."
+        )
+        conditions = [
+            "Re-validate top assumptions after pilot / first operating period",
+            "Keep contingency for the highest-impact critical risk",
+        ]
+    else:
+        verdict = "DEFER"
+        rationale = (
+            f"Financial case is inconclusive (NPV={npv}, IRR={irr}). "
+            "Defer full commitment until assumptions are de-risked."
+        )
+        conditions = ["Improve evidence quality on revenue and cost drivers"]
+    return {
+        "verdict": verdict,
+        "rationale": rationale,
+        "conditions": conditions,
+        "key_risks": risks,
+    }
 
 
 def _extract_json(text: str) -> dict | None:
