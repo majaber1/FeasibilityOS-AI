@@ -172,7 +172,12 @@ def build_evidence_pack(
         "pue": ["pue", "power usage effectiveness"],
         "churn": ["churn", "attrition", "retention"],
         "monthly_recurring_revenue": ["mrr", "recurring revenue", "subscription"],
-        "active_contracts": ["contracts", "clients", "customers"],
+        "active_contracts": ["contracts", "clients", "customers", "active_contracts"],
+        "consultants_headcount": ["consultants", "headcount", "staff", "fte"],
+        "monthly_recurring_contracts": ["recurring", "contracts", "mrr", "monthly"],
+        "delivery_cost_monthly": ["delivery", "cost", "opex", "operating"],
+        "gross_margin": ["margin", "gross margin", "profitability"],
+        "initial_investment": ["capex", "investment", "capital", "initial"],
         "units": ["units", "apartments", "villas"],
         "avg_unit_price": ["unit price", "selling price", "sale price"],
     }

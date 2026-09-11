@@ -77,8 +77,9 @@ _MW_RE = re.compile(r"(?i)(\d+(?:\.\d+)?)\s*MW")
 _PROJECT_HINTS = [
     ("data_center", re.compile(r"(?i)data\s*center|colocation|PUE|rack\s*power|تيرابايت|مركز\s*بيانات")),
     ("real_estate", re.compile(r"(?i)residential|compound|villa|apartment|absorption|عقار|مجمع\s*سكني")),
-    ("saas_digital", re.compile(r"(?i)\bSaaS\b|ARR|MRR|churn|CAC|LTV|اشتراك")),
+    # Cyber/MSSP before SaaS so "SaaS digital cybersecurity" does not mis-tag as pure SaaS.
     ("services", re.compile(r"(?i)cyber|MSSP|consulting|managed\s*service|SOC|أمن\s*سيبراني")),
+    ("saas_digital", re.compile(r"(?i)\bSaaS\b|ARR|MRR|churn|CAC|LTV|اشتراك")),
     ("industrial", re.compile(r"(?i)factory|manufactur|plant|صناع")),
     ("retail", re.compile(r"(?i)retail|store|mall|تجزئة")),
 ]

@@ -661,6 +661,14 @@ def _attach_knowledge_context(state, user_id: str):
         bits = []
         if archetype:
             bits.append(str(archetype).replace("_", " "))
+            # Expand frozen archetype labels into retrieval vocabulary.
+            _ARCH_EXPAND = {
+                "services": "cybersecurity MSSP managed SOC consulting utilization contracts",
+                "saas_digital": "SaaS ARR MRR churn subscription digital product",
+                "real_estate": "residential compound occupancy absorption units land construction",
+                "data_center": "data center colocation MW PUE rack power capex",
+            }
+            bits.append(_ARCH_EXPAND.get(str(archetype), ""))
         if sector:
             bits.append(str(sector))
         for msg in list(getattr(state, "messages", None) or [])[-5:]:
@@ -672,7 +680,7 @@ def _attach_knowledge_context(state, user_id: str):
         answers = getattr(state, "structured_answers", None) or {}
         if answers:
             bits.append(" ".join(f"{k}={v}" for k, v in list(answers.items())[:12]))
-        query = " | ".join(bits)[:2000] or "feasibility study Saudi Arabia"
+        query = " | ".join(b for b in bits if b)[:2000] or "feasibility study Saudi Arabia"
         assumption_keys = [a.key for a in (getattr(state, "assumptions", None) or [])]
         if not assumption_keys:
             try:
