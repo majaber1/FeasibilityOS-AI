@@ -67,15 +67,22 @@ def build_memory_payload(
         )
         or [],
     }
+    def _clip(value: Any, n: int = 120) -> Optional[str]:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text[:n] if text else None
+
     return {
         "id": str(uuid.uuid4()),
         "owner_id": owner_id,
         "organization_id": organization_id,
         "source_study_id": getattr(state, "study_id", None),
-        "archetype": archetype,
-        "project_type": archetype,
-        "sector": sector,
-        "country": "SA",
+        # StudyMemory.sector/archetype/project_type are VARCHAR(120).
+        "archetype": _clip(archetype),
+        "project_type": _clip(archetype),
+        "sector": _clip(sector),
+        "country": _clip("SA", 8) or "SA",
         "assumptions": assumptions,
         "financial_outcome": financial if isinstance(financial, dict) else {},
         "decision": decision,
