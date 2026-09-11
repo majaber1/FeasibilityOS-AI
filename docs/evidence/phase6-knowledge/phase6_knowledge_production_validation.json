@@ -1,0 +1,304 @@
+{
+  "at": "2026-09-11T22:33:25Z",
+  "production_api": "https://feasibilityos-ai.vercel.app",
+  "production_web": "https://saudi-business-web.vercel.app",
+  "main_sha": "b99c09ed8a22756a031a5393aa98608e7874c2a6",
+  "idea": "I want to build a 500 apartment residential compound in Riyadh",
+  "steps": {
+    "health": {
+      "ok": true,
+      "body": {
+        "status": "running",
+        "service": "Saudi Business",
+        "version": "1.0.0",
+        "environment": "production",
+        "db_enabled": true,
+        "db_backend": "postgresql",
+        "db_connected": true,
+        "persistence": "postgresql",
+        "object_storage": "not_configured",
+        "storage_provider": "none"
+      }
+    },
+    "auth": "PASS",
+    "pdf": {
+      "path": "/opt/cursor/artifacts/riyadh_residential_compound_feasibility.pdf",
+      "bytes": 2586
+    },
+    "upload": {
+      "http": 200,
+      "ok": true,
+      "document": {
+        "id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+        "title": "Riyadh Residential Compound Feasibility Study",
+        "status": null,
+        "extraction_status": "ready",
+        "project_type": "residential_compound",
+        "sector": "real_estate",
+        "chunk_count": 2,
+        "capex": {
+          "amount": 685000000.0,
+          "currency": "SAR"
+        },
+        "opex": {
+          "amount": 32000000.0,
+          "currency": "SAR"
+        },
+        "year": 2024,
+        "confidence": 0.8,
+        "assumptions": {
+          "absorption": "12%",
+          "occupancy": "28%"
+        }
+      },
+      "embedding_leak": false
+    },
+    "extraction": {
+      "ok": true,
+      "status": "ready",
+      "chunk_count": 2,
+      "chunks_preview": [
+        {
+          "id": "2c6705d3-2283-4b74-a9df-f789467f072e",
+          "content": "Riyadh Residential Compound Feasibility Study\nTitle: Riyadh Residential Compound Feasibility Study\nProject type: real estate residential compound apartments\nSector: real estate residential\nLocation: North Riyadh, Kingdom of Saudi Arabia\nYear: 2024\nUnits: 500 apartments (mix of 2BR and 3BR)\nLand area: 85,000 sqm\nGross floor area: 95,000 sqm\nAssumptions:\n- units = 500\n- absorption_rate = 12% per quarter\n- year1_occupancy = 28%\n- avg_selling_price = 980000 SAR per apartment\n- construction_cost_per_",
+          "text": null,
+          "importance": 0.8
+        },
+        {
+          "id": "6825fc3e-2994-4705-9fc0-1c6d1b9c7722",
+          "content": "after launch\nCAPEX total SAR 685,000,000\nOPEX annual SAR 32,000,000\nRevenue ramp: Year1 180M, Year2 320M, Year3 410M SAR\nRisks: absorption delay, construction cost overrun, mortgage rate spike, off-plan cancellation\nOutcome: GO_WITH_CONDITIONS after achieving 35% off-plan reservations\nSimilar studies: North Riyadh mid-market residential compounds 400-600 units",
+          "text": null,
+          "importance": 0.8
+        }
+      ],
+      "embedding_leak": false
+    },
+    "metadata": {
+      "ok": true,
+      "keys": [
+        "sector",
+        "project_type",
+        "capex",
+        "opex",
+        "assumptions",
+        "year",
+        "confidence",
+        "title"
+      ],
+      "project_type": "residential_compound",
+      "sector": "real_estate",
+      "capex": {
+        "amount": 685000000.0,
+        "currency": "SAR"
+      },
+      "opex": {
+        "amount": 32000000.0,
+        "currency": "SAR"
+      }
+    },
+    "storage": {
+      "ok": true,
+      "document_id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+      "chunk_count": 2
+    },
+    "retrieve": {
+      "http": 200,
+      "ok": true,
+      "hit_count": 1,
+      "citations": 1,
+      "sample": {
+        "claim": "Riyadh Residential Compound Feasibility Study Title: Riyadh Residential Compound Feasibility Study Project type: real estate residential compound apartments Sector: real estate residential Location: North Riyadh, Kingdom",
+        "source_title": "Riyadh Residential Compound Feasibility Study",
+        "document_id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+        "chunk_id": "2c6705d3-2283-4b74-a9df-f789467f072e",
+        "study_memory_id": null,
+        "confidence": 0.39
+      },
+      "embedding_leak": false,
+      "raw_keys": [
+        "assumption_hints",
+        "citations",
+        "comparable_projects",
+        "financial_patterns",
+        "hit_count",
+        "query",
+        "risk_hints"
+      ]
+    },
+    "tenant_isolation": {
+      "ok": true,
+      "b_docs": 0,
+      "b_hits": 0
+    },
+    "classification_message": {
+      "http": 200,
+      "phase": "ARCHETYPE_CLASSIFICATION",
+      "archetype": "real_estate"
+    },
+    "classification": {
+      "http": 200,
+      "archetype": "real_estate",
+      "phase": "NEEDS_INFORMATION",
+      "ok": true
+    },
+    "discovery": {
+      "phase": "EVIDENCE_REVIEW",
+      "questions_seen": 7,
+      "answered_explicit": 3,
+      "ai_estimates": 4,
+      "ok": true
+    },
+    "assumptions": {
+      "phase": "ASSUMPTIONS_REVIEW",
+      "count": 6,
+      "with_knowledge_refs": 6,
+      "origin_knowledge_reference": 3,
+      "origin_ai_estimated": 3,
+      "origin_user": 3,
+      "knowledge_context_hits": 1,
+      "sample": [
+        {
+          "key": "units",
+          "origin": "user",
+          "source": "User input (supported by 1 knowledge source(s))",
+          "ai_estimated": false,
+          "refs": [
+            {
+              "document_id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+              "chunk_id": "2c6705d3-2283-4b74-a9df-f789467f072e",
+              "study_memory_id": null,
+              "title": "Riyadh Residential Compound Feasibility Study",
+              "similarity": 0.4513
+            }
+          ]
+        },
+        {
+          "key": "selling_price",
+          "origin": "user",
+          "source": "User input (supported by 1 knowledge source(s))",
+          "ai_estimated": false,
+          "refs": [
+            {
+              "document_id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+              "chunk_id": "2c6705d3-2283-4b74-a9df-f789467f072e",
+              "study_memory_id": null,
+              "title": "Riyadh Residential Compound Feasibility Study",
+              "similarity": 0.4513
+            }
+          ]
+        },
+        {
+          "key": "absorption_rate",
+          "origin": "user",
+          "source": "User input (supported by 1 knowledge source(s))",
+          "ai_estimated": false,
+          "refs": [
+            {
+              "document_id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+              "chunk_id": "2c6705d3-2283-4b74-a9df-f789467f072e",
+              "study_memory_id": null,
+              "title": "Riyadh Residential Compound Feasibility Study",
+              "similarity": 0.4513
+            }
+          ]
+        },
+        {
+          "key": "land_cost",
+          "origin": "knowledge_reference",
+          "source": "AI estimate based on 1 similar knowledge source(s)",
+          "ai_estimated": true,
+          "refs": [
+            {
+              "document_id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+              "chunk_id": "2c6705d3-2283-4b74-a9df-f789467f072e",
+              "study_memory_id": null,
+              "title": "Riyadh Residential Compound Feasibility Study",
+              "similarity": 0.4513
+            }
+          ]
+        },
+        {
+          "key": "construction_boq",
+          "origin": "knowledge_reference",
+          "source": "AI estimate based on 1 similar knowledge source(s)",
+          "ai_estimated": true,
+          "refs": [
+            {
+              "document_id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+              "chunk_id": "2c6705d3-2283-4b74-a9df-f789467f072e",
+              "study_memory_id": null,
+              "title": "Riyadh Residential Compound Feasibility Study",
+              "similarity": 0.4513
+            }
+          ]
+        },
+        {
+          "key": "financing",
+          "origin": "knowledge_reference",
+          "source": "AI estimate based on 1 similar knowledge source(s)",
+          "ai_estimated": true,
+          "refs": [
+            {
+              "document_id": "a9d25c95-e0cd-4e35-b94c-12ba94b0cfc4",
+              "chunk_id": "2c6705d3-2283-4b74-a9df-f789467f072e",
+              "study_memory_id": null,
+              "title": "Riyadh Residential Compound Feasibility Study",
+              "similarity": 0.4513
+            }
+          ]
+        }
+      ],
+      "embedding_leak": false,
+      "fake_citations": false,
+      "distinguishable": true,
+      "ok": true
+    },
+    "engines": {
+      "phases": [
+        "ARCHETYPE_CLASSIFICATION",
+        "ARCHETYPE_CLASSIFICATION",
+        "NEEDS_INFORMATION",
+        "EVIDENCE_REVIEW",
+        "ASSUMPTIONS_REVIEW",
+        "ASSUMPTIONS_REVIEW",
+        "ANALYZED",
+        "DECISION_READY",
+        "REPORT_READY"
+      ],
+      "final_phase": "REPORT_READY",
+      "has_financial": true,
+      "has_risks": false,
+      "verdict": "DEFER",
+      "knowledge_refs_final": 6,
+      "embedding_leak": false,
+      "financial_preview": "{'capex': 20000000.0, 'revenue_projections': {'year_1': 250000.0, 'year_2': 250000.0, 'year_3': 250000.0}, 'cost_projections': {'year_1': 0, 'year_2': 0, 'year_3': 0}, 'npv': -19399542.18, 'irr': -0.7455, 'payback_months': None, 'scenarios': {'optimistic': {'npv': -19279450.62, 'irr': -0.7277}, 'base': {'npv': -19399542.18, 'irr': -0.7455}, 'conservative': {'npv': -19519633.75, 'irr': -0.7655}}, 'analysis_complete': True, 'warnings': ['explain_model_unavailable']}",
+      "decision_preview": "DEFER"
+    },
+    "memory": {
+      "http": 200,
+      "count": 1
+    },
+    "security": {
+      "no_embedding_leak": true,
+      "no_fake_citations": true,
+      "tenant_isolation": true,
+      "ai_vs_knowledge_distinguishable": true
+    }
+  },
+  "gates": {
+    "Knowledge Upload": "PASS",
+    "Extraction": "PASS",
+    "Retrieval": "PASS",
+    "Knowledge-backed Assumptions": "PASS",
+    "Financial": "PASS",
+    "Risk": "PASS",
+    "Decision": "PASS",
+    "Report": "PASS"
+  },
+  "errors": [],
+  "email": "p6_prod_val_1789166005_816a98@example.com",
+  "study_id": "study_b974cfe0af50",
+  "project_id": "34",
+  "pass": true,
+  "accepted": "ACCEPTED"
+}
