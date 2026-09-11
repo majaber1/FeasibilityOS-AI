@@ -22,7 +22,7 @@ Assumption collection previously used SaaS questions (CAC, churn, ARR/MRR) for e
 - `POST /api/v2/studies/{id}/approve/{archetype|profile|evidence|assumptions}`
 
 ## DB
-Migration `0026_archetype_assumption_schemas` adds:
+Migration `0026_archetype_schemas` adds:
 - `discovery_questions_json`
 - `structured_answers_json`
 - `assumptions_version`
