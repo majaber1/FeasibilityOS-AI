@@ -32,6 +32,7 @@ export function Navbar() {
   const links = [
     { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
     ...(signedIn ? [{ href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" }] : []),
+    ...(signedIn ? [{ href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" }] : []),
     { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
     { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
     { href: "/opportunities", label: t.nav.opportunities },

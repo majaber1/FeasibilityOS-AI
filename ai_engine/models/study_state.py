@@ -64,6 +64,7 @@ class Assumption(BaseModel):
     ai_estimated: bool = False
     knowledge_refs: List[Dict[str, Any]] = Field(default_factory=list)
     knowledge_confidence: Optional[float] = None
+    knowledge_influence: Optional[Dict[str, Any]] = None
 
 
 class Claim(BaseModel):

@@ -85,9 +85,19 @@ const services = [
     },
   },
   {
+    href: "/tools/knowledge",
+    icon: "📚",
+    code: "09",
+    title: { ar: "لوحة المعرفة", en: "Knowledge Dashboard" },
+    description: {
+      ar: "جودة الوثائق، تغطية القطاعات، والمراجع الأكثر استخدامًا في الافتراضات.",
+      en: "Document quality, sector coverage, and most-referenced evidence behind assumptions.",
+    },
+  },
+  {
     href: "/tools/ideas",
     icon: "💡",
-    code: "09",
+    code: "10",
     title: { ar: "بنك الأفكار", en: "Idea Bank" },
     description: {
       ar: "أفكار مشاريع متوافقة مع رؤية 2030 ومصنفة حسب القطاع ومستوى الصعوبة.",

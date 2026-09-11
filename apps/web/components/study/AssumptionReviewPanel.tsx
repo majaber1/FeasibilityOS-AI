@@ -8,6 +8,10 @@ export type KnowledgeRef = {
   study_memory_id?: string | null;
   title?: string | null;
   similarity?: number | null;
+  reason?: string | null;
+  confidence?: number | null;
+  source_document?: string | null;
+  match_reasons?: string[] | null;
 };
 
 export type ReviewAssumption = {
@@ -25,6 +29,11 @@ export type ReviewAssumption = {
   unit?: string | null;
   knowledge_refs?: KnowledgeRef[];
   knowledge_confidence?: number | null;
+  knowledge_influence?: {
+    reason?: string | null;
+    confidence?: number | null;
+    source_count?: number | null;
+  } | null;
 };
 
 type Props = {
@@ -340,13 +349,20 @@ export function AssumptionReviewPanel({
                             ? ` ${Math.round(a.knowledge_confidence * 100)}%`
                             : ""}
                         </p>
+                        {a.knowledge_influence?.reason ? (
+                          <p className="mt-1 text-teal-900" data-testid={`assumption-knowledge-reason-${a.key}`}>
+                            {ar ? "السبب:" : "Reason:"} {a.knowledge_influence.reason}
+                          </p>
+                        ) : null}
                         <ul className="mt-1 list-disc pl-4">
                           {(a.knowledge_refs || [])
                             .filter((r) => r.document_id || r.study_memory_id)
                             .map((r, idx) => (
                               <li key={`${r.document_id || r.study_memory_id}-${idx}`}>
-                                {r.title || r.document_id || r.study_memory_id}
+                                {r.source_document || r.title || r.document_id || r.study_memory_id}
                                 {typeof r.similarity === "number" ? ` (${Math.round(r.similarity * 100)}%)` : ""}
+                                {typeof r.confidence === "number" ? ` · conf ${Math.round(r.confidence * 100)}%` : ""}
+                                {r.reason ? ` — ${r.reason}` : ""}
                               </li>
                             ))}
                         </ul>

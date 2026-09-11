@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from .embeddings import cosine_similarity, embed_text
+from .similarity import build_similar_projects
 
 
 def retrieve_for_query(
@@ -29,6 +30,13 @@ def retrieve_for_query(
         pt = _get(doc, "project_type") if doc is not None else None
         if pt and str(pt).lower() in query.lower():
             boost += 0.08
+        # Phase 6.1 — mild quality-weighted ranking (never blocks retrieval)
+        qscore = _get(doc, "quality_score") if doc is not None else None
+        try:
+            if qscore is not None:
+                boost += 0.05 * (float(qscore) / 100.0)
+        except (TypeError, ValueError):
+            pass
         final = score * (0.7 + 0.3 * importance) + boost
         if final < min_score:
             continue
@@ -93,6 +101,8 @@ def build_evidence_pack(
     query: str,
     hits: List[Dict[str, Any]],
     assumption_keys: Optional[List[str]] = None,
+    document_by_id: Optional[Dict[str, Any]] = None,
+    query_profile: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build citation-safe Evidence Pack. Never invent document ids."""
     comparable: List[Dict[str, Any]] = []
@@ -100,6 +110,13 @@ def build_evidence_pack(
     assumption_hints: List[Dict[str, Any]] = []
     risk_hints: List[Dict[str, Any]] = []
     financial_patterns: List[Dict[str, Any]] = []
+    similar_projects = build_similar_projects(
+        query=query,
+        hits=hits,
+        document_by_id=document_by_id or {},
+        query_profile=query_profile,
+        top_k=5,
+    )
 
     for h in hits:
         if not h.get("content"):
@@ -207,6 +224,12 @@ def build_evidence_pack(
         if not matched:
             continue
         top = matched[0]
+        titles = [x.get("title") for x in matched[:2] if x.get("title")]
+        rationale = (
+            f"Similar project evidence from {', '.join(titles)}"
+            if titles
+            else f"Grounded in {len(matched)} similar knowledge hit(s)"
+        )
         assumption_hints.append(
             {
                 "key": key,
@@ -215,7 +238,7 @@ def build_evidence_pack(
                 "evidence_ids": [
                     x.get("document_id") or x.get("study_memory_id") for x in matched[:3]
                 ],
-                "rationale": f"Grounded in {len(matched)} similar knowledge hit(s)",
+                "rationale": rationale,
                 "refs": [
                     {
                         "document_id": x.get("document_id"),
@@ -223,6 +246,9 @@ def build_evidence_pack(
                         "study_memory_id": x.get("study_memory_id"),
                         "title": x.get("title"),
                         "similarity": x.get("score"),
+                        "reason": rationale,
+                        "confidence": round(float(x.get("score") or 0.5), 3),
+                        "source_document": x.get("title"),
                     }
                     for x in matched[:3]
                 ],
@@ -232,6 +258,7 @@ def build_evidence_pack(
     return {
         "query": query,
         "comparable_projects": comparable,
+        "similar_projects": similar_projects,
         "assumption_hints": assumption_hints,
         "risk_hints": risk_hints,
         "financial_patterns": financial_patterns,

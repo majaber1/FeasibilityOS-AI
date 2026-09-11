@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from .chunking import chunk_text
 from .embeddings import embed_text
 from .extract import extract_structured_metadata, extract_text
+from .quality import score_document_quality
 
 
 def ingest_bytes(
@@ -49,12 +50,19 @@ def ingest_bytes(
 
     status = "ready" if text.strip() else "partial"
     doc_id = str(uuid.uuid4())
+    country = meta.get("country") or "SA"
+    quality = score_document_quality(
+        text=text,
+        metadata=meta,
+        source=source,
+        country=country,
+    )
     return {
         "id": doc_id,
         "title": title or (filename.rsplit(".", 1)[0] if filename else "Untitled"),
         "source": source,
         "sector": meta.get("sector"),
-        "country": meta.get("country") or "SA",
+        "country": country,
         "year": meta.get("year"),
         "document_type": (overrides or {}).get("document_type") or "feasibility_study",
         "project_type": meta.get("project_type"),
@@ -69,4 +77,11 @@ def ingest_bytes(
         "chunks": chunks,
         "original_filename": filename,
         "content_type": content_type,
+        "quality_score": quality.get("quality_score"),
+        "quality_breakdown": quality,
+        "reference_count": 0,
+        "geography": country,
+        "business_model": (meta.get("revenue_model") or {}).get("type")
+        if isinstance(meta.get("revenue_model"), dict)
+        else None,
     }
