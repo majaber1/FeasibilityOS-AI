@@ -99,3 +99,15 @@ Summary JSON: `docs/evidence/ai-discovery-advisor/discovery-other-archetypes-sum
 ## Verdict
 
 Phase 5 Discovery Advisor is **browser-validated** for the mandatory SaaS vertical slice and for Professional, Real Estate, Data Center, and Mobility regressions. Ready for human review on PR #25.
+
+## Supplemental interactive browser journeys
+
+Additional manual browser journeys (beyond the Playwright gates) confirmed the same interview UX:
+
+- Cyber / professional services: consultants–utilization–contracts questions; no mobility leakage
+- Uber mobility: drivers–trips–take_rate questions; no professional-services leakage
+
+<img src="docs/evidence/ai-discovery-advisor/discovery-cyber-interview.webp" alt="Cyber discovery interview" />
+<img src="docs/evidence/ai-discovery-advisor/discovery-cyber-assumptions.webp" alt="Cyber assumptions" />
+<img src="docs/evidence/ai-discovery-advisor/discovery-uber-interview.webp" alt="Uber discovery interview" />
+<img src="docs/evidence/ai-discovery-advisor/discovery-uber-assumptions.webp" alt="Uber assumptions" />
