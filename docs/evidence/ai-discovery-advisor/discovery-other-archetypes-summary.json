@@ -1,0 +1,221 @@
+[
+  {
+    "key": "professional",
+    "email": "professional_1789129471075@example.com",
+    "ok": true,
+    "poison": [],
+    "stepsLog": [
+      "EVIDENCE_REVIEW",
+      "ASSUMPTIONS_REVIEW",
+      "ANALYZED",
+      "DECISION_READY",
+      "REPORT_READY"
+    ],
+    "projectId": 336,
+    "studyId": "study_a806a3cf4983",
+    "phaseAfterArch": "NEEDS_INFORMATION",
+    "archetype": "services",
+    "questionIds": [
+      "consultants_headcount",
+      "utilization_rate",
+      "active_contracts",
+      "monthly_recurring_contracts",
+      "delivery_cost_monthly",
+      "gross_margin",
+      "initial_investment"
+    ],
+    "categories": [
+      "consultants",
+      "utilization",
+      "contracts",
+      "delivery_cost",
+      "margins"
+    ],
+    "url": "http://127.0.0.1:3000/projects/336/studies/study_a806a3cf4983/workspace",
+    "missingVisible": false,
+    "interviewVisible": true,
+    "aiEstimateOn": "utilization_rate",
+    "submitPhase": "EVIDENCE_REVIEW",
+    "structuredAnswers": {
+      "gross_margin": 5,
+      "active_contracts": 1000,
+      "initial_investment": 1000,
+      "consultants_headcount": 500,
+      "delivery_cost_monthly": 1000,
+      "monthly_recurring_contracts": 1000
+    },
+    "aiEstimated": [
+      "utilization_rate"
+    ],
+    "persisted": true,
+    "finalPhase": "REPORT_READY",
+    "verdict": "GO_WITH_CONDITIONS",
+    "financial": true
+  },
+  {
+    "key": "real_estate",
+    "email": "real_estate_1789129499602@example.com",
+    "ok": true,
+    "poison": [],
+    "stepsLog": [
+      "EVIDENCE_REVIEW",
+      "ASSUMPTIONS_REVIEW",
+      "ANALYZED",
+      "DECISION_READY",
+      "REPORT_READY"
+    ],
+    "projectId": 337,
+    "studyId": "study_075bd341e891",
+    "phaseAfterArch": "NEEDS_INFORMATION",
+    "archetype": "real_estate",
+    "questionIds": [
+      "land_cost",
+      "construction_boq",
+      "units",
+      "selling_price",
+      "absorption_rate",
+      "financing",
+      "loan_to_cost"
+    ],
+    "categories": [
+      "land",
+      "boq",
+      "units",
+      "selling_rental_price",
+      "absorption",
+      "financing"
+    ],
+    "url": "http://127.0.0.1:3000/projects/337/studies/study_075bd341e891/workspace",
+    "missingVisible": false,
+    "interviewVisible": true,
+    "aiEstimateOn": "construction_boq",
+    "submitPhase": "EVIDENCE_REVIEW",
+    "structuredAnswers": {
+      "units": 1000,
+      "financing": "All equity",
+      "land_cost": 500,
+      "loan_to_cost": 5,
+      "selling_price": 1000,
+      "absorption_rate": 1000
+    },
+    "aiEstimated": [
+      "construction_boq"
+    ],
+    "persisted": true,
+    "finalPhase": "REPORT_READY",
+    "verdict": "DEFER",
+    "financial": true
+  },
+  {
+    "key": "data_center",
+    "email": "data_center_1789129521277@example.com",
+    "ok": true,
+    "poison": [],
+    "stepsLog": [
+      "EVIDENCE_REVIEW",
+      "ASSUMPTIONS_REVIEW",
+      "ANALYZED",
+      "DECISION_READY",
+      "REPORT_READY"
+    ],
+    "projectId": 338,
+    "studyId": "study_916afeb7199e",
+    "phaseAfterArch": "NEEDS_INFORMATION",
+    "archetype": "data_center",
+    "questionIds": [
+      "mw_capacity",
+      "rack_count",
+      "pue",
+      "power_cost",
+      "occupancy",
+      "pricing_per_kw",
+      "tier",
+      "contract_term_months",
+      "capex_total",
+      "opex_annual"
+    ],
+    "categories": [
+      "mw",
+      "racks",
+      "pue",
+      "power",
+      "occupancy",
+      "capex_opex"
+    ],
+    "url": "http://127.0.0.1:3000/projects/338/studies/study_916afeb7199e/workspace",
+    "missingVisible": false,
+    "interviewVisible": true,
+    "aiEstimateOn": "rack_count",
+    "submitPhase": "EVIDENCE_REVIEW",
+    "structuredAnswers": {
+      "pue": 1000,
+      "tier": "Tier I",
+      "occupancy": 5,
+      "power_cost": 1000,
+      "capex_total": 1000,
+      "mw_capacity": 500,
+      "opex_annual": 1000,
+      "pricing_per_kw": 1000,
+      "contract_term_months": 1000
+    },
+    "aiEstimated": [
+      "rack_count"
+    ],
+    "persisted": true,
+    "finalPhase": "REPORT_READY",
+    "verdict": "DEFER",
+    "financial": true
+  },
+  {
+    "key": "mobility",
+    "email": "mobility_1789129542398@example.com",
+    "ok": true,
+    "poison": [],
+    "stepsLog": [
+      "EVIDENCE_REVIEW",
+      "ASSUMPTIONS_REVIEW",
+      "ANALYZED",
+      "DECISION_READY",
+      "REPORT_READY"
+    ],
+    "projectId": 339,
+    "studyId": "study_402a734f8eb4",
+    "phaseAfterArch": "NEEDS_INFORMATION",
+    "archetype": "services",
+    "questionIds": [
+      "take_rate",
+      "monthly_trips",
+      "drivers",
+      "driver_cac",
+      "avg_trip_value",
+      "monthly_fixed_opex",
+      "initial_investment"
+    ],
+    "categories": [
+      "take_rate",
+      "trips",
+      "drivers",
+      "margins"
+    ],
+    "url": "http://127.0.0.1:3000/projects/339/studies/study_402a734f8eb4/workspace",
+    "missingVisible": false,
+    "interviewVisible": true,
+    "aiEstimateOn": "monthly_trips",
+    "submitPhase": "EVIDENCE_REVIEW",
+    "structuredAnswers": {
+      "drivers": 1000,
+      "take_rate": 500,
+      "driver_cac": 1000,
+      "avg_trip_value": 1000,
+      "initial_investment": 1000,
+      "monthly_fixed_opex": 1000
+    },
+    "aiEstimated": [
+      "monthly_trips"
+    ],
+    "persisted": true,
+    "finalPhase": "REPORT_READY",
+    "verdict": "GO_WITH_CONDITIONS",
+    "financial": true
+  }
+]

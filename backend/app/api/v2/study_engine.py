@@ -875,11 +875,31 @@ async def submit_structured_answers(study_id: str, req: StructuredAnswersRequest
 
     answers = dict(state.structured_answers or {})
     # Apply explicit user answers only (never write AI-estimate placeholders).
+    # Reject poison strings like "confirmed"/"ok" for numeric/currency/percent
+    # fields so StudyState maps cleanly into the existing Assumption Engine.
+    q_types = {
+        str(q.get("id")): str(q.get("answer_type") or q.get("question_type") or "").upper()
+        for q in (state.discovery_questions or [])
+        if q.get("id")
+    }
+    _NUMERIC_TYPES = {"NUMBER", "CURRENCY", "PERCENTAGE", "PERCENT"}
+    _POISON = {"confirmed", "ok", "yes", "y", "true", "n/a", "na", "none", "null", "-"}
     for key, value in (req.answers or {}).items():
         if value is None or value == "":
             continue
         if isinstance(value, str) and not value.strip():
             continue
+        atype = q_types.get(str(key), "")
+        if atype in _NUMERIC_TYPES:
+            if isinstance(value, str) and value.strip().lower() in _POISON:
+                continue
+            if isinstance(value, str):
+                try:
+                    value = float(value.strip().replace(",", ""))
+                    if value.is_integer():
+                        value = int(value)
+                except ValueError:
+                    continue
         answers[key] = value
     state.structured_answers = answers
 
