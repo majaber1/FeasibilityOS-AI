@@ -12,6 +12,8 @@ from ..archetypes import (
     get_assumption_schema,
     schema_keys_for,
     assert_no_saas_leakage,
+    assert_no_mobility_on_professional,
+    detect_services_variant,
     normalize_archetype,
 )
 
@@ -59,8 +61,26 @@ Output JSON:
 def run_assumptions(state: StudyState) -> StudyState:
     lang = state.language
     archetype = normalize_archetype(state.profile.archetype if state.profile else "other")
-    schema = get_assumption_schema(archetype)
-    allowed = schema_keys_for(archetype)
+    services_variant = getattr(state.profile, "services_variant", None) if state.profile else None
+    # Rebuild context from recent user messages for variant safety.
+    context_bits = []
+    for msg in reversed(list(state.messages or [])):
+        role = getattr(msg, "type", None) or getattr(msg, "role", None)
+        content = getattr(msg, "content", None)
+        if isinstance(msg, dict):
+            role = msg.get("type") or msg.get("role")
+            content = msg.get("content")
+        if role in {"human", "user"} and content:
+            context_bits.append(str(content))
+            if len(context_bits) >= 3:
+                break
+    context_text = "\n".join(reversed(context_bits))
+    schema = get_assumption_schema(
+        archetype, context_text=context_text, services_variant=services_variant
+    )
+    allowed = schema_keys_for(
+        archetype, context_text=context_text, services_variant=services_variant
+    )
     schema_by_key = {f["key"]: f for f in schema}
 
     system_prompt = SYSTEM_PROMPT_AR if lang == "ar" else SYSTEM_PROMPT_EN
@@ -91,12 +111,20 @@ def run_assumptions(state: StudyState) -> StudyState:
 
     assumption_data: dict | None = None
     response_text = ""
+    llm_unavailable = False
     try:
         response = llm.invoke(messages)
         response_text = response.content if hasattr(response, "content") else str(response)
         assumption_data = _extract_json(response_text)
+        if assumption_data is None:
+            llm_unavailable = True
+            response_text = (
+                response_text
+                or "Assumption generation used Rule Fallback (LLM response not parseable)."
+            )
     except Exception as e:
-        response_text = f"Assumption generation fallback ({e})."
+        llm_unavailable = True
+        response_text = f"Rule Fallback: assumption generation LLM unavailable ({e})."
         assumption_data = None
 
     seeded: dict[str, Assumption] = {}
@@ -157,23 +185,43 @@ def run_assumptions(state: StudyState) -> StudyState:
             continue
         if not field.get("required", True):
             continue
-        seeded[key] = Assumption(
-            key=key,
-            value="",
-            source="AI Estimated Assumption",
-            confidence="low",
-            origin="ai_estimated",
-            input_type=field.get("input_type"),
-            unit=field.get("unit"),
-            label_en=field.get("label_en"),
-            label_ar=field.get("label_ar"),
-            ai_estimated=True,
-        )
+        if llm_unavailable:
+            seeded[key] = Assumption(
+                key=key,
+                value="",
+                source="Rule Fallback",
+                confidence="low",
+                origin="rule_fallback",
+                input_type=field.get("input_type"),
+                unit=field.get("unit"),
+                label_en=field.get("label_en"),
+                label_ar=field.get("label_ar"),
+                ai_estimated=False,
+            )
+        else:
+            seeded[key] = Assumption(
+                key=key,
+                value="",
+                source="AI Estimated Assumption",
+                confidence="low",
+                origin="ai_estimated",
+                input_type=field.get("input_type"),
+                unit=field.get("unit"),
+                label_en=field.get("label_en"),
+                label_ar=field.get("label_ar"),
+                ai_estimated=True,
+            )
 
     assumptions = list(seeded.values())
     leaked = assert_no_saas_leakage(archetype, [a.key for a in assumptions])
     if leaked:
         assumptions = [a for a in assumptions if a.key not in leaked]
+    if archetype == "services" and (
+        (services_variant or detect_services_variant(context_text)) == "professional"
+    ):
+        mob = assert_no_mobility_on_professional([a.key for a in assumptions])
+        if mob:
+            assumptions = [a for a in assumptions if a.key not in mob]
 
     prev_sig = [(a.key, a.value, a.base) for a in (state.assumptions or [])]
     new_sig = [(a.key, a.value, a.base) for a in assumptions]

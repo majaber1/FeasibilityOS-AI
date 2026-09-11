@@ -25,6 +25,7 @@ SCENARIOS = {
     "uber": {
         "text": "Uber-like ride hailing platform in Riyadh with drivers, trips and take rate",
         "archetype": "services",
+        "services_variant": "mobility",
         "answers": {
             "take_rate": 20,
             "monthly_trips": 500000,
@@ -35,7 +36,30 @@ SCENARIOS = {
             "initial_investment": 8000000,
         },
         "must_have": {"take_rate", "monthly_trips", "drivers", "driver_cac"},
-        "must_not": {"cac", "arr", "mrr", "churn"},
+        "must_not": {"cac", "arr", "mrr", "churn", "consultants_headcount"},
+    },
+    "cybersecurity_mssp": {
+        "text": "I want to establish a cybersecurity company providing managed security services to enterprises",
+        "archetype": "services",
+        "services_variant": "professional",
+        "answers": {
+            "consultants_headcount": 40,
+            "utilization_rate": 70,
+            "active_contracts": 18,
+            "monthly_recurring_contracts": 450000,
+            "delivery_cost_monthly": 280000,
+            "gross_margin": 38,
+            "initial_investment": 2500000,
+        },
+        "must_have": {
+            "consultants_headcount",
+            "utilization_rate",
+            "active_contracts",
+            "monthly_recurring_contracts",
+            "delivery_cost_monthly",
+            "gross_margin",
+        },
+        "must_not": {"take_rate", "monthly_trips", "drivers", "driver_cac", "cac", "arr", "mrr", "churn"},
     },
     "residential": {
         "text": "Residential compound 400 villas near Riyadh with land cost and construction BOQ",
@@ -61,6 +85,7 @@ SCENARIOS = {
             "power_cost": 0.18,
             "occupancy": 55,
             "pricing_per_kw": 450,
+            "capex_total": 900000000,
         },
         "must_have": {"mw_capacity", "rack_count", "pue", "occupancy"},
         "must_not": {"cac", "arr", "mrr", "churn"},
@@ -119,9 +144,13 @@ def test_scenario_reaches_report_without_saas_leakage(name, monkeypatch):
     assert state.profile is not None
     assert state.profile.archetype == arch
     assert state.phase == "ARCHETYPE_CLASSIFICATION"
+    if cfg.get("services_variant"):
+        assert state.profile.services_variant == cfg["services_variant"]
 
     # Confirm archetype + structured answers
     state.profile.archetype_confirmed = True
+    if cfg.get("services_variant"):
+        state.profile.services_variant = cfg["services_variant"]
     state.structured_answers = dict(cfg["answers"])
     state.discovery_questions = [
         {**q, "answered": True, "answer": cfg["answers"].get(q["id"])}
@@ -160,7 +189,13 @@ def test_scenario_reaches_report_without_saas_leakage(name, monkeypatch):
     state.phase = "ASSUMPTIONS_REVIEW"
 
     # Build LLM payload using only schema keys (+ intentional SaaS bleed to ensure filter)
-    schema_keys = sorted(schema_keys_for(arch))
+    schema_keys = sorted(
+        schema_keys_for(
+            arch,
+            context_text=cfg["text"],
+            services_variant=cfg.get("services_variant"),
+        )
+    )
     llm_assumptions = [
         {
             "key": k,

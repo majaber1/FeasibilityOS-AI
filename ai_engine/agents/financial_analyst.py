@@ -190,6 +190,11 @@ def _deterministic_extract(state: StudyState) -> dict | None:
     variable = first("variable cost", "per ride", "تكلفة متغيرة")
     discount = first("discount rate", "معدل الخصم") or 0.12
 
+    # Professional / managed services model
+    mrc = first("monthly_recurring_contracts", "monthly recurring", "mrc")
+    delivery_monthly = first("delivery_cost_monthly", "delivery cost")
+    gross_margin = first("gross_margin", "gross margin")
+
     # Real estate sales model
     units = first("units", "unit count")
     selling_price = first("selling_price", "selling price")
@@ -200,6 +205,10 @@ def _deterministic_extract(state: StudyState) -> dict | None:
     pricing_kw = first("pricing_per_kw", "pricing per kw")
     occupancy = first("occupancy")
     power_cost = first("power_cost", "power cost")
+    capex_total = first("capex_total", "total capex")
+    opex_annual = first("opex_annual", "annual opex")
+    if capex_total is not None and (capex is None or capex == 0):
+        capex = capex_total
 
     # SaaS
     arr = first("arr", "annual recurring")
@@ -211,13 +220,25 @@ def _deterministic_extract(state: StudyState) -> dict | None:
         take_rate = take_rate / 100.0
     if occupancy is not None and occupancy > 1:
         occupancy = occupancy / 100.0
+    if gross_margin is not None and gross_margin > 1:
+        gross_margin = gross_margin / 100.0
     if discount is not None and discount > 1:
         discount = discount / 100.0
 
     annual_revenues = None
     annual_costs = None
 
-    if atv is not None and take_rate is not None and rides is not None:
+    if mrc is not None:
+        annual_revenues = [mrc * 12, mrc * 12 * 1.25, mrc * 12 * 1.5]
+        if delivery_monthly is not None:
+            annual_costs = [
+                delivery_monthly * 12,
+                delivery_monthly * 12 * 1.15,
+                delivery_monthly * 12 * 1.3,
+            ]
+        elif gross_margin is not None:
+            annual_costs = [r * (1.0 - gross_margin) for r in annual_revenues]
+    elif atv is not None and take_rate is not None and rides is not None:
         monthly_revenue = atv * take_rate * rides
         annual_revenues = [
             monthly_revenue * 12,
@@ -239,7 +260,14 @@ def _deterministic_extract(state: StudyState) -> dict | None:
             # rough power opex from MW * PUE~1.4 * hours
             pue = first("pue") or 1.4
             annual_power = mw * 1000.0 * 8760.0 * pue * power_cost * occ
-            annual_costs = [annual_power, annual_power * 1.05, annual_power * 1.1]
+            base_opex = opex_annual or 0.0
+            annual_costs = [
+                annual_power + base_opex,
+                annual_power * 1.05 + base_opex * 1.05,
+                annual_power * 1.1 + base_opex * 1.1,
+            ]
+        elif opex_annual is not None:
+            annual_costs = [opex_annual, opex_annual * 1.05, opex_annual * 1.1]
     elif arr is not None:
         annual_revenues = [arr, arr * 1.4, arr * 1.4 * 1.3]
     elif mrr is not None:

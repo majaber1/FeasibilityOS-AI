@@ -13,6 +13,7 @@ from ..archetypes import (
     normalize_archetype,
     questions_for_language,
     ARCHETYPE_LABELS,
+    detect_services_variant,
 )
 
 SYSTEM_PROMPT_AR = """
@@ -138,6 +139,15 @@ def _apply_profile(
         decision_goal = "feasibility"
 
     confirmed = bool(state.profile and state.profile.archetype_confirmed)
+    # Preserve prior variant if already locked; otherwise detect from user text.
+    prior_variant = None
+    if state.profile and getattr(state.profile, "services_variant", None):
+        prior_variant = state.profile.services_variant
+    context_text = _last_user_text(state)
+    services_variant = None
+    if archetype == "services":
+        services_variant = detect_services_variant(context_text, explicit=prior_variant)
+
     state.profile = ProjectProfile(
         archetype=archetype if archetype != "unknown" else "other",  # type: ignore[arg-type]
         sector=str(profile_data.get("sector") or ""),
@@ -147,9 +157,15 @@ def _apply_profile(
         missing_information=list(profile_data.get("missing_information") or []),
         recommended_model=str(profile_data.get("recommended_model") or f"{archetype}_v1"),
         archetype_confirmed=confirmed,
+        services_variant=services_variant,
     )
 
-    state.discovery_questions = questions_for_language(archetype, lang)
+    state.discovery_questions = questions_for_language(
+        archetype,
+        lang,
+        context_text=context_text,
+        services_variant=services_variant,
+    )
 
     label = ARCHETYPE_LABELS.get(archetype, ARCHETYPE_LABELS["other"])[
         lang if lang in ("ar", "en") else "en"

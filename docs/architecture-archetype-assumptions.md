@@ -28,8 +28,11 @@ Migration `0026_archetype_assumption_schemas` adds:
 - `assumptions_version`
 
 ## Golden scenarios
-| Scenario | Archetype | Expected keys |
-|---|---|---|
-| Uber ride-hailing | `services` | take_rate, monthly_trips, drivers, driver_cac |
-| Residential compound | `real_estate` | land_cost, construction_boq, units, selling_price |
-| Data center | `data_center` | mw_capacity, rack_count, pue, occupancy |
+| Scenario | Archetype | Variant | Expected keys |
+|---|---|---|---|
+| Cybersecurity / MSSP / consulting | `services` | `professional` (default) | consultants_headcount, utilization_rate, active_contracts, monthly_recurring_contracts, delivery_cost_monthly, gross_margin |
+| Uber ride-hailing | `services` | `mobility` | take_rate, monthly_trips, drivers, driver_cac |
+| Residential compound | `real_estate` | — | land_cost, construction_boq, units, selling_price, absorption_rate, financing |
+| Data center | `data_center` | — | mw_capacity, rack_count, pue, occupancy, power_cost, capex_total |
+
+Default `services` schema is **professional**. Mobility keys appear only when `services_variant=mobility` (ride-hailing / marketplace supply signals).

@@ -315,7 +315,27 @@ def _finalize_archetype_confirmation(state, req: StudyApprovalRequest):
         state.profile.archetype = chosen  # type: ignore[assignment]
     state.profile.archetype_confirmed = True
     state.profile_confirmed = False
-    state.discovery_questions = questions_for_language(chosen, state.language)
+    from ai_engine.archetypes import detect_services_variant
+    context_bits = []
+    for msg in reversed(list(state.messages or [])):
+        role = getattr(msg, "type", None) or getattr(msg, "role", None)
+        content = getattr(msg, "content", None)
+        if isinstance(msg, dict):
+            role = msg.get("type") or msg.get("role")
+            content = msg.get("content")
+        if role in {"human", "user"} and content:
+            context_bits.append(str(content))
+            if len(context_bits) >= 3:
+                break
+    context_text = "\n".join(reversed(context_bits))
+    services_variant = None
+    if chosen == "services":
+        prior = getattr(state.profile, "services_variant", None)
+        services_variant = detect_services_variant(context_text, explicit=prior)
+        state.profile.services_variant = services_variant
+    state.discovery_questions = questions_for_language(
+        chosen, state.language, context_text=context_text, services_variant=services_variant
+    )
     state.structured_answers = state.structured_answers or {}
 
     label = ARCHETYPE_LABELS.get(chosen, ARCHETYPE_LABELS["other"])[
@@ -479,9 +499,15 @@ def _attach_archetype_meta(payload: dict, state_like) -> dict:
                 profile = profile.model_dump()
         payload["archetype_options"] = classification_payload(lang)
         arch = "other"
+        services_variant = None
         if isinstance(profile, dict):
             arch = normalize_archetype(profile.get("archetype"))
-        payload["assumption_schema"] = get_assumption_schema(arch)
+            services_variant = profile.get("services_variant")
+        payload["assumption_schema"] = get_assumption_schema(
+            arch, services_variant=services_variant
+        )
+        if services_variant:
+            payload["services_variant"] = services_variant
     except Exception:
         payload.setdefault("archetype_options", [])
         payload.setdefault("assumption_schema", [])
@@ -731,7 +757,27 @@ async def select_archetype(study_id: str, req: ArchetypeSelectRequest, user=Depe
     else:
         state.profile.archetype = chosen  # type: ignore[assignment]
     state.profile.archetype_confirmed = bool(req.approved)
-    state.discovery_questions = questions_for_language(chosen, state.language)
+    from ai_engine.archetypes import detect_services_variant
+    context_bits = []
+    for msg in reversed(list(state.messages or [])):
+        role = getattr(msg, "type", None) or getattr(msg, "role", None)
+        content = getattr(msg, "content", None)
+        if isinstance(msg, dict):
+            role = msg.get("type") or msg.get("role")
+            content = msg.get("content")
+        if role in {"human", "user"} and content:
+            context_bits.append(str(content))
+            if len(context_bits) >= 3:
+                break
+    context_text = "\n".join(reversed(context_bits))
+    services_variant = None
+    if chosen == "services":
+        prior = getattr(state.profile, "services_variant", None)
+        services_variant = detect_services_variant(context_text, explicit=prior)
+        state.profile.services_variant = services_variant
+    state.discovery_questions = questions_for_language(
+        chosen, state.language, context_text=context_text, services_variant=services_variant
+    )
     state.phase = "ARCHETYPE_CLASSIFICATION" if not req.approved else "NEEDS_INFORMATION"
     state.next_action = "confirm_archetype" if not req.approved else "answer_structured_questions"
     label = ARCHETYPE_LABELS.get(chosen, ARCHETYPE_LABELS["other"])[state.language if state.language in ("ar", "en") else "en"]

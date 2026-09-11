@@ -149,6 +149,25 @@ def _estimate_text_for_gap(gap: str, sector: str, archetype: str = "other") -> s
                 "monthly trips, active drivers, and driver acquisition cost "
                 "(provisional ai_assumption)."
             )
+        if any(
+            k in g
+            for k in (
+                "consultant",
+                "utilization",
+                "contract",
+                "retainer",
+                "delivery",
+                "margin",
+                "مستشار",
+                "عقد",
+                "هامش",
+            )
+        ):
+            return (
+                f"Indicative professional-services inputs for Saudi {sector_label}: "
+                "consultant headcount, utilization, active/MRC contracts, delivery cost, "
+                "and gross margin (provisional ai_assumption)."
+            )
     elif arch == "industrial":
         if any(k in g for k in ("capacity", "utilization", "raw", "unit", "إنتاج", "تشغيل")):
             return (

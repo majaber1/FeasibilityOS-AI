@@ -44,6 +44,8 @@ class ProjectProfile(BaseModel):
     missing_information: List[str] = []
     recommended_model: str = ""
     archetype_confirmed: bool = False
+    # For services only: "professional" (default) or "mobility" (Uber-like).
+    services_variant: Optional[str] = None
 
 
 class Assumption(BaseModel):
@@ -54,7 +56,7 @@ class Assumption(BaseModel):
     low: Optional[str] = None
     base: Optional[str] = None
     high: Optional[str] = None
-    origin: Literal["user", "ai_estimated", "document", "default"] = "user"
+    origin: Literal["user", "ai_estimated", "document", "default", "rule_fallback"] = "user"
     input_type: Optional[str] = None
     unit: Optional[str] = None
     label_en: Optional[str] = None

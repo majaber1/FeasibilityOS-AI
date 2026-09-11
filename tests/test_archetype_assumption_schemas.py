@@ -8,6 +8,8 @@ from ai_engine.archetypes import (
     normalize_archetype,
     schema_keys_for,
     assert_no_saas_leakage,
+    assert_no_mobility_on_professional,
+    detect_services_variant,
     questions_for_language,
     SAAS_LEAKAGE_KEYS,
 )
@@ -18,6 +20,7 @@ from ai_engine.agents import assumption as assumption_mod
 GOLDEN = [
     ("Uber ride hailing service marketplace in Riyadh with drivers and take rate", "services"),
     ("Cybersecurity consulting and managed security services company in Riyadh with retainers and utilization", "services"),
+    ("I want to establish a cybersecurity company providing managed security services to enterprises", "services"),
     ("Food manufacturing factory with production capacity and machinery", "industrial"),
     ("Residential compound 500 villas in Jeddah with land cost and BOQ", "real_estate"),
     ("50MW tier III data center in Dammam with racks and PUE", "data_center"),
@@ -29,15 +32,41 @@ def test_classify_golden_scenarios(text, expected):
     assert classify_archetype(text) == expected
 
 
-def test_services_schema_uber_fields():
+def test_services_default_is_professional_not_mobility():
     keys = schema_keys_for("services")
+    for required in (
+        "consultants_headcount",
+        "utilization_rate",
+        "active_contracts",
+        "monthly_recurring_contracts",
+        "delivery_cost_monthly",
+        "gross_margin",
+    ):
+        assert required in keys
+    assert assert_no_saas_leakage("services", keys) == []
+    assert assert_no_mobility_on_professional(keys) == []
+    for banned in ("take_rate", "monthly_trips", "drivers", "driver_cac", "cac", "arr", "churn", "mrr"):
+        assert banned not in keys
+
+
+def test_services_mobility_variant_uber_fields():
+    text = "Uber ride hailing marketplace with drivers and take rate"
+    assert detect_services_variant(text) == "mobility"
+    keys = schema_keys_for("services", context_text=text, services_variant="mobility")
     for required in ("take_rate", "monthly_trips", "drivers", "driver_cac"):
         assert required in keys
     assert assert_no_saas_leakage("services", keys) == []
     assert "cac" not in keys
     assert "arr" not in keys
-    assert "churn" not in keys
-    assert "mrr" not in keys
+
+
+def test_cybersecurity_services_variant_professional():
+    text = "I want to establish a cybersecurity company providing managed security services to enterprises"
+    assert detect_services_variant(text) == "professional"
+    keys = schema_keys_for("services", context_text=text)
+    assert "consultants_headcount" in keys
+    assert "take_rate" not in keys
+    assert "drivers" not in keys
 
 
 def test_real_estate_schema_fields():
@@ -123,6 +152,36 @@ def test_assumption_agent_filters_saas_bleed_without_llm(monkeypatch):
     assert any(a.source == "AI Estimated Assumption" or a.ai_estimated for a in out.assumptions)
     assert out.phase == "ASSUMPTIONS_REVIEW"
     assert out.assumptions_approved is False
+
+
+def test_assumption_rule_fallback_label_when_llm_fails(monkeypatch):
+    class BoomLLM:
+        def invoke(self, messages):
+            raise RuntimeError("llm down")
+
+    monkeypatch.setattr(assumption_mod, "get_llm", lambda task="assumptions": BoomLLM())
+    state = StudyState(
+        study_id="s2",
+        project_id="p2",
+        user_id="u2",
+        language="en",
+        phase="ASSUMPTIONS_REVIEW",
+        profile=ProjectProfile(
+            archetype="services",
+            sector="cybersecurity",
+            archetype_confirmed=True,
+            services_variant="professional",
+        ),
+        profile_confirmed=True,
+        structured_answers={"consultants_headcount": "25"},
+    )
+    out = assumption_mod.run_assumptions(state)
+    keys = {a.key for a in out.assumptions}
+    assert "consultants_headcount" in keys
+    assert "take_rate" not in keys
+    assert "drivers" not in keys
+    assert any(a.source == "Rule Fallback" for a in out.assumptions)
+    assert any(a.source == "user" for a in out.assumptions)
 
 
 def test_normalize_aliases():

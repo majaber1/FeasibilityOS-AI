@@ -1,7 +1,8 @@
 """Archetype-specific assumption schemas.
 
 Each field defines a structured input type. SaaS-only metrics (CAC/churn/ARR/MRR)
-are restricted to saas_digital and must never appear on RE/DC/industrial/retail.
+are restricted to saas_digital and must never appear on RE/DC/industrial/retail/services
+(professional). Mobility marketplace metrics are a services *variant*, not the default.
 """
 from __future__ import annotations
 
@@ -24,6 +25,17 @@ SAAS_LEAKAGE_KEYS = frozenset(
         "monthly_recurring_revenue",
         "churn_rate",
         "saas_customers",
+    }
+)
+
+# Mobility-only keys — must not appear on professional services studies.
+MOBILITY_SERVICES_KEYS = frozenset(
+    {
+        "take_rate",
+        "monthly_trips",
+        "drivers",
+        "driver_cac",
+        "avg_trip_value",
     }
 )
 
@@ -106,6 +118,16 @@ DATA_CENTER_SCHEMA = [
         options_ar=["Tier I", "Tier II", "Tier III", "Tier IV"],
         required=False,
     ),
+    _f(
+        "contract_term_months",
+        label_en="Typical customer contract term",
+        label_ar="مدة عقد العميل النموذجية",
+        input_type="number",
+        unit="months",
+        required=False,
+    ),
+    _f("capex_total", label_en="Total CAPEX", label_ar="إجمالي النفقات الرأسمالية", input_type="currency", unit="SAR"),
+    _f("opex_annual", label_en="Annual OPEX (ex-power if separate)", label_ar="التكاليف التشغيلية السنوية", input_type="currency", unit="SAR", required=False),
 ]
 
 INDUSTRIAL_SCHEMA = [
@@ -126,8 +148,64 @@ RETAIL_SCHEMA = [
     _f("rent_or_lease", label_en="Monthly rent / lease", label_ar="الإيجار الشهري", input_type="currency", unit="SAR"),
 ]
 
-# Mobility / marketplace services (Uber-like) — NOT SaaS subscription metrics
-SERVICES_SCHEMA = [
+# Default services = professional / managed services (consulting, MSSP, agency).
+# No drivers / trips / take_rate / SaaS CAC.
+PROFESSIONAL_SERVICES_SCHEMA = [
+    _f(
+        "consultants_headcount",
+        label_en="Employees / consultants (year 1)",
+        label_ar="الموظفون / المستشارون (سنة 1)",
+        input_type="number",
+        unit="people",
+    ),
+    _f(
+        "utilization_rate",
+        label_en="Billable utilization rate",
+        label_ar="نسبة الاستخدام القابلة للفوترة",
+        input_type="percent",
+        unit="%",
+    ),
+    _f(
+        "active_contracts",
+        label_en="Active contracts / clients (year 1)",
+        label_ar="العقود / العملاء النشطون (سنة 1)",
+        input_type="number",
+        unit="contracts",
+    ),
+    _f(
+        "monthly_recurring_contracts",
+        label_en="Monthly recurring contract revenue (MRC)",
+        label_ar="إيراد العقود الشهرية المتكررة (MRC)",
+        input_type="currency",
+        unit="SAR/mo",
+        description_en="If retainers / managed services apply; otherwise 0.",
+        description_ar="إن وُجدت عقود احتفاظ أو خدمات مُدارة؛ وإلا صفر.",
+    ),
+    _f(
+        "delivery_cost_monthly",
+        label_en="Monthly delivery cost",
+        label_ar="تكلفة التسليم الشهرية",
+        input_type="currency",
+        unit="SAR/mo",
+    ),
+    _f(
+        "gross_margin",
+        label_en="Gross margin",
+        label_ar="هامش الربح الإجمالي",
+        input_type="percent",
+        unit="%",
+    ),
+    _f(
+        "initial_investment",
+        label_en="Initial investment",
+        label_ar="الاستثمار الأولي",
+        input_type="currency",
+        unit="SAR",
+    ),
+]
+
+# Mobility / marketplace services (Uber-like) — services *variant* only.
+MOBILITY_SERVICES_SCHEMA = [
     _f("take_rate", label_en="Take rate / commission", label_ar="نسبة العمولة (Take rate)", input_type="percent", unit="%"),
     _f("monthly_trips", label_en="Monthly trips (year 1)", label_ar="الرحلات الشهرية (سنة 1)", input_type="number", unit="trips"),
     _f("drivers", label_en="Active drivers / supply units", label_ar="السائقون / وحدات التوريد النشطة", input_type="number"),
@@ -136,6 +214,9 @@ SERVICES_SCHEMA = [
     _f("monthly_fixed_opex", label_en="Monthly fixed opex", label_ar="التكاليف التشغيلية الثابتة شهرياً", input_type="currency", unit="SAR"),
     _f("initial_investment", label_en="Initial investment", label_ar="الاستثمار الأولي", input_type="currency", unit="SAR"),
 ]
+
+# Backward-compatible alias: default services schema is professional.
+SERVICES_SCHEMA = PROFESSIONAL_SERVICES_SCHEMA
 
 OTHER_SCHEMA = [
     _f("revenue_year1", label_en="Expected year-1 revenue", label_ar="إيراد السنة الأولى المتوقع", input_type="currency", unit="SAR"),
@@ -159,19 +240,59 @@ ASSUMPTION_SCHEMAS: dict[str, list[dict[str, Any]]] = {
     "data_center": DATA_CENTER_SCHEMA,
     "industrial": INDUSTRIAL_SCHEMA,
     "retail": RETAIL_SCHEMA,
-    "services": SERVICES_SCHEMA,
+    "services": PROFESSIONAL_SERVICES_SCHEMA,
     "other": OTHER_SCHEMA,
 }
 
 
-def get_assumption_schema(archetype: str) -> list[dict[str, Any]]:
+def detect_services_variant(text: str | None = None, *, explicit: str | None = None) -> str:
+    """Return 'mobility' or 'professional' for services studies.
+
+    Default is professional (consulting / MSSP / agency). Mobility only when
+    ride-hailing / marketplace supply metrics are clearly indicated.
+    """
+    if explicit in {"mobility", "professional"}:
+        return explicit
+    t = (text or "").lower()
+    mobility_kw = (
+        "uber", "careem", "ride", "hailing", "ride-hailing", "rideshare", "taxi",
+        "driver", "drivers", "take rate", "take-rate", "take_rate", "monthly trips",
+        "marketplace", "delivery platform", "سائق", "مشاوير", "توصيل",
+    )
+    if any(k in t for k in mobility_kw):
+        return "mobility"
+    return "professional"
+
+
+def get_assumption_schema(
+    archetype: str,
+    *,
+    context_text: str | None = None,
+    services_variant: str | None = None,
+) -> list[dict[str, Any]]:
     from .classifier import normalize_archetype
 
-    return list(ASSUMPTION_SCHEMAS.get(normalize_archetype(archetype), OTHER_SCHEMA))
+    arch = normalize_archetype(archetype)
+    if arch == "services":
+        variant = detect_services_variant(context_text, explicit=services_variant)
+        if variant == "mobility":
+            return list(MOBILITY_SERVICES_SCHEMA)
+        return list(PROFESSIONAL_SERVICES_SCHEMA)
+    return list(ASSUMPTION_SCHEMAS.get(arch, OTHER_SCHEMA))
 
 
-def schema_keys_for(archetype: str) -> set[str]:
-    return {f["key"] for f in get_assumption_schema(archetype)}
+def schema_keys_for(
+    archetype: str,
+    *,
+    context_text: str | None = None,
+    services_variant: str | None = None,
+) -> set[str]:
+    return {
+        f["key"]
+        for f in get_assumption_schema(
+            archetype, context_text=context_text, services_variant=services_variant
+        )
+    }
 
 
 def assert_no_saas_leakage(archetype: str, keys: list[str] | set[str]) -> list[str]:
@@ -181,6 +302,11 @@ def assert_no_saas_leakage(archetype: str, keys: list[str] | set[str]) -> list[s
     arch = normalize_archetype(archetype)
     if arch == "saas_digital":
         return []
-    # driver_cac is services-specific, not SaaS CAC
+    # driver_cac is mobility-services-specific, not SaaS CAC
     banned = set(SAAS_LEAKAGE_KEYS)
     return sorted({k for k in keys if k.lower() in banned or k.lower().replace("-", "_") in banned})
+
+
+def assert_no_mobility_on_professional(keys: list[str] | set[str]) -> list[str]:
+    """Return mobility keys that must not appear on professional services studies."""
+    return sorted({k for k in keys if k.lower() in MOBILITY_SERVICES_KEYS})

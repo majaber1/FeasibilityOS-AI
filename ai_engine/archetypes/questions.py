@@ -6,10 +6,17 @@ from typing import Any
 from .schemas import get_assumption_schema
 
 
-def get_structured_questions(archetype: str) -> list[dict[str, Any]]:
+def get_structured_questions(
+    archetype: str,
+    *,
+    context_text: str | None = None,
+    services_variant: str | None = None,
+) -> list[dict[str, Any]]:
     """Map assumption schema fields into discovery question payloads."""
     questions: list[dict[str, Any]] = []
-    for field in get_assumption_schema(archetype):
+    for field in get_assumption_schema(
+        archetype, context_text=context_text, services_variant=services_variant
+    ):
         qtype = {
             "yes_no": "YES_NO",
             "single_select": "SINGLE_SELECT",
@@ -39,10 +46,18 @@ def get_structured_questions(archetype: str) -> list[dict[str, Any]]:
     return questions
 
 
-def questions_for_language(archetype: str, language: str = "en") -> list[dict[str, Any]]:
+def questions_for_language(
+    archetype: str,
+    language: str = "en",
+    *,
+    context_text: str | None = None,
+    services_variant: str | None = None,
+) -> list[dict[str, Any]]:
     lang = "ar" if language == "ar" else "en"
     out = []
-    for q in get_structured_questions(archetype):
+    for q in get_structured_questions(
+        archetype, context_text=context_text, services_variant=services_variant
+    ):
         out.append(
             {
                 **q,
