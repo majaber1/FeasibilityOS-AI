@@ -28,6 +28,15 @@ def classify_archetype(text: str) -> str:
     """Keyword heuristic to stabilize golden scenarios when LLM is unavailable."""
     t = (text or "").lower()
 
+    # Strong SaaS signals win early so phrases like "not real estate" do not hijack.
+    strong_saas = (
+        "saas", "subscription", "arr", "mrr", "churn", "cac", "ltv",
+        "b2b software", "software platform", "api product", "crm software",
+        "اشتراك", "برمجيات كخدمة",
+    )
+    if any(k in t for k in strong_saas):
+        return "saas_digital"
+
     dc_kw = (
         "data center", "datacenter", "مركز بيانات", "rack", "racks", "ميجاواط", "mw ",
         "pue", "colocation", "colo", "hyperscaler", "tier iii", "tier 3", "power capacity",
