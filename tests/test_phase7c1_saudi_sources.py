@@ -32,10 +32,14 @@ from app.main import app  # noqa: E402
 from app.integrations.research.page_reader import PageFetchError  # noqa: E402
 from app.integrations.research.security import UrlSecurityError, validate_url  # noqa: E402
 from app.integrations.sources.gastat import GastatConnector  # noqa: E402
+import httpx  # noqa: E402
+
 from app.integrations.sources.monshaat import (  # noqa: E402
+    DEFAULT_MONSHAAT_API_QUERIES,
     DEFAULT_MONSHAAT_URLS,
     MONSHAAT_ALLOWED_DOMAINS,
     MonshaatConnector,
+    build_enterprises_statistics_url,
 )
 from app.integrations.sources.misa import (  # noqa: E402
     DEFAULT_MISA_URLS,
@@ -176,20 +180,71 @@ class _StubMonshaatReader:
         raise PageFetchError(f"stub miss for {url}")
 
 
+class _BoomApiTransport(httpx.BaseTransport):
+    """Fail-fast API transport so HTML-path unit tests do not wait on live TLS."""
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:  # noqa: ARG002
+        raise httpx.ConnectError("simulated Monsha'at API unreachable")
+
+
+class _JsonApiTransport(httpx.BaseTransport):
+    """Deterministic official API responses for unit tests."""
+
+    def __init__(self, payload_by_quarter: dict[tuple[int, int], dict] | None = None) -> None:
+        self.payload_by_quarter = payload_by_quarter or {}
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        assert "pservices.monshaat.gov.sa" in str(request.url)
+        parts = [p for p in request.url.path.split("/") if p]
+        year = int(parts[-2])
+        quarter = int(parts[-1])
+        payload = self.payload_by_quarter.get(
+            (year, quarter),
+            {
+                "Year": year,
+                "Quarter": quarter,
+                "Data": [{"EnterpriseSize": "Micro", "Count": 10}],
+            },
+        )
+        return httpx.Response(200, json=payload, headers={"content-type": "application/json"})
+
+
+def _api_client(payload_by_quarter: dict[tuple[int, int], dict] | None = None) -> httpx.Client:
+    return httpx.Client(transport=_JsonApiTransport(payload_by_quarter))
+
+
+def _fail_api_client() -> httpx.Client:
+    return httpx.Client(transport=_BoomApiTransport())
+
+
+def _monshaat_html_connector() -> MonshaatConnector:
+    """HTML-path connector with fail-fast API so unit tests stay offline/fast."""
+    return MonshaatConnector(
+        enabled=True,
+        reader=_StubMonshaatReader(),
+        http_client=_fail_api_client(),
+        api_timeout_seconds=1.0,
+    )
+
+
 # ---------------------------------------------------------------------------
-# A. Monsha'at connector contract
+# A. Monsha'at connector contract (HTML path)
 # ---------------------------------------------------------------------------
 def test_a_monshaat_connector_contract():
-    connector = MonshaatConnector(enabled=True, reader=_StubMonshaatReader())
+    connector = _monshaat_html_connector()
     health = connector.health()
-    assert health.status.value == "healthy"
+    # API fail-fast + HTML stub => degraded (one path works)
+    assert health.status.value == "degraded"
+    assert health.metadata["html_ok"] is True
+    assert health.metadata["api_ok"] is False
     meta = connector.source_metadata
     assert meta["live"] is True
-    assert meta["api"] is None
+    assert meta["api"]["host"] == "pservices.monshaat.gov.sa"
     assert meta["registry_key"] == "monshaat"
     assert "monshaat.gov.sa" in meta["allowed_domains"]
+    assert "pservices.monshaat.gov.sa" in meta["allowed_domains"]
     assert "sme" in meta["supported_sectors"]
-    docs = connector.retrieve(url=MONSHAAT_FIXTURE_URLS[0])
+    docs = connector.retrieve(mode="html", url=MONSHAAT_FIXTURE_URLS[0])
     assert len(docs) == 1
     doc = docs[0]
     assert doc.url and "monshaat.gov.sa" in doc.url
@@ -200,6 +255,47 @@ def test_a_monshaat_connector_contract():
     assert doc.provenance.original_url
     assert doc.retrieved_at is not None
     assert doc.sector is None
+
+
+# ---------------------------------------------------------------------------
+# A2. Official Open Data API contract
+# ---------------------------------------------------------------------------
+def test_a2_monshaat_official_api_contract():
+    url = build_enterprises_statistics_url(2023, 4, pagination_index=1, records_per_page=25)
+    assert "pservices.monshaat.gov.sa" in url
+    assert "/EnterprisesStatistics/2023/4" in url
+    assert "paginationIndex=1" in url
+    assert "recordsPerPage=25" in url
+
+    reader = mock.Mock()
+    reader.read.side_effect = PageFetchError("html down")
+    connector = MonshaatConnector(
+        enabled=True,
+        reader=reader,
+        http_client=_api_client(),
+        default_api_queries=DEFAULT_MONSHAAT_API_QUERIES,
+    )
+    health = connector.health()
+    assert health.status.value == "degraded"  # API ok, HTML down
+    assert health.metadata["api_ok"] is True
+    assert health.metadata["html_ok"] is False
+
+    docs = connector.retrieve(mode="api", years_quarters=[(2023, 4), (2024, 1)])
+    assert len(docs) == 2
+    for doc, (year, quarter) in zip(docs, [(2023, 4), (2024, 1)]):
+        assert doc.provenance.retrieval_method == "official_api"
+        assert doc.provenance.registry_key == "monshaat"
+        assert doc.provenance.connector_id == "live.monshaat"
+        assert doc.provenance.original_url and "pservices.monshaat.gov.sa" in doc.provenance.original_url
+        assert doc.published_at is None  # never invent publication date
+        assert doc.sector is None  # never invent sector
+        assert doc.metadata.get("year") == year
+        assert doc.metadata.get("quarter") == quarter
+        assert doc.metadata.get("query_params", {}).get("paginationIndex") == "1"
+        assert "Year" in (doc.content or "") and "Quarter" in (doc.content or "")
+        assert "EnterprisesStatistics" in (doc.url or "")
+        ok, errors = connector.validate_provenance(doc)
+        assert ok, errors
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +326,7 @@ def test_b_misa_connector_contract_live():
 # C. Domain validation
 # ---------------------------------------------------------------------------
 def test_c_domain_validation():
-    mon = MonshaatConnector(enabled=True, reader=_StubMonshaatReader())
+    mon = _monshaat_html_connector()
     misa = MisaConnector(enabled=True)
     with pytest.raises((UrlSecurityError, PageFetchError)):
         mon.fetch_url("https://example.com/fake-monshaat")
@@ -266,7 +362,7 @@ def test_d_ssrf_protection_regression(bad_url, domains):
 # E. Provenance preservation
 # ---------------------------------------------------------------------------
 def test_e_provenance_preservation():
-    mon = MonshaatConnector(enabled=True, reader=_StubMonshaatReader())
+    mon = _monshaat_html_connector()
     doc = mon.fetch_url(MONSHAAT_FIXTURE_URLS[0])
     ok, errors = mon.validate_provenance(doc)
     assert ok, errors
@@ -297,7 +393,7 @@ def test_f_g_knowledge_ingest_and_idempotency():
             assert row.connector_type == "live"
             assert row.enabled is True
 
-        mon_doc = MonshaatConnector(enabled=True, reader=_StubMonshaatReader()).fetch_url(
+        mon_doc = _monshaat_html_connector().fetch_url(
             MONSHAAT_FIXTURE_URLS[0]
         )
         kd1 = ingest_source_document(db, owner_id=admin_id, document=mon_doc)
@@ -331,20 +427,40 @@ def test_f_g_knowledge_ingest_and_idempotency():
 # H. Source failure handling
 # ---------------------------------------------------------------------------
 def test_h_source_failure_handling():
-    disabled = MonshaatConnector(enabled=False, reader=_StubMonshaatReader())
+    disabled = MonshaatConnector(
+        enabled=False,
+        reader=_StubMonshaatReader(),
+        http_client=_fail_api_client(),
+    )
     assert disabled.health().status.value == "disabled"
     assert disabled.retrieve() == []
 
-    failing = MonshaatConnector(enabled=True)
+    # Both API and HTML fail => UNAVAILABLE
+    reader = mock.Mock()
+    reader.read.side_effect = PageFetchError("TLS handshake timed out")
+    failing = MonshaatConnector(
+        enabled=True,
+        reader=reader,
+        http_client=_fail_api_client(),
+        api_timeout_seconds=1.0,
+    )
+    health = failing.health()
+    assert health.status.value == "unavailable"
+    assert health.metadata["api_ok"] is False
+    assert health.metadata["html_ok"] is False
+    assert failing.retrieve(mode="html", url=MONSHAAT_FIXTURE_URLS[0]) == []
 
-    def _boom(*_a, **_k):
-        raise PageFetchError("TLS handshake timed out")
-
-    with mock.patch.object(failing._reader, "read", side_effect=_boom):
-        health = failing.health()
-        assert health.status.value == "unavailable"
-        assert "timed out" in (health.detail or "").lower()
-        assert failing.retrieve(url=MONSHAAT_FIXTURE_URLS[0]) == []
+    # HTML timeout does NOT mark unavailable if API is healthy => DEGRADED
+    degraded = MonshaatConnector(
+        enabled=True,
+        reader=reader,
+        http_client=_api_client(),
+        api_timeout_seconds=1.0,
+    )
+    health2 = degraded.health()
+    assert health2.status.value == "degraded"
+    assert health2.metadata["api_ok"] is True
+    assert health2.metadata["html_ok"] is False
 
     _admin_email, _admin_id = _make_admin()
     db = app_db.SessionLocal()
@@ -367,7 +483,7 @@ def test_i_tenant_isolation():
     _other_email, other_id = _make_user()
     db = app_db.SessionLocal()
     try:
-        doc = MonshaatConnector(enabled=True, reader=_StubMonshaatReader()).fetch_url(
+        doc = _monshaat_html_connector().fetch_url(
             MONSHAAT_FIXTURE_URLS[1]
         )
         kd = ingest_source_document(db, owner_id=admin_id, document=doc)
@@ -385,6 +501,55 @@ def test_i_tenant_isolation():
         db.close()
 
 
+
+# ---------------------------------------------------------------------------
+# A3. Official API knowledge ingest + evidence citation + no invented fields
+# ---------------------------------------------------------------------------
+def test_a3_monshaat_api_knowledge_and_evidence():
+    admin_email, admin_id = _make_admin()
+    reader = mock.Mock()
+    reader.read.side_effect = PageFetchError("html down")
+    connector = MonshaatConnector(
+        enabled=True,
+        reader=reader,
+        http_client=_api_client(
+            {
+                (2023, 4): {"Year": 2023, "Quarter": 4, "Data": [{"EnterpriseSize": "Micro", "Count": 12}]},
+                (2024, 1): {"Year": 2024, "Quarter": 1, "Data": [{"EnterpriseSize": "Small", "Count": 7}]},
+            }
+        ),
+    )
+    db = app_db.SessionLocal()
+    try:
+        docs = connector.retrieve(mode="api", years_quarters=[(2023, 4), (2024, 1)])
+        assert len(docs) == 2
+        ids = []
+        for doc in docs:
+            assert doc.published_at is None
+            assert doc.sector is None
+            kd = ingest_source_document(db, owner_id=admin_id, document=doc)
+            ids.append(kd.id)
+            # idempotent re-ingest
+            kd2 = ingest_source_document(db, owner_id=admin_id, document=doc)
+            assert kd2.id == kd.id
+        pack = ks.retrieve_evidence(
+            db,
+            owner_id=admin_id,
+            query="Monsha'at enterprises statistics open data SME counts by size",
+            top_k=6,
+        )
+        citations = pack.get("citations") or pack.get("evidence") or []
+        assert citations, pack
+        cited = {str(c.get("document_id") or c.get("source_document_id") or "") for c in citations}
+        assert cited.intersection(set(ids)) or any(
+            "enterprise" in (c.get("content") or c.get("claim") or "").lower()
+            or "monshaat" in str(c).lower()
+            for c in citations
+        ), pack
+    finally:
+        db.close()
+
+
 # ---------------------------------------------------------------------------
 # Business scenarios (evidence availability only — no financial calc changes)
 # ---------------------------------------------------------------------------
@@ -392,7 +557,7 @@ def test_business_scenario_a_startup_feasibility_monshaat():
     _admin_email, admin_id = _make_admin()
     db = app_db.SessionLocal()
     try:
-        connector = MonshaatConnector(enabled=True, reader=_StubMonshaatReader())
+        connector = _monshaat_html_connector()
         for url in MONSHAAT_FIXTURE_URLS:
             ingest_source_document(db, owner_id=admin_id, document=connector.fetch_url(url))
 
@@ -521,7 +686,7 @@ def test_api_sync_documents_and_mcp():
     assert fetched["documents"][0]["provenance"]["registry_key"] == "misa"
     with mock.patch(
         "app.integrations.mcp.boundary.MonshaatConnector",
-        lambda enabled=True: MonshaatConnector(enabled=True, reader=_StubMonshaatReader()),
+        lambda enabled=True: _monshaat_html_connector(),
     ):
         mon_fetched = source_fetch_payload("monshaat", {"url": MONSHAAT_FIXTURE_URLS[0]})
         assert mon_fetched["count"] == 1
@@ -555,17 +720,24 @@ def test_k_phase7b_gastat_regression():
 
 
 def test_live_monshaat_reachability_documented():
-    """Live official Monsha'at TLS may be unreachable from this agent network.
+    """Live official Monsha'at may be unreachable from this agent network.
 
-    Connector must surface UNAVAILABLE (or healthy if reachable) — never invent content.
+    Connector must surface HEALTHY / DEGRADED / UNAVAILABLE honestly — never invent content.
     """
-    live = MonshaatConnector(enabled=True)
+    live = MonshaatConnector(enabled=True, api_timeout_seconds=8.0)
     health = live.health()
     assert health.status.value in {"healthy", "degraded", "unavailable"}
+    assert "api_ok" in (health.metadata or {})
+    assert "html_ok" in (health.metadata or {})
     if health.status.value == "unavailable":
         assert health.detail
         assert live.retrieve() == []
     else:
         docs = live.retrieve()
+        # Prefer official API docs when available; otherwise HTML.
         assert len(docs) >= 1
-        assert all("monshaat.gov.sa" in (d.url or "") for d in docs)
+        assert all(
+            ("monshaat.gov.sa" in (d.url or ""))
+            or ("pservices.monshaat.gov.sa" in (d.url or ""))
+            for d in docs
+        )

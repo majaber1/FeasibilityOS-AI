@@ -1,23 +1,62 @@
 {
-  "captured_at": "2026-09-12T20:17:16.314466+00:00",
+  "captured_at": "2026-09-12T21:14:05.633631+00:00",
+  "phase7b_merge_sha": "af8c2d65ec165e3b5cc42c9a6a30085aab2f193f",
+  "phase7c1_status": "NOT PASS",
   "monshaat": {
     "health": {
       "status": "unavailable",
-      "detail": "timeout fetching https://www.monshaat.gov.sa/en",
-      "checked_at": "2026-09-12T20:17:32.342079+00:00"
+      "detail": "all paths failed: api=_ssl.c:983: The handshake operation timed out; html=timeout fetching https://www.monshaat.gov.sa/en",
+      "checked_at": "2026-09-12T21:14:33.705207+00:00",
+      "metadata": {
+        "api_ok": false,
+        "api_detail": "_ssl.c:983: The handshake operation timed out",
+        "html_ok": false,
+        "html_detail": "timeout fetching https://www.monshaat.gov.sa/en"
+      }
     },
-    "default_urls": [
+    "allowlisted_domains": [
+      "monshaat.gov.sa",
+      "www.monshaat.gov.sa",
+      "pservices.monshaat.gov.sa"
+    ],
+    "official_api_urls_tested": [
+      "https://pservices.monshaat.gov.sa/BI/TaskService/OpenData/EnterprisesStatistics/2023/4?paginationIndex=1&recordsPerPage=5",
+      "https://pservices.monshaat.gov.sa/BI/TaskService/OpenData/EnterprisesStatistics/2024/1?paginationIndex=1&recordsPerPage=5"
+    ],
+    "api_fetch_results": [
+      {
+        "url": "https://pservices.monshaat.gov.sa/BI/TaskService/OpenData/EnterprisesStatistics/2023/4?paginationIndex=1&recordsPerPage=5",
+        "failed": true,
+        "error": "_ssl.c:983: The handshake operation timed out",
+        "content_hash": null,
+        "retrieval_method": "official_api"
+      },
+      {
+        "url": "https://pservices.monshaat.gov.sa/BI/TaskService/OpenData/EnterprisesStatistics/2024/1?paginationIndex=1&recordsPerPage=5",
+        "failed": true,
+        "error": "_ssl.c:983: The handshake operation timed out",
+        "content_hash": null,
+        "retrieval_method": "official_api"
+      }
+    ],
+    "default_html_urls": [
       "https://www.monshaat.gov.sa/en/monshaat-reports",
       "https://www.monshaat.gov.sa/en/node/274250"
     ],
-    "live_docs": []
+    "live_docs": [],
+    "knowledge_document_ids": [],
+    "chunk_ids": [],
+    "evidence_ids": [],
+    "live_e2e": "FAIL",
+    "network_note": "TCP to pservices.monshaat.gov.sa:443 succeeds; TLS handshake times out (no ServerHello)."
   },
   "misa": {
     "health": {
       "status": "healthy",
       "detail": "MISA home reachable",
-      "checked_at": "2026-09-12T20:17:33.684216+00:00"
+      "checked_at": "2026-09-12T21:15:54.226119+00:00"
     },
+    "live_e2e": "PASS",
     "live_docs": [
       {
         "url": "https://misa.gov.sa/activities/national-investment-strategy/",
@@ -65,5 +104,10 @@
   "failure_tests": {
     "domain": "UrlSecurityError: host not in allowlist: example.com",
     "ssrf": "UrlSecurityError: host not in allowlist: 127.0.0.1"
+  },
+  "regression": {
+    "phase7a_7b_7c1": "50 passed",
+    "phase7c1_alone": "22 passed",
+    "gastat_live_smoke": "SMOKE_OK"
   }
 }
