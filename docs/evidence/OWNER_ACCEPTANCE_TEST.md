@@ -1,66 +1,128 @@
-# Owner Acceptance Test — Post-merge Production Rerun
+# Owner Acceptance Test — Saudi Business
 
-**Gate:** OWNER TESTABILITY (binary)  
+**Gate:** OWNER TESTABILITY (binary PASS/FAIL — no completion %)  
 **Production URL:** https://saudi-business-web.vercel.app  
-**Production SHA:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`  
-**PR #33 merge commit:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`  
-**Rerun date (UTC):** 2026-09-12  
-**Scenario:** أريد إنشاء شركة خدمات أمن سيبراني في الرياض تقدم خدمات MSSP للشركات
+**Production deploy SHA (live retest):** `93e4d385ac0d1338d98b1ebc33cfb27f2071263e`  
+**Fix PR:** https://github.com/majaber1/saudi-business/pull/33  
+**Branch tip (fixes, not on production):** `cursor/phase65-product-ux-hardening-1831`  
+**Latest live retest (UTC):** 2026-09-12  
+**Language:** Arabic (RTL)
 
-**Account (fresh UI registration):** `ownertest202609122026@example.com`  
-**Password pattern:** `OwnerGateProd9!`
+**Single scenario:**
 
----
-
-## Deploy confirmation
-
-| Check | Result |
-|-------|--------|
-| PR #33 merged | Yes — https://github.com/majaber1/saudi-business/pull/33 |
-| `origin/main` tip | `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea` |
-| Vercel `saudi-business-web` on that commit | success (production) |
-| Vercel `feasibilityos-ai` on that commit | success (production) |
-| `POST /api/v2/studies/{id}/continue` on prod | route live (401 without auth, not 404) |
+> أريد إنشاء شركة خدمات أمن سيبراني في الرياض تقدم خدمات MSSP للشركات
 
 ---
 
-## PASS/FAIL — steps 1–19
+## 1) Production URL
 
-| Step | Result | Evidence |
+https://saudi-business-web.vercel.app
+
+---
+
+## 2) Account
+
+Create a fresh account on production (no shared seed):
+
+1. Open https://saudi-business-web.vercel.app/register  
+2. Enter name, email, password (≥8 chars, letter + number)  
+3. Click إنشاء حساب  
+
+Agent pattern: `OwnerGateTest9!` with a fresh email.  
+Login: https://saudi-business-web.vercel.app/login
+
+---
+
+## 3) Exact 10-minute owner script
+
+| Step | Action | Expected |
 |------|--------|----------|
-| 1 Open production URL | **PASS** | `owner-rerun-01-register.png` |
-| 2 Register / Login | **PASS** | register → projects |
-| 3 Dashboard | **PASS** | `owner-rerun-02-dashboard.png` |
-| 4 Create project | **PASS** | `owner-rerun-03-project.png` |
-| 5 Idea visible | **PASS** | Arabic MSSP idea on project |
-| 6 Start AI study | **PASS** | `owner-rerun-04-study.png` / workspace |
-| 7 Archetype friendly labels | **PASS** | `owner-rerun-05-archetype.png` — «أعمال خدمية», no raw primary IDs |
-| 8 Complete Discovery | **PASS** | reached assumptions with answers |
-| 9 AI Estimate where useful | **PASS** | used where available; manual answers when estimate hung |
-| 10 Assumptions CTA | **PASS** | `owner-rerun-07-assumptions-cta.png` — «اعتماد والمتابعة للتحليل المالي» |
-| 11 Financial inside study | **PASS** | `owner-rerun-08-financial-in-study.png` — workspace URL, not `/tools/financial`; NPV/IRR shown |
-| 12 Risks from study | **PASS** | `owner-late-04-after-risks-click.png` — risks panel + «المتابعة إلى القرار والتقرير» |
-| 13 Decision from study | **PASS** | `owner-late-05-decision-report.png` — `GO_WITH_CONDITIONS` |
-| 14 Report from study | **PASS** | same — final report + print/save |
-| 15 Refresh persists | **PASS** | report panel still present after reload |
-| 16 Logout | **PASS** | UI «خروج» → `/login` |
-| 17 Login again | **PASS** | same account → dashboard |
-| 18 Find project via Projects | **PASS** | `/projects` → project 49 via nav (no pasted study URL) |
-| 19 Reopen + full persistence | **PASS** | Continue study from project card → workspace; verdict/NPV/assumptions/risks/report/friendly archetype still present (`owner-persist-06-reopened.png`) |
+| 1 | Open production URL | App loads |
+| 2 | Register or Login | Enter product (Dashboard/Projects) |
+| 3 | Click **لوحة التحكم** | Dashboard opens; workspace usable |
+| 4 | **المشاريع** → **إضافة مشروع** → enter idea + budget → save | Project space opens |
+| 5 | Confirm idea text visible | Same Arabic MSSP sentence |
+| 6 | Click **دراسة جدوى بالذكاء الاصطناعي** | Study workspace opens |
+| 7 | Confirm classification (friendly label) → continue | No raw IDs (`saas_digital`, etc.) |
+| 8 | Complete AI Discovery (use **دع الذكاء الاصطناعي يقدر**) | Interview completes |
+| 9 | Review assumptions → **اعتماد والمتابعة للتحليل المالي** | Assumptions visible; clear next CTA |
+| 10 | Run **financial analysis inside the study** | NPV/IRR from study assumptions |
+| 11 | View risks → continue | Risks for this study |
+| 12 | View decision | Decision for this study |
+| 13 | Open report | Report for this study |
+| 14 | Refresh browser | Progress still there |
+| 15 | **خروج** | Logged out (visible Log out control) |
+| 16 | Login again | Dashboard |
+| 17 | Open **المشاريع** (not Opportunities) | Same project listed |
+| 18 | Continue AI study | Same study reopens |
+| 19 | Confirm answers / assumptions / analysis / report | Persisted |
+
+Screenshots: `docs/evidence/owner-gate-screenshots/` and `/opt/cursor/artifacts/owner-*.png`
 
 ---
 
-## OWNER GATE: **PASS**
+## 4) PASS/FAIL — production UI (2026-09-12 live E2E)
 
-All required steps 1–19 passed on production after merging PR #33.
+| Step | Result | Notes |
+|------|--------|-------|
+| 1 Open URL | **PASS** | |
+| 2 Register/Login | **PASS** | Fresh UI registration |
+| 3 Dashboard | **PASS** | Cleaner than earlier runs |
+| 4 Create project | **PASS** | |
+| 5 Idea visible | **PASS** | |
+| 6 Start AI study | **PASS** | |
+| 7 Archetype | **PASS*** | Latest run showed friendly Arabic label; earlier run had raw IDs — treat as unstable until PR deploy |
+| 8 AI Discovery | **PASS** | AI estimate used |
+| 9 Assumptions | **PASS*** | Review panel reached; no clear “continue to financial” on production |
+| 10 In-study financial | **FAIL** | **PRODUCT_FAILURE** — lands on disconnected `/tools/financial` |
+| 11 Risks | **FAIL** | Not reachable after assumptions |
+| 12 Decision | **FAIL** | Not reachable |
+| 13 Report | **FAIL** | Not reachable |
+| 14 Refresh | **PASS** | Project still listed |
+| 15 Logout | **FAIL** | Log out hard to discover on production UI |
+| 16 Re-login | **FAIL** | Blocked by logout discoverability |
+| 17 Find project | **PASS** | Via dashboard / URL fallback |
+| 18 Reopen study | **FAIL** | **PRODUCT_FAILURE** — reopen / continue path unreliable |
+| 19 Persistence of analysis/report | **FAIL** | Never reached late stages |
 
-### Notes
+\* Steps 7/9 improved vs earlier baseline but remain gated by missing production deploy of PR #33 journey CTAs.
 
-- Early/mid journey captured via interactive browser session screenshots.
-- After a computer-use quota interruption, late-stage CTAs (risks → decision/report) and logout/reopen were re-verified on the **same production study** through the production UI (still no API/DB shortcuts; navigation used on-screen Projects → Continue).
-- Standalone `/tools/financial` was **not** used as the study financial path.
+### Shell / nav blockers on production
 
-### Remaining non-blocking observations
+| Issue | Status |
+|-------|--------|
+| Marketing footer on app pages | Fix on PR #33 — not deployed |
+| Disconnected Financial tool | Banner + in-study continue on PR #33 — not deployed |
+| Assumptions → Financial → Risks → Decision → Report CTAs | `/continue` + panels on PR #33 — not deployed |
+| Projects vs Opportunities confusion | Signed-in nav prefers Projects on PR #33 — not deployed |
+| Logout discoverability | Stronger Log out + mobile entry on PR #33 — not deployed |
+| Study reopen after logout | Reopen wiring on PR #33 — not deployed |
 
-- AI Estimate can still hang mid-discovery; owner can finish by answering manually.
-- System chat may mention archetype key `services` in a log line; primary UI labels remain friendly Arabic.
+---
+
+## 5) Known remaining blockers
+
+**OWNER GATE: FAIL — not DONE.**
+
+PR #33 contains the product fixes. Production SHA `93e4d385…` does not include them.
+
+Do not claim DONE until a fresh production re-run shows **PASS on steps 1–19** with no workarounds.
+
+---
+
+## 6) Commit / PR / Production SHA
+
+| Item | Value |
+|------|-------|
+| Production URL | https://saudi-business-web.vercel.app |
+| Production SHA | `93e4d385ac0d1338d98b1ebc33cfb27f2071263e` |
+| Fix PR | https://github.com/majaber1/saudi-business/pull/33 |
+| Fix branch | `cursor/phase65-product-ux-hardening-1831` |
+
+---
+
+## Re-test after deploy
+
+1. Merge PR #33 and wait for production deploy.  
+2. Repeat this script with a **new** account.  
+3. Gate flips DONE only when every required step is **PASS**.
