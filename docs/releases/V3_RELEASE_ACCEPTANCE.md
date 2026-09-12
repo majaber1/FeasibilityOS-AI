@@ -3,7 +3,7 @@
 **Release candidate:** v3.0.0
 **Branch:** release/v3.0.0
 **Baseline SHA (origin/main):** `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4`
-**V3 candidate tip:** `608411bc6a2bb5ca4923d77f98972dd6279da7b3`
+**V3 candidate tip:** `6e19a5415163c082b8fc82b6d818d94e4a363824`
 **Date (UTC):** 2026-09-12
 **PR:** https://github.com/majaber1/saudi-business/pull/36
 **PR #33 merge ancestor:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`
@@ -47,7 +47,7 @@ Clean, testable, financially trustworthy production release. No new product feat
 
 ## Financial Trust re-validation (null-display fix)
 
-**Result: PASS (5/5)** on tip `608411bc6a2bb5ca4923d77f98972dd6279da7b3`
+**Result: PASS (5/5)** on tip `6e19a5415163c082b8fc82b6d818d94e4a363824` (null-display pass)
 
 Evidence:
 - docs/evidence/v3-financial-proof/FIVE_SCENARIO_FINANCIAL_TRUST.md
@@ -60,6 +60,18 @@ Verified for Residential, Data Center, Cybersecurity Services, SaaS, Uber Mobili
 - display fields survive persistence round-trip
 
 Owner Gate step 10 `rawBad=false` after product fix (not by weakening the gate assertion).
+
+## Financial Trust final gate (horizon + five scenarios)
+
+**Result: PASS (5/5)** on tip `6e19a5415163c082b8fc82b6d818d94e4a363824`
+
+Additional fix: `run_financial_analysis` no longer truncates revenues/costs to 3 years (incorrect NPV on 4-year residential/DC studies).
+
+Evidence:
+- `docs/evidence/V3_FINANCIAL_TRUST_FINAL_VALIDATION.md`
+- `docs/evidence/v3-financial-trust-final/`
+
+Regression: `tests/test_financial_trust_hardening.py` — **16 passed**.
 
 ## Five-scenario mathematical proof
 
@@ -90,7 +102,7 @@ Scenario proofs: 5/5 PASS
 
 ## Owner Gate (19/19)
 
-**Result: 19/19 PASS** on local V3 candidate (`608411bc6a2bb5ca4923d77f98972dd6279da7b3`)
+**Result: 19/19 PASS** on local V3 candidate (`6e19a5415163c082b8fc82b6d818d94e4a363824`; still valid on tip `6e19a54` financial surfaces)
 
 Normal UI journey only. Evidence: docs/evidence/v3-owner-gate/
 
@@ -105,20 +117,34 @@ Normal UI journey only. Evidence: docs/evidence/v3-owner-gate/
 
 | Area | Status |
 |------|--------|
-| Financial trust + study engine unit tests | 68 passed |
+| Financial trust hardening unit tests | 16 passed |
 | Frozen engines | Unchanged except financial trust surfaces |
 | Foreign-project contamination | None in release diff |
+
+## Production / preview deploy status (follow-up)
+
+| Surface | SHA | State |
+|---------|-----|-------|
+| Production Web `https://saudi-business-web.vercel.app` | `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4` (main) | READY |
+| Production API `https://feasibilityos-ai.vercel.app` | `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4` (main) | READY |
+| Preview Web (tip `6e19a54`) | `6e19a54…` | READY |
+| Preview API (tip `6e19a54` + all recent non-prod) | n/a | **ERROR — Resource provisioning failed** |
+
+Backend preview failure reproduces on Git and CLI deploys for `feasibilityos-ai` (not unique to V3 code). Production builds for the same project still succeed. This blocks pre-merge preview Owner Gate / FT smoke against a live V3 API URL until Vercel/Neon preview provisioning is fixed or production receives the merge deploy.
+
+Evidence: `docs/evidence/V3_PREVIEW_API_PROVISIONING_BLOCKER.md`
 
 ## Known limitations
 
 1. Production still on baseline `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4` — V3 tip not deployed; production Owner Gate retest required after merge/deploy.
-2. AI Estimate can hang — manual discovery answers remain valid.
-3. /tools/financial remains a non-canonical calculator only.
-4. Silent LLM numeric invention mitigated, not eliminated.
-5. PR #32 must not be merged as-is.
+2. `feasibilityos-ai` preview deployments currently fail with `Resource provisioning failed` (platform), so preview API smoke is blocked.
+3. AI Estimate can hang — manual discovery answers remain valid.
+4. /tools/financial remains a non-canonical calculator only.
+5. Silent LLM numeric invention mitigated, not eliminated.
+6. PR #32 must not be merged as-is.
 
 ## Production readiness verdict
 
 **V3 STATUS: READY (candidate)** — all candidate gates PASS.
 
-Do not tag v3.0.0 until: PR merge, Web+Backend production deploy, production SHAs match, Owner Gate 19/19 on production, five financial smokes on production.
+**Tag readiness: NOT READY** until: PR merge → Web+Backend production deploy → production SHAs match tip → Owner Gate 19/19 on production → five financial smokes on production.
