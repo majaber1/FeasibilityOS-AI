@@ -3,7 +3,7 @@
 **Release candidate:** `v3.0.0`  
 **Branch:** `release/v3.0.0`  
 **Baseline SHA (origin/main):** `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4`  
-**V3 candidate tip:** `f4b655b94149455fdc04010bfb1b98d79b95fe2a`  
+**V3 candidate tip:** `84e6621f8a23e6c3d3cbfa23ec446d857a6ac25d`  
 **Date (UTC):** 2026-09-12  
 **PR #33 merge ancestor:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`
 
@@ -25,7 +25,7 @@ Clean, testable, financially trustworthy production release. No new product feat
 ## Financial Trust recovery (from PR #32, selective port)
 
 **Source:** `cursor/financial-trust-hardening-1831` @ `12a2d0041af4fd4ec726d1f83265dcf9214f56e7`  
-**Method:** Manual port of calculation/trust surfaces only. Did **not** merge old PR. Did **not** overwrite Owner Testability journey/nav (StudyJourneyPanels, V2 study counts, archetype labels, continue CTA).
+**Method:** Manual port of calculation/trust surfaces only. Did **not** merge old PR. Did **not** overwrite Owner Testability journey/nav (`StudyJourneyPanels`, V2 study counts, `archetypeLabels`, continue CTA).
 
 ### Ported
 
@@ -78,7 +78,7 @@ Scenario proofs (hand NPV + scale-aware IRR residual + payback): **5/5 PASS**
 
 ## Owner Gate (19/19)
 
-See table below — filled after candidate UI run of `docs/evidence/OWNER_ACCEPTANCE_TEST.md`.
+Filled after candidate UI run of `docs/evidence/OWNER_ACCEPTANCE_TEST.md`.
 
 | Step | Result | Notes |
 |------|--------|-------|
@@ -89,8 +89,8 @@ See table below — filled after candidate UI run of `docs/evidence/OWNER_ACCEPT
 | Check | Status |
 |-------|--------|
 | No marketing footer inside authenticated workflow | Inherited from PR #33 AppChrome product footer |
-| No raw archetype IDs in primary UI | Inherited `archetypeLabel` |
-| Obvious CTA between stages | StudyJourneyPanels continue path retained |
+| No raw archetype IDs in primary UI | Inherited `archetypeLabels` |
+| Obvious CTA between stages | `StudyJourneyPanels` continue path retained |
 | Logout discoverable | PR #33 navbar |
 | Study reopen discoverable | V2 study list + workspace redirect |
 | Report reachable | Late-stage journey panels |
