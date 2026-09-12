@@ -69,7 +69,8 @@ class MonshaatConnector(SourceConnector):
         self._enabled = enabled
         self._reader = reader or SafePageReader(
             allowed_domains=MONSHAAT_ALLOWED_DOMAINS,
-            timeout_seconds=45.0,
+            # Keep bounded: monshaat.gov.sa TLS can hang from some networks.
+            timeout_seconds=15.0,
         )
         self._default_urls = (
             list(default_urls) if default_urls is not None else list(DEFAULT_MONSHAAT_URLS)
