@@ -1,6 +1,7 @@
 fastapi==0.141.1
 starlette==1.6.0
-uvicorn[standard]==0.30.6
+# uvicorn>=0.31.1 required by approved MCP SDK (mcp>=1.28,<2)
+uvicorn[standard]==0.34.0
 # pydantic>=2.11 required by approved MCP SDK (mcp>=1.28,<2)
 pydantic==2.11.7
 pydantic-settings==2.5.2

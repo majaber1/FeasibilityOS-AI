@@ -90,7 +90,7 @@ None relative to Phase 7A scope and the V4 open-source reuse baseline.
 
 ## Dependency note (CI)
 
-`mcp>=1.28,<2` requires `pydantic>=2.11`. CI install failed against the prior pin `pydantic==2.9.2`, so Phase 7A raises the pin to `pydantic==2.11.7` solely for MCP SDK install compatibility. No other new packages were added.
+`mcp>=1.28,<2` requires `pydantic>=2.11` and `uvicorn>=0.31.1`. CI install failed against prior pins `pydantic==2.9.2` and `uvicorn==0.30.6`, so Phase 7A raises those pins to `pydantic==2.11.7` and `uvicorn==0.34.0` solely for approved MCP SDK install compatibility. No other new packages were added.
 
 ## Known limitations
 
