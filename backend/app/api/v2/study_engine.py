@@ -235,6 +235,7 @@ def _list_user_studies(user_id: str) -> list[dict]:
             return [
                 {
                     "study_id": r.study_id,
+                    "project_id": r.project_id,
                     "phase": r.phase,
                     "archetype": (r.profile_json or {}).get("archetype") if isinstance(r.profile_json, dict) else None,
                     "verdict": r.verdict,
@@ -254,6 +255,7 @@ def _list_user_studies(user_id: str) -> list[dict]:
             s = record["state"]
             results.append({
                 "study_id": sid,
+                "project_id": s.get("project_id"),
                 "phase": s.get("phase"),
                 "archetype": (s.get("profile") or {}).get("archetype") if isinstance(s.get("profile"), dict) else None,
                 "verdict": s.get("verdict"),

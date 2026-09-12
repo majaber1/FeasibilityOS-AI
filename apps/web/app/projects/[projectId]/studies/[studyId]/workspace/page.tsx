@@ -196,6 +196,33 @@ export default function StudyWorkspacePage() {
   }, [messages, study?.claims_count, study?.assumptions_count]);
 
   useEffect(() => {
+    // Owner reopen path: `/studies/new` must not orphan an existing V2 study.
+    if (studyId !== "new") return;
+    const token = getToken();
+    if (!token || !projectId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v2/studies`, {
+          credentials: "same-origin",
+          headers: studyFetchHeaders(token),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { studies?: Array<{ study_id: string; project_id?: string | null }> };
+        const existing = (data.studies || []).find((s) => String(s.project_id ?? "") === String(projectId));
+        if (!cancelled && existing?.study_id) {
+          router.replace(`/projects/${projectId}/studies/${existing.study_id}/workspace`);
+        }
+      } catch {
+        /* keep "new" create path if list fails */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [studyId, projectId, router]);
+
+  useEffect(() => {
     const token = getToken();
     if (!token || !studyId || studyId === "new") {
       setHydrating(false);
