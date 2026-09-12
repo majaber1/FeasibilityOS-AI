@@ -2,7 +2,7 @@
 
 **Status:** NOT PASS  
 **Branch:** `cursor/v4-phase7c1-saudi-sources-1831`  
-**Commit:** *(stamped after push)*  
+**Commit:** `7ba3530f54fe2647641a1a9c89efdba317ca30a8`  
 **Baseline V3 frozen:** `v3.0.0` @ `33e216e2ed939b065bca0357c3855184e219a68d`  
 **Phase 7A:** `dc2117bf1a001f85f859d685100fb528b2933d70`  
 **Phase 7B merge SHA:** `af8c2d65ec165e3b5cc42c9a6a30085aab2f193f`  
