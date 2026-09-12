@@ -8,6 +8,11 @@ from langchain_core.messages import AIMessage, SystemMessage
 from ..config import get_llm
 from ..models.study_state import StudyState
 from ..tools.calculator import calculate_npv, calculate_irr, calculate_payback_period
+from ..tools.financial_trust import (
+    irr_user_message,
+    services_capacity_revenue,
+    validate_financial_inputs,
+)
 
 EXPLAIN_PROMPT_AR = """
 أنت محلل مالي خبير متخصص في دراسات الجدوى للسوق السعودي.
@@ -191,9 +196,29 @@ def _deterministic_extract(state: StudyState) -> dict | None:
     discount = first("discount rate", "معدل الخصم") or 0.12
 
     # Professional / managed services model
-    mrc = first("monthly_recurring_contracts", "monthly recurring", "mrc")
+    mrc = first("monthly_recurring_contracts", "monthly recurring", "mrc", "monthly_retainer")
     delivery_monthly = first("delivery_cost_monthly", "delivery cost")
     gross_margin = first("gross_margin", "gross margin")
+    billing_rate = first(
+        "billing_rate",
+        "hourly_rate",
+        "average_billing_rate",
+        "bill_rate",
+        "سعر الساعة",
+        "معدل الفوترة",
+    )
+    utilization_rate = first("utilization_rate", "utilization", "billable utilization", "نسبة الاستخدام")
+    consultants_headcount = first(
+        "consultants_headcount",
+        "headcount",
+        "fte",
+        "consultants",
+        "employees",
+        "عدد المستشارين",
+    )
+    active_contracts = first("active_contracts", "contracts", "clients", "عقود")
+    billable_hours_month = first("billable_hours_month", "billable_hours", "hours_per_month")
+    extract_notes: list[str] = []
 
     # Real estate sales model
     units = first("units", "unit count")
@@ -228,8 +253,19 @@ def _deterministic_extract(state: StudyState) -> dict | None:
     annual_revenues = None
     annual_costs = None
 
-    if mrc is not None:
-        annual_revenues = [mrc * 12, mrc * 12 * 1.25, mrc * 12 * 1.5]
+    # Services: prefer capacity revenue (billing_rate × utilization × resources),
+    # fall back to MRC — never silently ignore utilization/headcount.
+    services_y1, services_notes = services_capacity_revenue(
+        billing_rate=billing_rate,
+        utilization_rate=utilization_rate,
+        headcount=consultants_headcount,
+        active_contracts=active_contracts,
+        billable_hours_month=billable_hours_month,
+        mrc=mrc,
+    )
+    extract_notes.extend(services_notes)
+    if services_y1 is not None:
+        annual_revenues = [services_y1, services_y1 * 1.25, services_y1 * 1.5]
         if delivery_monthly is not None:
             annual_costs = [
                 delivery_monthly * 12,
@@ -238,6 +274,12 @@ def _deterministic_extract(state: StudyState) -> dict | None:
             ]
         elif gross_margin is not None:
             annual_costs = [r * (1.0 - gross_margin) for r in annual_revenues]
+        else:
+            # Trust hardening: never default services OPEX to zero (inflates NPV).
+            # Conservative 55% delivery-cost ratio when margin/delivery missing.
+            default_cost_ratio = 0.55
+            annual_costs = [r * default_cost_ratio for r in annual_revenues]
+            extract_notes.append("services_opex_defaulted_from_55pct_cost_ratio")
     elif atv is not None and take_rate is not None and rides is not None:
         monthly_revenue = atv * take_rate * rides
         annual_revenues = [
@@ -297,11 +339,37 @@ def _deterministic_extract(state: StudyState) -> dict | None:
     if capex is None and annual_revenues is None and annual_costs is None:
         return None
 
+    # Data center / other revenue models: never leave costs as silent None → [0,0,0].
+    if annual_revenues is not None and annual_costs is None:
+        annual_costs = [r * 0.45 for r in annual_revenues]
+        extract_notes.append("opex_defaulted_from_45pct_of_revenue_missing_cost_inputs")
+
+    assumption_values: dict[str, float] = {
+        k: vals[k]
+        for k in (
+            "mw_capacity",
+            "mw",
+            "units",
+            "unit_count",
+            "consultants_headcount",
+            "headcount",
+        )
+        if k in vals
+    }
+    if mw is not None:
+        assumption_values.setdefault("mw_capacity", mw)
+    if units is not None:
+        assumption_values.setdefault("units", units)
+    if consultants_headcount is not None:
+        assumption_values.setdefault("consultants_headcount", consultants_headcount)
+
     return {
         "capex": capex,
         "annual_revenues": annual_revenues,
         "annual_costs": annual_costs,
         "discount_rate": discount if discount is not None else 0.12,
+        "extract_notes": extract_notes,
+        "assumption_values": assumption_values,
     }
 
 
@@ -315,6 +383,11 @@ def _merge_extract(primary: dict | None, fallback: dict | None) -> dict | None:
         "annual_revenues": primary.get("annual_revenues") or fallback.get("annual_revenues"),
         "annual_costs": primary.get("annual_costs") or fallback.get("annual_costs"),
         "discount_rate": primary.get("discount_rate") if primary.get("discount_rate") is not None else fallback.get("discount_rate", 0.12),
+        "extract_notes": list(fallback.get("extract_notes") or []) + list(primary.get("extract_notes") or []),
+        "assumption_values": {
+            **(fallback.get("assumption_values") or {}),
+            **(primary.get("assumption_values") or {}),
+        },
     }
     if merged["capex"] is None and not merged["annual_revenues"] and not merged["annual_costs"]:
         return None
@@ -359,6 +432,9 @@ def _compute_scenario(capex: float, revenues: list, costs: list, discount_rate: 
         "npv": npv,
         "irr": round(irr, 4) if irr is not None else None,
         "payback_months": round(payback * 12, 1) if payback is not None else None,
+        "cash_flows": [round(cf, 2) for cf in cash_flows],
+        "revenue_projections": [round(r, 2) for r in adj_revenues],
+        "cost_projections": [round(c, 2) for c in adj_costs],
     }
 
 
@@ -377,6 +453,8 @@ def run_financial_analysis(state: StudyState) -> StudyState:
     revenues = extracted.get("annual_revenues") or [0, 0, 0]
     costs = extracted.get("annual_costs") or [0, 0, 0]
     discount_rate = extracted.get("discount_rate") or 0.12
+    extract_notes = list(extracted.get("extract_notes") or [])
+    assumption_values = dict(extracted.get("assumption_values") or {})
 
     # Normalize lengths to 3 years
     while len(revenues) < 3:
@@ -385,6 +463,10 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         costs.append(costs[-1] if costs else 0)
     revenues = [float(r) if r else 0 for r in revenues[:3]]
     costs = [float(c) if c else 0 for c in costs[:3]]
+    # Trust hardening: never silently treat missing costs as zero when revenue exists.
+    if any(r > 0 for r in revenues) and all(c == 0 for c in costs):
+        costs = [r * 0.45 for r in revenues]
+        extract_notes.append("opex_defaulted_from_45pct_of_revenue_zero_cost_vector")
     capex = float(capex)
     discount_rate = float(discount_rate)
     if discount_rate > 1:
@@ -394,17 +476,59 @@ def run_financial_analysis(state: StudyState) -> StudyState:
     optimistic = _compute_scenario(capex, revenues, costs, discount_rate, 1.2)
     conservative = _compute_scenario(capex, revenues, costs, discount_rate, 0.8)
 
+    archetype = getattr(getattr(state, "profile", None), "archetype", None) or getattr(state, "archetype", None)
+    trust_warnings = validate_financial_inputs(
+        archetype=archetype,
+        capex=capex,
+        annual_revenues=revenues,
+        annual_costs=costs,
+        assumptions=assumption_values,
+        language=lang or "en",
+    )
+    if "services_opex_defaulted_from_55pct_cost_ratio" in extract_notes:
+        trust_warnings.append(
+            "Operating costs were estimated at 55% of revenue because delivery cost / gross margin were missing."
+            if lang != "ar"
+            else "تم تقدير تكاليف التشغيل بنسبة 55% من الإيراد لعدم توفر تكلفة التسليم / هامش الربح."
+        )
+    if "opex_defaulted_from_45pct_of_revenue_missing_cost_inputs" in extract_notes or (
+        "opex_defaulted_from_45pct_of_revenue_zero_cost_vector" in extract_notes
+    ):
+        trust_warnings.append(
+            "Operating costs were estimated because cost inputs were missing — review before relying on NPV."
+            if lang != "ar"
+            else "تم تقدير تكاليف التشغيل لنقص مدخلات التكلفة — راجع قبل الاعتماد على صافي القيمة الحالية."
+        )
+
     computed = {
         "capex": capex,
         "revenue_projections": {"year_1": revenues[0], "year_2": revenues[1], "year_3": revenues[2]},
         "cost_projections": {"year_1": costs[0], "year_2": costs[1], "year_3": costs[2]},
+        "cash_flows": base["cash_flows"],
+        "discount_rate": discount_rate,
         "npv": base["npv"],
         "irr": base["irr"],
+        "irr_display": irr_user_message(base["irr"], language=lang or "en"),
+        "irr_available": base["irr"] is not None,
         "payback_months": base["payback_months"],
+        "warnings": trust_warnings,
+        "extract_notes": extract_notes,
         "scenarios": {
-            "optimistic": {"npv": optimistic["npv"], "irr": optimistic["irr"]},
-            "base": {"npv": base["npv"], "irr": base["irr"]},
-            "conservative": {"npv": conservative["npv"], "irr": conservative["irr"]},
+            "optimistic": {
+                "npv": optimistic["npv"],
+                "irr": optimistic["irr"],
+                "irr_display": irr_user_message(optimistic["irr"], language=lang or "en"),
+            },
+            "base": {
+                "npv": base["npv"],
+                "irr": base["irr"],
+                "irr_display": irr_user_message(base["irr"], language=lang or "en"),
+            },
+            "conservative": {
+                "npv": conservative["npv"],
+                "irr": conservative["irr"],
+                "irr_display": irr_user_message(conservative["irr"], language=lang or "en"),
+            },
         },
     }
 
@@ -431,7 +555,7 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         state.error = None
         state.financial_results = computed
         state.financial_results["analysis_complete"] = True
-        state.financial_results["warnings"] = ["explain_model_unavailable"]
+        state.financial_results["warnings"] = list(trust_warnings) + ["explain_model_unavailable"]
         state.phase = "ANALYZED"
         state.messages.append(AIMessage(content=_financial_chat_summary(computed, lang)))
         state.next_action = "review_financials"
@@ -441,16 +565,24 @@ def run_financial_analysis(state: StudyState) -> StudyState:
     if financial_data:
         financial_data["npv"] = computed["npv"]
         financial_data["irr"] = computed["irr"]
+        financial_data["irr_display"] = computed["irr_display"]
+        financial_data["irr_available"] = computed["irr_available"]
         financial_data["payback_months"] = computed["payback_months"]
+        financial_data["cash_flows"] = computed["cash_flows"]
+        financial_data["discount_rate"] = computed["discount_rate"]
         financial_data["scenarios"] = computed["scenarios"]
         financial_data.setdefault("revenue_projections", computed["revenue_projections"])
         financial_data.setdefault("cost_projections", computed["cost_projections"])
         financial_data.setdefault("capex", computed["capex"])
+        existing_warnings = financial_data.get("warnings") or []
+        if isinstance(existing_warnings, str):
+            existing_warnings = [existing_warnings]
+        financial_data["warnings"] = list(dict.fromkeys([*trust_warnings, *existing_warnings]))
+        financial_data["extract_notes"] = extract_notes
         financial_data["analysis_complete"] = True
         state.financial_results = financial_data
     else:
         computed["analysis_complete"] = True
-        computed["warnings"] = []
         state.financial_results = computed
 
     state.error = None
@@ -468,16 +600,16 @@ def run_financial_analysis(state: StudyState) -> StudyState:
 def _financial_chat_summary(computed: dict, lang: str) -> str:
     """User-safe financial summary — structured numbers live in financial_results only."""
     npv = computed.get("npv")
-    irr = computed.get("irr")
+    irr_text = computed.get("irr_display") or irr_user_message(computed.get("irr"), language=lang)
     payback = computed.get("payback_months")
     if lang == "ar":
         return (
             "اكتمل التحليل المالي. راجع لوحة النتائج للتفاصيل "
-            f"(صافي القيمة الحالية: {npv}، معدل العائد الداخلي: {irr}، فترة الاسترداد بالأشهر: {payback})."
+            f"(صافي القيمة الحالية: {npv}، معدل العائد الداخلي: {irr_text}، فترة الاسترداد بالأشهر: {payback})."
         )
     return (
         "Financial analysis complete. Review the results panel for details "
-        f"(NPV: {npv}, IRR: {irr}, payback months: {payback})."
+        f"(NPV: {npv}, IRR: {irr_text}, payback months: {payback})."
     )
 
 

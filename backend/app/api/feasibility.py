@@ -74,6 +74,22 @@ class StudyOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+_IRR_UNAVAILABLE_EN = (
+    "IRR cannot be calculated for these cash flows "
+    "(no valid internal rate of return in range — often no sign change or extreme profile)."
+)
+_IRR_UNAVAILABLE_AR = (
+    "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات النقدية "
+    "(لا يوجد معدل عائد داخلي صالح ضمن النطاق — غالباً لعدم تغير الإشارة أو لملف تدفقات متطرف)."
+)
+
+
+def _irr_display(irr_fraction: float | None, *, language: str = "en") -> str:
+    if irr_fraction is None:
+        return _IRR_UNAVAILABLE_AR if language == "ar" else _IRR_UNAVAILABLE_EN
+    return f"{irr_fraction * 100:.1f}%"
+
+
 def _latest_result(db, models, study_id: int) -> Optional[dict]:
     row = (
         db.query(models.FinancialResult)
@@ -89,9 +105,14 @@ def _latest_result(db, models, study_id: int) -> Optional[dict]:
         "payback_years": row.payback_years,
         "npv": row.npv,
         "irr_percent": (row.irr * 100) if row.irr is not None else None,
+        "irr_display": _irr_display(row.irr),
+        "irr_available": row.irr is not None,
         "break_even": row.break_even,
         "verdict": row.verdict,
         "sensitivity": detail.get("sensitivity", []),
+        "warnings": detail.get("warnings", []),
+        "cash_flows": detail.get("annual_cash_flows"),
+        "discount_rate": detail.get("discount_rate"),
     }
 
 
@@ -282,7 +303,12 @@ def compute_from_assumptions(study_id: int, user: UserOut = Depends(get_current_
     only changes where the inputs come from.
     """
     from app import models
-    from app.services.financial_projection import ALL_ASSUMPTION_KEYS, missing_required_keys, project_cash_flows
+    from app.services.financial_projection import (
+        ALL_ASSUMPTION_KEYS,
+        missing_required_keys,
+        project_cash_flows,
+        soft_input_warnings,
+    )
 
     db = _require_db()
     try:
@@ -307,6 +333,7 @@ def compute_from_assumptions(study_id: int, user: UserOut = Depends(get_current_
                     "missing": missing,
                 },
             )
+        trust_warnings = soft_input_warnings(values)
         investment, cash_flows, discount_rate = project_cash_flows(values)
 
         res = evaluate_feasibility(investment, cash_flows, discount_rate)
@@ -325,6 +352,7 @@ def compute_from_assumptions(study_id: int, user: UserOut = Depends(get_current_
                 "annual_cash_flows": cash_flows,
                 "source": "assumptions",
                 "assumption_versions": {row.key: {"id": row.id, "version": row.version} for row in active},
+                "warnings": trust_warnings,
             },
         )
         db.add(result)

@@ -69,9 +69,14 @@ def irr(cash_flows: List[float], guess: float = 0.1, tol: float = 1e-6, max_iter
             return new_rate
         rate = new_rate
 
-    # Fallback: bisection search over a reasonable rate range
+    # Fallback: bisection search over an expandable rate range (high-IRR projects).
     low, high = -0.99, 10.0
     f_low, f_high = npv(low, cash_flows), npv(high, cash_flows)
+    expand = 0
+    while f_low * f_high > 0 and high < 1000.0 and expand < 8:
+        high *= 2.0
+        f_high = npv(high, cash_flows)
+        expand += 1
     if f_low * f_high > 0:
         return None
     for _ in range(200):
