@@ -1,0 +1,51 @@
+{
+  "captured_at": "2026-09-12T21:44:49.869706+00:00",
+  "phase7b_merge_sha": "af8c2d65ec165e3b5cc42c9a6a30085aab2f193f",
+  "phase7c1_status": "BLOCKED_EXTERNAL_REACHABILITY",
+  "monshaat": {
+    "live_e2e": "FAIL",
+    "status": "BLOCKED_EXTERNAL_REACHABILITY",
+    "connector_contract": "PASS",
+    "official_api_contract": "PASS",
+    "second_environment_gate": {
+      "environment": "github-actions-ubuntu-latest",
+      "host": "pservices.monshaat.gov.sa",
+      "dns": "PASS",
+      "tcp_443": "FAIL",
+      "tls": "FAIL",
+      "http": "FAIL",
+      "any_official_api_success": false
+    },
+    "live_docs": [],
+    "knowledge_document_ids": [],
+    "chunk_ids": [],
+    "evidence_ids": []
+  },
+  "misa": {
+    "note": "Delivered on separate PR cursor/v4-phase7c1-misa-live-1831",
+    "live_e2e": "PASS_ON_SIBLING_PR"
+  },
+  "retrieval": {
+    "query": "What does MISA say about National Investment Strategy and investment development?",
+    "citations": [
+      {
+        "document_id": "4e55f605-a98f-4158-8a60-74eda68ee0ad",
+        "claim": "ion and development of investment opportunities published on Invest Saudi In enhancing and improving policy & regulation With enablement and entailments to foster investment in the Kingdom As the leading body for the int"
+      },
+      {
+        "document_id": "69f33f94-38b8-4571-9729-88f6eeff5c81",
+        "claim": "30% in 2030 (*as measured by Gross Fixed Capital Formation) Catalyze new investment across existing and emerging sectors Target Initiatives 01 Investment Opportunites 02 Investors 03 Funding 04 Competitiveness and enable"
+      }
+    ]
+  },
+  "failure_tests": {
+    "domain": "UrlSecurityError: host not in allowlist: example.com",
+    "ssrf": "UrlSecurityError: host not in allowlist: 127.0.0.1"
+  },
+  "regression": {
+    "phase7a_7b_7c1": "50 passed",
+    "phase7c1_alone": "22 passed",
+    "gastat_live_smoke": "SMOKE_OK"
+  },
+  "slice": "monshaat_blocked"
+}

@@ -10,6 +10,8 @@ from typing import Any, Dict, Optional
 from app.integrations.sources.base import SourceConnector
 from app.integrations.sources.fixture_connector import FixtureSaudiOpenDataConnector
 from app.integrations.sources.gastat import GastatConnector
+from app.integrations.sources.monshaat import MonshaatConnector
+from app.integrations.sources.misa import MisaConnector
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -47,6 +49,10 @@ def connector_for_key(source_key: str) -> SourceConnector:
     key = (source_key or "").strip().lower()
     if key == "gastat":
         return GastatConnector(enabled=True)
+    if key == "monshaat":
+        return MonshaatConnector(enabled=True)
+    if key == "misa":
+        return MisaConnector(enabled=True)
     if key in {"saudi_open_data", "fixture"}:
         return FixtureSaudiOpenDataConnector(enabled=True)
     raise ValueError(f"unsupported source_key for MCP boundary: {source_key}")
@@ -122,7 +128,7 @@ def build_mcp_server(*, connector: Optional[SourceConnector] = None) -> Any:
     mcp = FastMCP(
         SERVER_NAME,
         instructions=(
-            "Saudi Business Phase 7B source boundary. "
+            "Saudi Business Phase 7C.1 source boundary. "
             "Tools call SourceConnector only — never Financial/Risk/Decision engines."
         ),
     )
