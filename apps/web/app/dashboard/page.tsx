@@ -241,7 +241,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { href: "/tools/feasibility", code: "01", title: ar ? "دراسة الجدوى V2" : "Feasibility V2", body: ar ? "محرك ذكاء اصطناعي متعدد الوكلاء" : "Multi-agent AI engine" },
-              { href: "/tools/financial", code: "02", title: ar ? "التحليل المالي" : "Financial analysis", body: ar ? "عائد الاستثمار وصافي القيمة الحالية" : "ROI, NPV, IRR calculations" },
+              { href: "/tools/feasibility", code: "02", title: ar ? "التحليل المالي" : "Financial analysis", body: ar ? "عائد الاستثمار وصافي القيمة الحالية" : "ROI, NPV, IRR calculations" },
               { href: "/tools/funding", code: "03", title: ar ? "مطابقة التمويل" : "Funding match", body: ar ? "خيارات حسب القطاع والمرحلة" : "Options by sector and stage" },
               { href: "/tools/proposal", code: "04", title: ar ? "بناء العروض" : "Proposals", body: ar ? "عروض تجارية واستثمارية" : "Commercial and investor proposals" },
               { href: "/tools/qualification", code: "05", title: ar ? "التأهيل" : "Qualification", body: ar ? "جاهزية التمويل والامتثال" : "Funding and compliance readiness" },

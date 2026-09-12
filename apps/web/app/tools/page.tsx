@@ -15,13 +15,13 @@ const services = [
     },
   },
   {
-    href: "/tools/financial",
+    href: "/tools/feasibility",
     icon: "💰",
     code: "02",
     title: { ar: "التحليل المالي", en: "Financial Analysis" },
     description: {
-      ar: "حلل العائد والقيمة الحالية ومعدل العائد الداخلي وفترة الاسترداد ونقطة التعادل بشكل مستقل.",
-      en: "Analyze ROI, NPV, IRR, payback period, and break-even independently for any scenario.",
+      ar: "جزء من مسار دراسة الجدوى — NPV وIRR والاسترداد من افتراضات الدراسة.",
+      en: "Part of the feasibility study workflow — NPV, IRR and payback from study assumptions.",
     },
   },
   {

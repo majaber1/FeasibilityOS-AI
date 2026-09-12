@@ -63,9 +63,43 @@ export default function FinancialAnalysisPage() {
       />
 
       <div className="container-page space-y-8 py-8">
+        <div
+          data-testid="financial-study-workflow-banner"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900"
+        >
+          {ar ? (
+            <>
+              التحليل المالي المعتمد للدراسة يتم داخل{" "}
+              <a href="/tools/feasibility" className="font-semibold underline">
+                مسار دراسة الجدوى
+              </a>{" "}
+              (قسم التحليل المالي). هذه الصفحة آلة حاسبة مستقلة للتقدير السريع فقط.
+            </>
+          ) : (
+            <>
+              Study-grade financial analysis lives inside the{" "}
+              <a href="/tools/feasibility" className="font-semibold underline">
+                feasibility study workflow
+              </a>{" "}
+              (Financial analysis section). This page is a standalone quick calculator only.
+            </>
+          )}
+        </div>
         {project && (
           <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">
             {ar ? "التحليل مرتبط بالمشروع:" : "Analysis linked to project:"} <strong>{project.name}</strong>
+            {project.id != null && (
+              <>
+                {" · "}
+                <a
+                  href={`/projects/${project.id}`}
+                  className="font-semibold underline"
+                  data-testid="open-project-from-financial-tool"
+                >
+                  {ar ? "فتح المشروع / الدراسة" : "Open project / study"}
+                </a>
+              </>
+            )}
           </div>
         )}
         {projectError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{projectError}</p>}
@@ -143,7 +177,18 @@ export default function FinancialAnalysisPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <KpiCard label={ar ? "العائد على الاستثمار" : "ROI"} value={result.roi_percent !== null ? `${result.roi_percent.toFixed(1)}%` : "—"} icon="📈" />
                   <KpiCard label={ar ? "القيمة الحالية الصافية" : "NPV"} value={result.npv !== null ? money(result.npv) : "—"} icon="💎" />
-                  <KpiCard label={ar ? "معدل العائد الداخلي" : "IRR"} value={result.irr_percent !== null ? `${result.irr_percent.toFixed(1)}%` : "—"} icon="📊" />
+                  <KpiCard
+                    label={ar ? "معدل العائد الداخلي" : "IRR"}
+                    value={
+                      result.irr_display ||
+                      (result.irr_percent !== null
+                        ? `${result.irr_percent.toFixed(1)}%`
+                        : ar
+                          ? "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات."
+                          : "IRR cannot be calculated for these cash flows.")
+                    }
+                    icon="📊"
+                  />
                   <KpiCard label={ar ? "فترة الاسترداد" : "Payback"} value={result.payback_years !== null ? `${result.payback_years.toFixed(1)} ${ar ? "سنة" : "years"}` : "—"} icon="⏱️" />
                 </div>
               </>

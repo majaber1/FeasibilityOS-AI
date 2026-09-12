@@ -35,6 +35,27 @@ def missing_required_keys(values: dict[str, Optional[float]]) -> list[str]:
     return [key for key in REQUIRED_ASSUMPTION_KEYS if values.get(key) is None]
 
 
+def soft_input_warnings(values: dict[str, Optional[float]], *, language: str = "en") -> list[str]:
+    """Soft validation — never blocks computation. Surfaces trust risks."""
+    warnings: list[str] = []
+    rev = values.get("revenue_year1")
+    opex = values.get("opex_annual")
+    capex = values.get("capex")
+    if rev is not None and float(rev) > 0 and (opex is None or float(opex) == 0):
+        warnings.append(
+            "Operating costs (opex_annual) are missing or zero while revenue is positive — NPV may be overstated."
+            if language != "ar"
+            else "تكاليف التشغيل (opex_annual) ناقصة أو صفر مع وجود إيراد — قد يكون صافي القيمة الحالية مبالغاً فيه."
+        )
+    if capex is not None and float(capex) <= 0 and rev is not None and float(rev) > 0:
+        warnings.append(
+            "CAPEX is zero while revenue is positive — NPV/IRR may be misleading."
+            if language != "ar"
+            else "النفقات الرأسمالية صفر مع وجود إيراد — قد تكون NPV/IRR مضللة."
+        )
+    return warnings
+
+
 def project_cash_flows(values: dict[str, Optional[float]]) -> tuple[float, list[float], float]:
     """Return (investment, annual_cash_flows, discount_rate).
 
