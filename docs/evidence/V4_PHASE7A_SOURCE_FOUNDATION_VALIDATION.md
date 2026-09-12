@@ -88,6 +88,10 @@ None relative to Phase 7A scope and the V4 open-source reuse baseline.
 - Not added: pgvector, unstructured, LlamaIndex, CrewAI, AutoGen, Haystack, Mem0, Zep  
 - Not copied: Node `ai-business-planner` search/read/cache patterns (reserved for 7B)
 
+## Dependency note (CI)
+
+`mcp>=1.28,<2` requires `pydantic>=2.11`. CI install failed against the prior pin `pydantic==2.9.2`, so Phase 7A raises the pin to `pydantic==2.11.7` solely for MCP SDK install compatibility. No other new packages were added.
+
 ## Known limitations
 
 1. No live Saudi API connectors — fixture only.  
