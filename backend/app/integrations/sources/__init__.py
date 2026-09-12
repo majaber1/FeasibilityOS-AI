@@ -11,7 +11,6 @@ from .schemas import (
 from .validation import validate_source_document, provenance_is_complete
 from .fixture_connector import FixtureSaudiOpenDataConnector
 from .gastat import GastatConnector
-from .monshaat import MonshaatConnector
 from .misa import MisaConnector
 from .knowledge_adapter import ingest_source_document
 
@@ -28,7 +27,6 @@ __all__ = [
     "provenance_is_complete",
     "FixtureSaudiOpenDataConnector",
     "GastatConnector",
-    "MonshaatConnector",
     "MisaConnector",
     "ingest_source_document",
 ]

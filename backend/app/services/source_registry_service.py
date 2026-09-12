@@ -17,7 +17,6 @@ from app import models
 from app.integrations.sources.base import ConnectorHealth, ConnectorStatus
 from app.integrations.sources.fixture_connector import FixtureSaudiOpenDataConnector
 from app.integrations.sources.gastat import GastatConnector
-from app.integrations.sources.monshaat import MonshaatConnector
 from app.integrations.sources.misa import MisaConnector
 
 # Keys that must never persist inside connector_config JSON.
@@ -45,17 +44,15 @@ SEED_SOURCES: List[Dict[str, Any]] = [
     {
         "key": "monshaat",
         "name": "Monsha'at — Small & Medium Enterprises General Authority",
-        "description": "SME market intelligence, entrepreneurship indicators, and business-environment reports (live HTML connector in Phase 7C.1).",
-        "source_type": "market_report",
+        "description": "SME programs, indicators, and support resources.",
+        "source_type": "funding_program",
         "authority_type": "OFFICIAL_PRIMARY",
         "base_url": "https://www.monshaat.gov.sa",
         "trust_score": 0.9,
-        "connector_type": "live",
-        "enabled": True,
-        "refresh_policy": "on_demand",
+        "connector_type": "registry_only",
+        "enabled": False,
+        "refresh_policy": "manual",
         "languages": ["ar", "en"],
-        "sectors": ["sme", "entrepreneurship", "business_environment"],
-        "connector_config": {"live": True, "retrieval": "official_public_html"},
     },
     {
         "key": "misa",
@@ -285,8 +282,6 @@ def connector_for_source(row: models.KnowledgeSource):
     """Resolve a SourceConnector for a registry row."""
     if row.key == "gastat" and row.connector_type in {"live", "gastat"}:
         return GastatConnector(enabled=bool(row.enabled))
-    if row.key == "monshaat" and row.connector_type in {"live", "monshaat"}:
-        return MonshaatConnector(enabled=bool(row.enabled))
     if row.key == "misa" and row.connector_type in {"live", "misa"}:
         return MisaConnector(enabled=bool(row.enabled))
     if row.connector_type == "fixture" and row.key == "saudi_open_data":
@@ -330,7 +325,7 @@ def source_status(db: Session, source_id: str) -> Dict[str, Any]:
 def ensure_seed_sources(db: Session) -> List[models.KnowledgeSource]:
     """Idempotently insert Saudi source registry definitions; promote live connectors."""
     created: List[models.KnowledgeSource] = []
-    promote_keys = {"gastat", "monshaat", "misa"}
+    promote_keys = {"gastat", "misa"}
     for seed in SEED_SOURCES:
         existing = get_source_by_key(db, seed["key"])
         if existing:
