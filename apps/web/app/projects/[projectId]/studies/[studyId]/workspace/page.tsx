@@ -803,7 +803,19 @@ export default function StudyWorkspacePage() {
                       )}
                     </p>
                   )}
-                  {"payback_months" in financial && <p>Payback (months): {String(financial.payback_months)}</p>}
+                  {"payback_months" in financial && (
+                    <p data-testid="workspace-payback">
+                      {ar ? "الاسترداد:" : "Payback:"}{" "}
+                      {String(
+                        (financial as { payback_display?: string }).payback_display ||
+                          (financial.payback_months == null
+                            ? ar
+                              ? "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية."
+                              : "Payback cannot be calculated for these cash flows."
+                            : `${financial.payback_months} months`),
+                      )}
+                    </p>
+                  )}
                   {"capex" in financial && <p>CAPEX: {String(financial.capex)}</p>}
                   {Array.isArray((financial as { warnings?: string[] }).warnings) &&
                     ((financial as { warnings?: string[] }).warnings || []).length > 0 && (
@@ -836,6 +848,7 @@ export default function StudyWorkspacePage() {
             type="button"
             onClick={() => approveStage("evidence")}
             disabled={loading || claims.length === 0}
+            data-testid="approve-evidence-btn"
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {ar ? "الموافقة على الأدلة" : "Approve Evidence"}

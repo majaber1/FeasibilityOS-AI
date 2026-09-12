@@ -168,6 +168,17 @@ def test_deterministic_services_extract_uses_capacity_and_opex():
     )
 
 
+def test_payback_user_message_never_raw_null():
+    from ai_engine.tools.financial_trust import payback_user_message
+
+    msg = payback_user_message(None, language="en")
+    assert msg
+    assert "null" not in msg.lower()
+    assert "cannot be calculated" in msg.lower()
+    assert "null" not in payback_user_message(None, language="ar").lower()
+    assert "18.0 months" == payback_user_message(18.0, language="en")
+
+
 def test_run_financial_analysis_surfaces_irr_display_not_null():
     state = StudyState(
         study_id="s-svc2",
@@ -198,6 +209,8 @@ def test_run_financial_analysis_surfaces_irr_display_not_null():
     fr = out.financial_results or {}
     assert fr.get("irr_display")
     assert "null" not in str(fr.get("irr_display")).lower()
+    assert fr.get("payback_display")
+    assert "null" not in str(fr.get("payback_display")).lower()
     assert "cash_flows" in fr
     assert fr.get("npv") is not None
 

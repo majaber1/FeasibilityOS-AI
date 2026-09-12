@@ -29,6 +29,26 @@ def irr_user_message(irr: Optional[float], *, language: str = "en") -> str:
     return f"{pct:.1f}%"
 
 
+PAYBACK_UNAVAILABLE_EN = (
+    "Payback cannot be calculated for these cash flows "
+    "(cumulative cash flow never recovers the initial investment in the projection window)."
+)
+PAYBACK_UNAVAILABLE_AR = (
+    "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية "
+    "(التدفق التراكمي لا يسترد الاستثمار الأولي ضمن نافذة الإسقاط)."
+)
+
+
+def payback_user_message(payback_months: Optional[float], *, language: str = "en") -> str:
+    """Never surface raw null payback to users."""
+    if payback_months is None:
+        return PAYBACK_UNAVAILABLE_AR if language == "ar" else PAYBACK_UNAVAILABLE_EN
+    months = float(payback_months)
+    if language == "ar":
+        return f"{months:.1f} شهراً"
+    return f"{months:.1f} months"
+
+
 def _as_float(value: Any) -> Optional[float]:
     if value is None:
         return None

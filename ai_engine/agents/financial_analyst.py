@@ -10,6 +10,7 @@ from ..models.study_state import StudyState
 from ..tools.calculator import calculate_npv, calculate_irr, calculate_payback_period
 from ..tools.financial_trust import (
     irr_user_message,
+    payback_user_message,
     services_capacity_revenue,
     validate_financial_inputs,
 )
@@ -519,6 +520,8 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         "irr_display": irr_user_message(base["irr"], language=lang or "en"),
         "irr_available": base["irr"] is not None,
         "payback_months": base["payback_months"],
+        "payback_display": payback_user_message(base["payback_months"], language=lang or "en"),
+        "payback_available": base["payback_months"] is not None,
         "warnings": trust_warnings,
         "extract_notes": extract_notes,
         "scenarios": {
@@ -576,6 +579,8 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         financial_data["irr_display"] = computed["irr_display"]
         financial_data["irr_available"] = computed["irr_available"]
         financial_data["payback_months"] = computed["payback_months"]
+        financial_data["payback_display"] = computed["payback_display"]
+        financial_data["payback_available"] = computed["payback_available"]
         financial_data["cash_flows"] = computed["cash_flows"]
         financial_data["discount_rate"] = computed["discount_rate"]
         financial_data["scenarios"] = computed["scenarios"]

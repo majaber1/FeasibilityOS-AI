@@ -96,8 +96,22 @@ export function StudyLateStagePanels({
   if (!showFinancial && !showRisks && !showReport) return null;
 
   const npv = metric(financial, "npv");
-  const irr = metric(financial, "irr");
-  const payback = metric(financial, "payback_months") || metric(financial, "payback_years");
+  const irr =
+    metric(financial, "irr_display") ||
+    (financial && financial.irr == null
+      ? ar
+        ? "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات النقدية."
+        : "IRR cannot be calculated for these cash flows."
+      : metric(financial, "irr"));
+  const payback =
+    metric(financial, "payback_display") ||
+    metric(financial, "payback_months") ||
+    metric(financial, "payback_years") ||
+    (financial && "payback_months" in financial && financial.payback_months == null
+      ? ar
+        ? "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية."
+        : "Payback cannot be calculated for these cash flows."
+      : null);
   const capex = metric(financial, "capex");
 
   return (
