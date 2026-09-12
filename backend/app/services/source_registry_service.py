@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.integrations.sources.base import ConnectorHealth, ConnectorStatus
 from app.integrations.sources.fixture_connector import FixtureSaudiOpenDataConnector
+from app.integrations.sources.gastat import GastatConnector
 
 # Keys that must never persist inside connector_config JSON.
 _SECRET_KEY_RE = re.compile(
@@ -28,15 +29,16 @@ SEED_SOURCES: List[Dict[str, Any]] = [
     {
         "key": "gastat",
         "name": "GASTAT — General Authority for Statistics",
-        "description": "Official Saudi statistics authority.",
+        "description": "Official Saudi statistics authority (live HTML connector in Phase 7B).",
         "source_type": "official_statistic",
         "authority_type": "OFFICIAL_PRIMARY",
         "base_url": "https://www.stats.gov.sa",
         "trust_score": 0.95,
-        "connector_type": "registry_only",
-        "enabled": False,
-        "refresh_policy": "manual",
+        "connector_type": "live",
+        "enabled": True,
+        "refresh_policy": "on_demand",
         "languages": ["ar", "en"],
+        "connector_config": {"live": True, "retrieval": "official_public_html"},
     },
     {
         "key": "monshaat",
@@ -274,7 +276,9 @@ def record_sync_result(
 
 
 def connector_for_source(row: models.KnowledgeSource):
-    """Resolve a SourceConnector for a registry row (fixture only in 7A)."""
+    """Resolve a SourceConnector for a registry row."""
+    if row.key == "gastat" and row.connector_type in {"live", "gastat"}:
+        return GastatConnector(enabled=bool(row.enabled))
     if row.connector_type == "fixture" and row.key == "saudi_open_data":
         return FixtureSaudiOpenDataConnector(enabled=bool(row.enabled))
     return None
@@ -314,11 +318,136 @@ def source_status(db: Session, source_id: str) -> Dict[str, Any]:
 
 
 def ensure_seed_sources(db: Session) -> List[models.KnowledgeSource]:
-    """Idempotently insert the Phase 7A Saudi source registry definitions."""
+    """Idempotently insert Saudi source registry definitions; promote gastat to live in 7B."""
     created: List[models.KnowledgeSource] = []
     for seed in SEED_SOURCES:
         existing = get_source_by_key(db, seed["key"])
         if existing:
+            if seed["key"] == "gastat":
+                changed = False
+                if existing.connector_type != seed.get("connector_type", "live"):
+                    existing.connector_type = seed.get("connector_type", "live")
+                    changed = True
+                if not existing.enabled and seed.get("enabled", True):
+                    existing.enabled = True
+                    changed = True
+                if seed.get("connector_config") is not None:
+                    existing.connector_config = scrub_connector_config(seed.get("connector_config") or {})
+                    changed = True
+                if seed.get("refresh_policy") and existing.refresh_policy != seed.get("refresh_policy"):
+                    existing.refresh_policy = seed.get("refresh_policy")
+                    changed = True
+                if changed:
+                    db.commit()
+                    db.refresh(existing)
             continue
         created.append(create_source(db, seed))
     return created
+
+
+def sync_source_documents(
+    db: Session,
+    *,
+    source_id: str,
+    owner_id: int,
+    urls: Optional[List[str]] = None,
+    query: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Fetch → validate → ingest via existing Knowledge adapter; update registry status."""
+    from app.integrations.sources.knowledge_adapter import ingest_source_document
+
+    row = get_source(db, source_id)
+    if not row:
+        raise LookupError("source not found")
+    connector = connector_for_source(row)
+    if connector is None:
+        raise RuntimeError(f"no connector available for source key={row.key}")
+    if not row.enabled:
+        raise RuntimeError(f"source {row.key} is disabled")
+
+    kwargs: Dict[str, Any] = {}
+    if urls:
+        kwargs["urls"] = urls
+    try:
+        docs = connector.retrieve(query=query, **kwargs)
+        ingested = []
+        for doc in docs:
+            kd = ingest_source_document(db, owner_id=owner_id, document=doc)
+            ingested.append(
+                {
+                    "source_id": doc.source_id,
+                    "knowledge_document_id": kd.id,
+                    "title": doc.title,
+                    "url": doc.url,
+                    "content_hash": doc.content_hash,
+                    "retrieved_at": doc.retrieved_at.isoformat() if doc.retrieved_at else None,
+                    "published_at": doc.published_at.isoformat() if doc.published_at else None,
+                    "idempotent": bool(getattr(kd, "_idempotent_reuse", False)),
+                }
+            )
+        record_sync_result(db, source_id, success=True)
+        return {
+            "source_id": row.id,
+            "key": row.key,
+            "success": True,
+            "documents": ingested,
+            "count": len(ingested),
+        }
+    except Exception as exc:
+        record_sync_result(db, source_id, success=False, error=str(exc))
+        raise
+
+
+def list_source_knowledge_documents(
+    db: Session,
+    *,
+    source_id: str,
+    owner_id: int,
+) -> List[Dict[str, Any]]:
+    """List Knowledge documents for this owner that originated from the given registry source."""
+    row = get_source(db, source_id)
+    if not row:
+        raise LookupError("source not found")
+    docs = (
+        db.query(models.KnowledgeDocument)
+        .filter(models.KnowledgeDocument.owner_id == owner_id)
+        .order_by(models.KnowledgeDocument.created_at.desc())
+        .all()
+    )
+    out: List[Dict[str, Any]] = []
+    for doc in docs:
+        assumptions = doc.assumptions or {}
+        ext = assumptions.get("external_source") or {}
+        registry_key = None
+        if isinstance(ext, dict):
+            prov = ext.get("provenance") if isinstance(ext.get("provenance"), dict) else {}
+            registry_key = (prov or {}).get("registry_key") or ext.get("registry_key")
+            content_hash = ext.get("content_hash")
+            source_id_ext = ext.get("source_id")
+            url = ext.get("url") or ext.get("canonical_url")
+        else:
+            content_hash = None
+            source_id_ext = None
+            url = None
+        src = str(doc.source or "").lower()
+        if registry_key != row.key and row.key not in src and "gastat" not in src:
+            continue
+        chunks = (
+            db.query(models.KnowledgeChunk)
+            .filter(models.KnowledgeChunk.document_id == doc.id)
+            .all()
+        )
+        out.append(
+            {
+                "knowledge_document_id": doc.id,
+                "title": doc.title,
+                "source": doc.source,
+                "source_id": source_id_ext,
+                "url": url,
+                "content_hash": content_hash,
+                "chunk_ids": [c.id for c in chunks],
+                "chunk_count": len(chunks),
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+            }
+        )
+    return out

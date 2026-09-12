@@ -134,3 +134,49 @@ def patch_source(
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return registry.source_public_dict(row)
+
+
+class SourceSyncIn(BaseModel):
+    urls: Optional[List[str]] = None
+    query: Optional[str] = None
+
+
+@router.post("/{source_id}/sync")
+def sync_source(
+    source_id: str,
+    body: SourceSyncIn = SourceSyncIn(),
+    user: UserOut = Depends(require_roles("admin")),
+    db: Session = Depends(get_db),
+):
+    """Admin-only: run the live source connector and ingest into Knowledge Layer."""
+    _require_db()
+    try:
+        return registry.sync_source_documents(
+            db,
+            source_id=source_id,
+            owner_id=user.id,
+            urls=body.urls,
+            query=body.query,
+        )
+    except LookupError:
+        raise HTTPException(404, "source not found") from None
+    except Exception as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/{source_id}/documents")
+def list_source_documents(
+    source_id: str,
+    user: UserOut = Depends(require_roles("admin")),
+    db: Session = Depends(get_db),
+):
+    """Admin-only: list Knowledge documents ingested from this registry source for the caller."""
+    _require_db()
+    try:
+        items = registry.list_source_knowledge_documents(
+            db, source_id=source_id, owner_id=user.id
+        )
+    except LookupError:
+        raise HTTPException(404, "source not found") from None
+    return {"items": items, "count": len(items)}
+

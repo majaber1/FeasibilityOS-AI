@@ -6,6 +6,8 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from app import models
+
 from ai_engine.knowledge.chunking import chunk_text
 from ai_engine.knowledge.embeddings import embed_text
 from ai_engine.knowledge.quality import score_document_quality
@@ -112,6 +114,28 @@ def source_document_to_ingest_payload(doc: SourceDocument) -> Dict[str, Any]:
     }
 
 
+def find_existing_by_content_hash(
+    db: Session,
+    *,
+    owner_id: int,
+    content_hash: Optional[str],
+):
+    """Return an existing KnowledgeDocument for this owner+content_hash if present."""
+    if not content_hash:
+        return None
+    rows = (
+        db.query(models.KnowledgeDocument)
+        .filter(models.KnowledgeDocument.owner_id == owner_id)
+        .all()
+    )
+    for row in rows:
+        assumptions = row.assumptions or {}
+        ext = assumptions.get("external_source") or {}
+        if isinstance(ext, dict) and ext.get("content_hash") == content_hash:
+            return row
+    return None
+
+
 def ingest_source_document(
     db: Session,
     *,
@@ -119,7 +143,16 @@ def ingest_source_document(
     document: SourceDocument,
     storage_ref: Optional[str] = None,
 ):
-    """Persist via existing knowledge_service.save_ingested_document only."""
+    """Persist via existing knowledge_service.save_ingested_document only.
+
+    Duplicate content_hash for the same owner is idempotent (returns existing row).
+    """
+    existing = find_existing_by_content_hash(
+        db, owner_id=owner_id, content_hash=document.content_hash
+    )
+    if existing is not None:
+        setattr(existing, "_idempotent_reuse", True)
+        return existing
     payload = source_document_to_ingest_payload(document)
     return ks.save_ingested_document(
         db,
