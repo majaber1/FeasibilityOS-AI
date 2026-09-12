@@ -3,7 +3,7 @@
 **Release candidate:** v3.0.0
 **Branch:** release/v3.0.0
 **Baseline SHA (origin/main):** `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4`
-**V3 candidate tip:** `42132cdc20ca8fd83589f17a51275f2556efee8c`
+**V3 candidate tip:** `608411bc6a2bb5ca4923d77f98972dd6279da7b3`
 **Date (UTC):** 2026-09-12
 **PR:** https://github.com/majaber1/saudi-business/pull/36
 **PR #33 merge ancestor:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`
@@ -47,7 +47,7 @@ Clean, testable, financially trustworthy production release. No new product feat
 
 ## Financial Trust re-validation (null-display fix)
 
-**Result: PASS (5/5)** on tip `42132cdc20ca8fd83589f17a51275f2556efee8c`
+**Result: PASS (5/5)** on tip `608411bc6a2bb5ca4923d77f98972dd6279da7b3`
 
 Evidence:
 - docs/evidence/v3-financial-proof/FIVE_SCENARIO_FINANCIAL_TRUST.md
@@ -90,7 +90,7 @@ Scenario proofs: 5/5 PASS
 
 ## Owner Gate (19/19)
 
-**Result: 19/19 PASS** on local V3 candidate (`42132cdc20ca8fd83589f17a51275f2556efee8c`)
+**Result: 19/19 PASS** on local V3 candidate (`608411bc6a2bb5ca4923d77f98972dd6279da7b3`)
 
 Normal UI journey only. Evidence: docs/evidence/v3-owner-gate/
 
