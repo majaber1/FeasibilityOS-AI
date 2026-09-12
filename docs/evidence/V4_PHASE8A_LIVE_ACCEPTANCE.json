@@ -1,26 +1,36 @@
 {
+  "merge_sha": "6c8120fb65943ebb0df0c142f9de5aea6b31d7e0",
+  "main_sha": "6c8120fb65943ebb0df0c142f9de5aea6b31d7e0",
+  "pr": 44,
+  "tip_sha": "1435bb90f3d95316a26589c695f666fe63f9e3fa",
   "gastat": {
     "status": "complete",
     "claims": 3,
     "live_fetches": 1,
-    "sample": "Inflation in Saudi Arabia reaches 1.8% in March 2026: Inflation in Saudi Arabia reaches 1.8% in March 2026\n\n15-04-2026\n\nThe annual inflation rate of the Consumer Price Index (CPI) in Saudi Arabia reac",
-    "source_url": "https://www.stats.gov.sa/en/w/news/180"
+    "source_key": "gastat",
+    "sample": "Inflation in Saudi Arabia reaches 1.8% in March 2026",
+    "source_url": "https://www.stats.gov.sa/en/w/news/180",
+    "pass": true
   },
   "misa": {
     "status": "complete",
-    "claims": 5,
-    "live_fetches": 2,
-    "sample": "Inflation in Saudi Arabia reaches 1.8% in March 2026: Inflation in Saudi Arabia reaches 1.8% in March 2026\n\n15-04-2026\n\nThe annual inflation rate of the Consumer Price Index (CPI) in Saudi Arabia reac",
-    "source_url": "https://www.stats.gov.sa/en/w/news/180"
+    "claims": 2,
+    "live_fetches": 1,
+    "source_key": "misa",
+    "sample": "National Investment Strategy - MISA",
+    "source_url": "https://misa.gov.sa/activities/national-investment-strategy/",
+    "pass": true
   },
   "mixed_monshaat": {
-    "status": "complete",
-    "claims": 3,
+    "status": "blocked_only",
     "blocked": [
       "monshaat"
-    ]
+    ],
+    "note": "Monsha'at remains BLOCKED_EXTERNAL_REACHABILITY; not required for Phase 8A PASS"
   },
   "trust_merge_types": [
     "official"
-  ]
+  ],
+  "user_visible_evidence": true,
+  "no_silent_ai_when_official_exists": true
 }
