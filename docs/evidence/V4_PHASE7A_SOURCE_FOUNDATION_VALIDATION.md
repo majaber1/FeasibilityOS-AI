@@ -51,7 +51,7 @@ Secrets are scrubbed from `connector_config` on write/read.
 | Provenance survives end-to-end into Knowledge Layer | PASS |
 | One fixture connector enters existing Knowledge Layer | PASS |
 | No duplicate RAG pipeline | PASS (adapter → `knowledge_service.save_ingested_document`) |
-| MCP boundary works | PASS (`source_connector_health`, `source_connector_metadata`) |
+| MCP boundary works | PASS (`source_connector_health`, `source_connector_metadata` tools) |
 | Financial / Risk / Decision behavior unchanged | PASS (no engine files touched) |
 | V3 regressions green | PASS (see below) |
 | Refresh/persistence works | PASS (`record_sync_result` + registry CRUD) |
