@@ -104,8 +104,8 @@ export function AssumptionReviewPanel({
           </h2>
           <p className="mt-1 text-xs text-ink-600">
             {ar
-              ? "راجع كل افتراض: اعتماد / تعديل / رفض / إعادة توليد. ثم اعتمد كل الافتراضات المؤهلة للمتابعة."
-              : "Review each assumption: Approve / Edit / Reject / Regenerate. Then approve all eligible assumptions to continue."}
+              ? "راجع كل افتراض: اعتماد / تعديل / رفض / إعادة توليد. ثم اعتمدها للمتابعة إلى التحليل المالي داخل الدراسة."
+              : "Review each assumption: Approve / Edit / Reject / Regenerate. Then approve to continue to in-study financial analysis."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -126,7 +126,7 @@ export function AssumptionReviewPanel({
             title={disableReason || undefined}
             className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {ar ? "اعتماد كل الافتراضات المؤهلة" : "Approve all eligible assumptions"}
+            {ar ? "اعتماد والمتابعة للتحليل المالي" : "Approve & continue to financial"}
           </button>
         </div>
       </div>

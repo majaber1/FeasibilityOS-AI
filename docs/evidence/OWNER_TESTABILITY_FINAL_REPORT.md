@@ -376,3 +376,14 @@ Added after the production FAIL baseline:
 4. Financial standalone tool uses Next `Link` (CI lint) and still points owners back to Projects / study path  
 
 **Production gate remains FAIL** until these land on `main` and a fresh owner re-run passes steps 1–19.
+
+---
+
+## Follow-up production E2E (2026-09-12)
+
+Two browser agents re-ran production:
+
+1. **Owner journey** — Discovery + assumptions reachable; journey blocked at in-study financial (standalone `/tools/financial`). Logout hard to find. Risks/decision/report not reached.
+2. **Financial trust** — Standalone tool banner/IRR error handling present; assumption edit + study continuation blocked full trust path.
+
+**Gate remains FAIL.** Branch PR #33 adds continue CTAs, clearer Projects nav for signed-in owners, and more discoverable Log out — still needs merge + production re-run.

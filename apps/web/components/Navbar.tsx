@@ -38,15 +38,22 @@ export function Navbar({ dense = false }: { dense?: boolean }) {
         { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
         { href: "/tools/reports", label: locale === "ar" ? "التقارير" : "Reports" },
       ]
-    : [
-        { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
-        ...(signedIn ? [{ href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" }] : []),
-        ...(signedIn ? [{ href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" }] : []),
-        { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
-        { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
-        { href: "/opportunities", label: t.nav.opportunities },
-        { href: "/pricing", label: t.nav.pricing },
-      ];
+    : signedIn
+        ? [
+            // Signed-in owners stay in product routes — avoid Opportunities confusion.
+            { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
+            { href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" },
+            { href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" },
+            { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
+            { href: "/tools/reports", label: locale === "ar" ? "التقارير" : "Reports" },
+          ]
+        : [
+            { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
+            { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
+            { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
+            { href: "/opportunities", label: t.nav.opportunities },
+            { href: "/pricing", label: t.nav.pricing },
+          ];
 
   return (
     <header
@@ -93,12 +100,24 @@ export function Navbar({ dense = false }: { dense?: boolean }) {
           </button>
           {signedIn ? (
             <>
-              <Link href="/account" className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-ink-700 hover:text-brand-600 sm:inline-block">
+              <Link
+                href="/account"
+                data-testid="nav-account-link"
+                className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-ink-700 hover:text-brand-600 sm:inline-block"
+              >
                 {locale === "ar" ? "حسابي" : "My account"}
               </Link>
               <button
-                onClick={() => { clearToken(); setSignedIn(false); router.push("/"); router.refresh(); }}
-                className="rounded-md bg-slate-100 px-4 py-1.5 text-sm font-medium text-ink-700 hover:bg-slate-200"
+                type="button"
+                data-testid="nav-logout-btn"
+                onClick={() => {
+                  clearToken();
+                  setSignedIn(false);
+                  window.dispatchEvent(new Event("sb-auth-change"));
+                  router.push("/login");
+                  router.refresh();
+                }}
+                className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-sm font-semibold text-ink-800 hover:border-brand-500 hover:text-brand-700"
               >
                 {locale === "ar" ? "خروج" : "Log out"}
               </button>
@@ -148,6 +167,25 @@ export function Navbar({ dense = false }: { dense?: boolean }) {
                 {t.nav.help}
               </Link>
             </li>
+            {signedIn ? (
+              <li className="border-t border-slate-100 pt-2">
+                <button
+                  type="button"
+                  data-testid="nav-logout-btn-mobile"
+                  onClick={() => {
+                    clearToken();
+                    setSignedIn(false);
+                    setMobileOpen(false);
+                    window.dispatchEvent(new Event("sb-auth-change"));
+                    router.push("/login");
+                    router.refresh();
+                  }}
+                  className="block w-full rounded-lg px-3 py-2.5 text-start text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                >
+                  {locale === "ar" ? "خروج" : "Log out"}
+                </button>
+              </li>
+            ) : null}
           </ul>
         </div>
       )}
