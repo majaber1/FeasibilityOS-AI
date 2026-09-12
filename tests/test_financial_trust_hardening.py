@@ -221,3 +221,46 @@ def test_v1_evaluate_feasibility_irr_message_path():
     assert bad.npv_value is not None
     good = evaluate_feasibility(500_000, [150_000, 180_000, 200_000, 220_000], 0.10)
     assert good.irr_value is not None
+
+
+def test_metric_states_include_reason_and_missing_condition():
+    from ai_engine.tools.financial_trust import irr_metric_state, payback_metric_state, attach_financial_display_fields
+
+    irr = irr_metric_state(None, language="en")
+    assert irr["available"] is False
+    assert "null" not in irr["display"].lower()
+    assert irr["reason"]
+    assert irr["missing_condition"]
+
+    pb = payback_metric_state(None, language="en")
+    assert pb["available"] is False
+    assert "null" not in pb["display"].lower()
+    assert pb["reason"]
+    assert pb["missing_condition"]
+
+    attached = attach_financial_display_fields({"npv": -1.0, "irr": None, "payback_months": None})
+    assert "null" not in str(attached["irr_display"]).lower()
+    assert "null" not in str(attached["payback_display"]).lower()
+    assert attached["irr_state"]["reason"]
+    assert attached["payback_state"]["missing_condition"]
+
+
+def test_financial_chat_summary_never_exposes_raw_null():
+    from ai_engine.agents.financial_analyst import _financial_chat_summary
+
+    msg = _financial_chat_summary({"npv": 1.0, "irr": None, "payback_months": None}, "en")
+    assert "null" not in msg.lower()
+    assert "none" not in msg.lower()
+    assert "cannot be calculated" in msg.lower() or "Payback" in msg
+    msg_ar = _financial_chat_summary({"npv": 1.0, "irr": None, "payback_months": None}, "ar")
+    assert "null" not in msg_ar.lower()
+
+
+def test_sanitize_strips_raw_null_financial_metrics():
+    from ai_engine.utils.safe_messages import sanitize_chat_content
+
+    raw = "Analysis done. IRR: null\nPayback (months): null\nNPV looks weak."
+    cleaned = sanitize_chat_content(raw, language="en")
+    assert "IRR: null" not in cleaned
+    assert "Payback (months): null" not in cleaned
+    assert "null" not in cleaned.lower()

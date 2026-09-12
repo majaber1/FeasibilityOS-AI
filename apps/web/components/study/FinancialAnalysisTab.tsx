@@ -2,19 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { computeStudyFromAssumptions, listAssumptions, type Study } from "@/lib/api";
+import { formatIrrMetric, formatPaybackMetric } from "@/lib/financialDisplay";
 
-const IRR_UNAVAILABLE_EN =
-  "IRR cannot be calculated for these cash flows (no valid internal rate of return in range).";
-const IRR_UNAVAILABLE_AR =
-  "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات النقدية (لا يوجد معدل عائد داخلي صالح ضمن النطاق).";
-
-function formatIrr(result: NonNullable<Study["result"]>, locale: "ar" | "en"): string {
-  if (result.irr_display) return result.irr_display;
-  if (result.irr_percent == null) {
-    return locale === "ar" ? IRR_UNAVAILABLE_AR : IRR_UNAVAILABLE_EN;
-  }
-  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(result.irr_percent)}%`;
-}
 
 export default function FinancialAnalysisTab({
   token,
@@ -128,15 +117,50 @@ export default function FinancialAnalysisTab({
                   study.result.roi_percent,
                 )}
           </p>
-          <p data-testid="metric-IRR (%)">IRR: {formatIrr(study.result, locale)}</p>
-          <p data-testid={`metric-${ar ? "الاسترداد (سنوات)" : "Payback (years)"}`}>
-            {ar ? "الاسترداد (سنوات)" : "Payback (years)"}:{" "}
-            {study.result.payback_years == null
-              ? "—"
-              : new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(
-                  study.result.payback_years,
-                )}
-          </p>
+          {(() => {
+            const irrMetric = formatIrrMetric(
+              {
+                irr: study.result.irr_percent != null ? study.result.irr_percent / 100 : null,
+                irr_display: study.result.irr_display,
+                payback_years: study.result.payback_years,
+                payback_display: (study.result as { payback_display?: string }).payback_display,
+              },
+              ar,
+            );
+            const paybackMetric = formatPaybackMetric(
+              {
+                payback_years: study.result.payback_years,
+                payback_display: (study.result as { payback_display?: string }).payback_display,
+              },
+              ar,
+            );
+            return (
+              <>
+                <div data-testid="metric-IRR (%)">
+                  <p>
+                    {irrMetric.label}: {irrMetric.display}
+                  </p>
+                  {!irrMetric.available && irrMetric.reason ? (
+                    <p className="text-xs text-ink-600">{irrMetric.reason}</p>
+                  ) : null}
+                  {!irrMetric.available && irrMetric.missing_condition ? (
+                    <p className="text-xs text-ink-500">{irrMetric.missing_condition}</p>
+                  ) : null}
+                </div>
+                <div data-testid={`metric-${ar ? "فترة الاسترداد" : "Payback Period"}`}>
+                  <p>
+                    {paybackMetric.label}: {paybackMetric.display}
+                  </p>
+                  {!paybackMetric.available && paybackMetric.reason ? (
+                    <p className="text-xs text-ink-600">{paybackMetric.reason}</p>
+                  ) : null}
+                  {!paybackMetric.available && paybackMetric.missing_condition ? (
+                    <p className="text-xs text-ink-500">{paybackMetric.missing_condition}</p>
+                  ) : null}
+                </div>
+              </>
+            );
+          })()}
           <p>{study.result.verdict}</p>
           {warnings.length > 0 && (
             <ul

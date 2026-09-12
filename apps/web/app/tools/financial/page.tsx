@@ -171,7 +171,18 @@ export default function FinancialAnalysisPage() {
                     }
                     icon="📊"
                   />
-                  <KpiCard label={ar ? "فترة الاسترداد" : "Payback"} value={result.payback_years !== null ? `${result.payback_years.toFixed(1)} ${ar ? "سنة" : "years"}` : "—"} icon="⏱️" />
+                  <KpiCard
+                    label={ar ? "فترة الاسترداد" : "Payback Period"}
+                    value={
+                      result.payback_years !== null
+                        ? `${result.payback_years.toFixed(1)} ${ar ? "سنة" : "years"}`
+                        : result.payback_display ||
+                          (ar
+                            ? "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية."
+                            : "Payback period cannot be calculated for these cash flows.")
+                    }
+                    icon="⏱️"
+                  />
                 </div>
               </>
             ) : (

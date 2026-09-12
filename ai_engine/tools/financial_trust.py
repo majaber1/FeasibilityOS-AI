@@ -9,12 +9,24 @@ from typing import Any, Iterable, Optional
 
 
 IRR_UNAVAILABLE_EN = (
-    "IRR cannot be calculated for these cash flows "
-    "(no valid internal rate of return in range — often no sign change or extreme profile)."
+    "IRR cannot be calculated for these cash flows."
 )
 IRR_UNAVAILABLE_AR = (
-    "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات النقدية "
-    "(لا يوجد معدل عائد داخلي صالح ضمن النطاق — غالباً لعدم تغير الإشارة أو لملف تدفقات متطرف)."
+    "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات النقدية."
+)
+IRR_REASON_EN = (
+    "No valid internal rate of return was found in range — often because cash flows "
+    "do not change sign, or the profile is too extreme for a stable IRR."
+)
+IRR_REASON_AR = (
+    "لم يتم العثور على معدل عائد داخلي صالح ضمن النطاق — غالباً لأن التدفقات النقدية "
+    "لا تغيّر الإشارة، أو لأن الملف متطرف جداً لاستقرار الحساب."
+)
+IRR_MISSING_CONDITION_EN = (
+    "Requires an initial outflow followed by net inflows (a sign change) within the projection window."
+)
+IRR_MISSING_CONDITION_AR = (
+    "يتطلب تدفقاً أولياً سالباً يتبعه صافي تدفقات موجبة (تغير إشارة) ضمن نافذة الإسقاط."
 )
 
 
@@ -24,18 +36,46 @@ def irr_user_message(irr: Optional[float], *, language: str = "en") -> str:
         return IRR_UNAVAILABLE_AR if language == "ar" else IRR_UNAVAILABLE_EN
     # irr is stored as a decimal rate (0.25 = 25%).
     pct = float(irr) * 100.0
-    if language == "ar":
-        return f"{pct:.1f}%"
     return f"{pct:.1f}%"
 
 
+def irr_metric_state(irr: Optional[float], *, language: str = "en") -> dict[str, Any]:
+    """Structured IRR display for UI — never includes the literal 'null'."""
+    ar = language == "ar"
+    if irr is None:
+        return {
+            "label": "معدل العائد الداخلي" if ar else "IRR",
+            "available": False,
+            "display": IRR_UNAVAILABLE_AR if ar else IRR_UNAVAILABLE_EN,
+            "reason": IRR_REASON_AR if ar else IRR_REASON_EN,
+            "missing_condition": IRR_MISSING_CONDITION_AR if ar else IRR_MISSING_CONDITION_EN,
+        }
+    return {
+        "label": "معدل العائد الداخلي" if ar else "IRR",
+        "available": True,
+        "display": irr_user_message(irr, language=language),
+        "reason": None,
+        "missing_condition": None,
+    }
+
+
 PAYBACK_UNAVAILABLE_EN = (
-    "Payback cannot be calculated for these cash flows "
-    "(cumulative cash flow never recovers the initial investment in the projection window)."
+    "Payback period cannot be calculated for these cash flows."
 )
 PAYBACK_UNAVAILABLE_AR = (
-    "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية "
-    "(التدفق التراكمي لا يسترد الاستثمار الأولي ضمن نافذة الإسقاط)."
+    "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية."
+)
+PAYBACK_REASON_EN = (
+    "Cumulative cash flow never recovers the initial investment inside the projection window."
+)
+PAYBACK_REASON_AR = (
+    "التدفق النقدي التراكمي لا يسترد الاستثمار الأولي داخل نافذة الإسقاط."
+)
+PAYBACK_MISSING_CONDITION_EN = (
+    "Requires cumulative net cash flows to turn non-negative within the modeled years."
+)
+PAYBACK_MISSING_CONDITION_AR = (
+    "يتطلب أن يصبح صافي التدفق التراكمي غير سالب خلال السنوات المُنمذَجة."
 )
 
 
@@ -47,6 +87,58 @@ def payback_user_message(payback_months: Optional[float], *, language: str = "en
     if language == "ar":
         return f"{months:.1f} شهراً"
     return f"{months:.1f} months"
+
+
+def payback_metric_state(
+    payback_months: Optional[float], *, language: str = "en"
+) -> dict[str, Any]:
+    """Structured Payback display for UI — never includes the literal 'null'."""
+    ar = language == "ar"
+    if payback_months is None:
+        return {
+            "label": "فترة الاسترداد" if ar else "Payback Period",
+            "available": False,
+            "display": PAYBACK_UNAVAILABLE_AR if ar else PAYBACK_UNAVAILABLE_EN,
+            "reason": PAYBACK_REASON_AR if ar else PAYBACK_REASON_EN,
+            "missing_condition": PAYBACK_MISSING_CONDITION_AR if ar else PAYBACK_MISSING_CONDITION_EN,
+        }
+    return {
+        "label": "فترة الاسترداد" if ar else "Payback Period",
+        "available": True,
+        "display": payback_user_message(payback_months, language=language),
+        "reason": None,
+        "missing_condition": None,
+    }
+
+
+def attach_financial_display_fields(payload: dict[str, Any], *, language: str = "en") -> dict[str, Any]:
+    """Ensure user-facing display fields exist; keep raw numeric keys for evidence/logs only."""
+    out = dict(payload or {})
+    irr = out.get("irr")
+    payback = out.get("payback_months")
+    if payback is None and out.get("payback_years") is not None:
+        try:
+            payback = float(out["payback_years"]) * 12.0
+        except (TypeError, ValueError):
+            payback = None
+
+    irr_state = irr_metric_state(irr if isinstance(irr, (int, float)) or irr is None else None, language=language)
+    # If irr is a non-numeric string already, treat as unavailable
+    if irr is not None and not isinstance(irr, (int, float)):
+        irr_state = irr_metric_state(None, language=language)
+
+    payback_state = payback_metric_state(
+        payback if isinstance(payback, (int, float)) or payback is None else None,
+        language=language,
+    )
+
+    out["irr_display"] = irr_state["display"]
+    out["irr_available"] = bool(irr_state["available"])
+    out["irr_state"] = irr_state
+    out["payback_display"] = payback_state["display"]
+    out["payback_available"] = bool(payback_state["available"])
+    out["payback_state"] = payback_state
+    return out
 
 
 def _as_float(value: Any) -> Optional[float]:

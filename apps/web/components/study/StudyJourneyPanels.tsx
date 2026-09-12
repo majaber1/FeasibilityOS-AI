@@ -1,5 +1,7 @@
 "use client";
 
+import { formatIrrMetric, formatPaybackMetric } from "@/lib/financialDisplay";
+
 type FinancialResults = Record<string, unknown> | null | undefined;
 
 type Props = {
@@ -38,7 +40,34 @@ function metric(financial: FinancialResults, key: string): string | null {
   if (!financial || !(key in financial)) return null;
   const value = financial[key];
   if (value === null || value === undefined || value === "") return null;
-  return String(value);
+  const text = String(value).trim();
+  if (!text || text.toLowerCase() === "null" || text.toLowerCase() === "undefined") return null;
+  return text;
+}
+
+function MetricCard({
+  label,
+  display,
+  available,
+  reason,
+  missingCondition,
+}: {
+  label: string;
+  display: string;
+  available?: boolean;
+  reason?: string | null;
+  missingCondition?: string | null;
+}) {
+  return (
+    <div className="rounded-lg bg-white p-2" data-available={available ? "true" : "false"}>
+      <span className="text-ink-500">{label}</span>
+      <p className="font-semibold">{display}</p>
+      {!available && reason ? <p className="mt-1 text-[11px] leading-snug text-ink-600">{reason}</p> : null}
+      {!available && missingCondition ? (
+        <p className="mt-0.5 text-[11px] leading-snug text-ink-500">{missingCondition}</p>
+      ) : null}
+    </div>
+  );
 }
 
 export function StudyJourneyNav({ ar, phase }: { ar: boolean; phase: string }) {
@@ -96,23 +125,12 @@ export function StudyLateStagePanels({
   if (!showFinancial && !showRisks && !showReport) return null;
 
   const npv = metric(financial, "npv");
-  const irr =
-    metric(financial, "irr_display") ||
-    (financial && financial.irr == null
-      ? ar
-        ? "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات النقدية."
-        : "IRR cannot be calculated for these cash flows."
-      : metric(financial, "irr"));
-  const payback =
-    metric(financial, "payback_display") ||
-    metric(financial, "payback_months") ||
-    metric(financial, "payback_years") ||
-    (financial && "payback_months" in financial && financial.payback_months == null
-      ? ar
-        ? "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية."
-        : "Payback cannot be calculated for these cash flows."
-      : null);
+  const irrMetric = formatIrrMetric(financial, ar);
+  const paybackMetric = formatPaybackMetric(financial, ar);
   const capex = metric(financial, "capex");
+  const warnings = Array.isArray(financial?.warnings)
+    ? (financial!.warnings as unknown[]).map((w) => String(w)).filter(Boolean)
+    : [];
 
   return (
     <div className="mb-3 space-y-3" data-testid="study-late-stage-panels">
@@ -134,12 +152,46 @@ export function StudyLateStagePanels({
               {ar ? "الافتراضات معتمدة. شغّل التحليل المالي للمتابعة." : "Assumptions approved. Run financial analysis to continue."}
             </p>
           ) : (
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-              {npv ? <div className="rounded-lg bg-white p-2"><span className="text-ink-500">NPV</span><p className="font-semibold">{npv}</p></div> : null}
-              {irr ? <div className="rounded-lg bg-white p-2"><span className="text-ink-500">IRR</span><p className="font-semibold">{irr}</p></div> : null}
-              {payback ? <div className="rounded-lg bg-white p-2"><span className="text-ink-500">{ar ? "الاسترداد" : "Payback"}</span><p className="font-semibold">{payback}</p></div> : null}
-              {capex ? <div className="rounded-lg bg-white p-2"><span className="text-ink-500">CAPEX</span><p className="font-semibold">{capex}</p></div> : null}
-            </div>
+            <>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+                {npv ? (
+                  <div className="rounded-lg bg-white p-2">
+                    <span className="text-ink-500">NPV</span>
+                    <p className="font-semibold">{npv}</p>
+                  </div>
+                ) : null}
+                <MetricCard
+                  label={irrMetric.label || "IRR"}
+                  display={irrMetric.display || ""}
+                  available={irrMetric.available}
+                  reason={irrMetric.reason}
+                  missingCondition={irrMetric.missing_condition}
+                />
+                <MetricCard
+                  label={paybackMetric.label || (ar ? "فترة الاسترداد" : "Payback Period")}
+                  display={paybackMetric.display || ""}
+                  available={paybackMetric.available}
+                  reason={paybackMetric.reason}
+                  missingCondition={paybackMetric.missing_condition}
+                />
+                {capex ? (
+                  <div className="rounded-lg bg-white p-2">
+                    <span className="text-ink-500">CAPEX</span>
+                    <p className="font-semibold">{capex}</p>
+                  </div>
+                ) : null}
+              </div>
+              {warnings.length > 0 ? (
+                <ul
+                  data-testid="in-study-financial-warnings"
+                  className="mt-3 space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
+                >
+                  {warnings.map((w) => (
+                    <li key={w}>⚠ {w}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
           )}
           <button
             type="button"
@@ -222,11 +274,21 @@ export function StudyLateStagePanels({
               </ul>
             </div>
           ) : null}
-          {(npv || irr || payback) && (
+          {(npv || irrMetric.display || paybackMetric.display) && (
             <div className="mt-3 grid gap-2 sm:grid-cols-3 text-sm">
               {npv ? <div className="rounded-lg bg-white p-2">NPV: <strong>{npv}</strong></div> : null}
-              {irr ? <div className="rounded-lg bg-white p-2">IRR: <strong>{irr}</strong></div> : null}
-              {payback ? <div className="rounded-lg bg-white p-2">{ar ? "الاسترداد" : "Payback"}: <strong>{payback}</strong></div> : null}
+              <div className="rounded-lg bg-white p-2">
+                {irrMetric.label}: <strong>{irrMetric.display}</strong>
+                {!irrMetric.available && irrMetric.reason ? (
+                  <p className="mt-1 text-[11px] text-ink-600">{irrMetric.reason}</p>
+                ) : null}
+              </div>
+              <div className="rounded-lg bg-white p-2">
+                {paybackMetric.label}: <strong>{paybackMetric.display}</strong>
+                {!paybackMetric.available && paybackMetric.reason ? (
+                  <p className="mt-1 text-[11px] text-ink-600">{paybackMetric.reason}</p>
+                ) : null}
+              </div>
             </div>
           )}
           <button

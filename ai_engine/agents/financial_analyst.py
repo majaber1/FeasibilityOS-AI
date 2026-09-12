@@ -9,7 +9,10 @@ from ..config import get_llm
 from ..models.study_state import StudyState
 from ..tools.calculator import calculate_npv, calculate_irr, calculate_payback_period
 from ..tools.financial_trust import (
+    attach_financial_display_fields,
+    irr_metric_state,
     irr_user_message,
+    payback_metric_state,
     payback_user_message,
     services_capacity_revenue,
     validate_financial_inputs,
@@ -519,9 +522,11 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         "irr": base["irr"],
         "irr_display": irr_user_message(base["irr"], language=lang or "en"),
         "irr_available": base["irr"] is not None,
+        "irr_state": irr_metric_state(base["irr"], language=lang or "en"),
         "payback_months": base["payback_months"],
         "payback_display": payback_user_message(base["payback_months"], language=lang or "en"),
         "payback_available": base["payback_months"] is not None,
+        "payback_state": payback_metric_state(base["payback_months"], language=lang or "en"),
         "warnings": trust_warnings,
         "extract_notes": extract_notes,
         "scenarios": {
@@ -578,10 +583,13 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         financial_data["irr"] = computed["irr"]
         financial_data["irr_display"] = computed["irr_display"]
         financial_data["irr_available"] = computed["irr_available"]
+        financial_data["irr_state"] = computed["irr_state"]
         financial_data["payback_months"] = computed["payback_months"]
         financial_data["payback_display"] = computed["payback_display"]
         financial_data["payback_available"] = computed["payback_available"]
+        financial_data["payback_state"] = computed["payback_state"]
         financial_data["cash_flows"] = computed["cash_flows"]
+        financial_data = attach_financial_display_fields(financial_data, language=lang or "en")
         financial_data["discount_rate"] = computed["discount_rate"]
         financial_data["scenarios"] = computed["scenarios"]
         financial_data.setdefault("revenue_projections", computed["revenue_projections"])
@@ -611,18 +619,21 @@ def run_financial_analysis(state: StudyState) -> StudyState:
 
 
 def _financial_chat_summary(computed: dict, lang: str) -> str:
-    """User-safe financial summary — structured numbers live in financial_results only."""
-    npv = computed.get("npv")
-    irr_text = computed.get("irr_display") or irr_user_message(computed.get("irr"), language=lang)
-    payback = computed.get("payback_months")
+    """User-safe financial summary — never interpolates raw null IRR/payback."""
+    enriched = attach_financial_display_fields(computed or {}, language=lang)
+    npv = enriched.get("npv")
+    irr_text = enriched.get("irr_display") or irr_user_message(enriched.get("irr"), language=lang)
+    payback_text = enriched.get("payback_display") or payback_user_message(
+        enriched.get("payback_months"), language=lang
+    )
     if lang == "ar":
         return (
             "اكتمل التحليل المالي. راجع لوحة النتائج للتفاصيل "
-            f"(صافي القيمة الحالية: {npv}، معدل العائد الداخلي: {irr_text}، فترة الاسترداد بالأشهر: {payback})."
+            f"(صافي القيمة الحالية: {npv}، معدل العائد الداخلي: {irr_text}، فترة الاسترداد: {payback_text})."
         )
     return (
         "Financial analysis complete. Review the results panel for details "
-        f"(NPV: {npv}, IRR: {irr_text}, payback months: {payback})."
+        f"(NPV: {npv}, IRR: {irr_text}, Payback: {payback_text})."
     )
 
 

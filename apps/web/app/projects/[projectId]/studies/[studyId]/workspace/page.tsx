@@ -10,6 +10,7 @@ import { DiscoveryQuestionsPanel } from "@/components/study/DiscoveryQuestionsPa
 import { AssumptionReviewPanel } from "@/components/study/AssumptionReviewPanel";
 import { KnowledgePanel } from "@/components/study/KnowledgePanel";
 import { StudyJourneyNav, StudyLateStagePanels } from "@/components/study/StudyJourneyPanels";
+import { formatIrrMetric, formatPaybackMetric } from "@/lib/financialDisplay";
 import { archetypeLabel } from "@/lib/archetypeLabels";
 
 type Message = {
@@ -789,34 +790,38 @@ export default function StudyWorkspacePage() {
               </h2>
               {financial && (
                 <div className="mt-2 space-y-1 text-xs text-ink-700">
-                  {"npv" in financial && <p>NPV: {String(financial.npv)}</p>}
-                  {"irr" in financial && (
-                    <p data-testid="workspace-irr">
-                      IRR:{" "}
-                      {String(
-                        (financial as { irr_display?: string }).irr_display ||
-                          (financial.irr == null
-                            ? ar
-                              ? "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات النقدية."
-                              : "IRR cannot be calculated for these cash flows."
-                            : financial.irr),
-                      )}
-                    </p>
-                  )}
-                  {"payback_months" in financial && (
-                    <p data-testid="workspace-payback">
-                      {ar ? "الاسترداد:" : "Payback:"}{" "}
-                      {String(
-                        (financial as { payback_display?: string }).payback_display ||
-                          (financial.payback_months == null
-                            ? ar
-                              ? "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية."
-                              : "Payback cannot be calculated for these cash flows."
-                            : `${financial.payback_months} months`),
-                      )}
-                    </p>
-                  )}
-                  {"capex" in financial && <p>CAPEX: {String(financial.capex)}</p>}
+                  {"npv" in financial && financial.npv != null && <p>NPV: {String(financial.npv)}</p>}
+                  {(() => {
+                    const irrMetric = formatIrrMetric(financial, ar);
+                    const paybackMetric = formatPaybackMetric(financial, ar);
+                    return (
+                      <>
+                        <div data-testid="workspace-irr">
+                          <p>
+                            {irrMetric.label}: {irrMetric.display}
+                          </p>
+                          {!irrMetric.available && irrMetric.reason ? (
+                            <p className="text-[11px] text-ink-600">{irrMetric.reason}</p>
+                          ) : null}
+                          {!irrMetric.available && irrMetric.missing_condition ? (
+                            <p className="text-[11px] text-ink-500">{irrMetric.missing_condition}</p>
+                          ) : null}
+                        </div>
+                        <div data-testid="workspace-payback">
+                          <p>
+                            {paybackMetric.label}: {paybackMetric.display}
+                          </p>
+                          {!paybackMetric.available && paybackMetric.reason ? (
+                            <p className="text-[11px] text-ink-600">{paybackMetric.reason}</p>
+                          ) : null}
+                          {!paybackMetric.available && paybackMetric.missing_condition ? (
+                            <p className="text-[11px] text-ink-500">{paybackMetric.missing_condition}</p>
+                          ) : null}
+                        </div>
+                      </>
+                    );
+                  })()}
+                  {"capex" in financial && financial.capex != null && <p>CAPEX: {String(financial.capex)}</p>}
                   {Array.isArray((financial as { warnings?: string[] }).warnings) &&
                     ((financial as { warnings?: string[] }).warnings || []).length > 0 && (
                       <ul data-testid="workspace-financial-warnings" className="mt-2 space-y-1 text-amber-800">
