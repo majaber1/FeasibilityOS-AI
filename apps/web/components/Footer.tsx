@@ -13,7 +13,7 @@ export function Footer() {
       title: ar ? "الأدوات" : "Tools",
       links: [
         { href: "/tools/feasibility", label: ar ? "دراسة الجدوى" : "Feasibility Study" },
-        { href: "/tools/financial", label: ar ? "التحليل المالي" : "Financial Analysis" },
+        { href: "/tools/feasibility", label: ar ? "التحليل المالي (ضمن الدراسة)" : "Financial Analysis (in study)" },
         { href: "/tools/proposal", label: ar ? "منشئ العروض" : "Proposal Builder" },
         { href: "/tools/funding", label: ar ? "مطابقة التمويل" : "Funding Matcher" },
         { href: "/tools/qualification", label: ar ? "تأهيل الأعمال" : "Qualification" },

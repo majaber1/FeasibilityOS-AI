@@ -775,9 +775,29 @@ export default function StudyWorkspacePage() {
               {financial && (
                 <div className="mt-2 space-y-1 text-xs text-ink-700">
                   {"npv" in financial && <p>NPV: {String(financial.npv)}</p>}
-                  {"irr" in financial && <p>IRR: {String(financial.irr)}</p>}
+                  {"irr" in financial && (
+                    <p data-testid="workspace-irr">
+                      IRR:{" "}
+                      {String(
+                        (financial as { irr_display?: string }).irr_display ||
+                          (financial.irr == null
+                            ? ar
+                              ? "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات النقدية."
+                              : "IRR cannot be calculated for these cash flows."
+                            : financial.irr),
+                      )}
+                    </p>
+                  )}
                   {"payback_months" in financial && <p>Payback (months): {String(financial.payback_months)}</p>}
                   {"capex" in financial && <p>CAPEX: {String(financial.capex)}</p>}
+                  {Array.isArray((financial as { warnings?: string[] }).warnings) &&
+                    ((financial as { warnings?: string[] }).warnings || []).length > 0 && (
+                      <ul data-testid="workspace-financial-warnings" className="mt-2 space-y-1 text-amber-800">
+                        {((financial as { warnings?: string[] }).warnings || []).map((w) => (
+                          <li key={w}>⚠ {w}</li>
+                        ))}
+                      </ul>
+                    )}
                 </div>
               )}
               {study?.decision_rationale && (

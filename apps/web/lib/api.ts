@@ -160,8 +160,11 @@ export type FinancialResultOut = {
   payback_years: number | null;
   npv: number | null;
   irr_percent: number | null;
+  irr_display?: string;
+  irr_available?: boolean;
   break_even?: number | null;
   verdict: string;
+  warnings?: string[];
   sensitivity: Array<{
     revenue_change_percent: number;
     npv: number | null;
@@ -1032,6 +1035,8 @@ export type FeasibilityEvalResponse = {
   payback_years: number | null;
   npv: number | null;
   irr_percent: number | null;
+  irr_display?: string;
+  irr_available?: boolean;
   verdict: string;
 };
 
