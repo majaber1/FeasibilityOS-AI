@@ -57,12 +57,32 @@ export default function FinancialAnalysisPage() {
         icon="💰"
         title={ar ? "التحليل المالي" : "Financial Analysis"}
         subtitle={ar
-          ? "حلل العائد على الاستثمار والقيمة الحالية الصافية ومعدل العائد الداخلي بشكل مستقل"
-          : "Analyze ROI, NPV, IRR, payback period, and break-even independently"}
+          ? "الآلة الحاسبة المستقلة للتدفقات النقدية — النتائج المعتمدة للدراسة تُحسب من مسار دراسة الجدوى"
+          : "Standalone cash-flow calculator — study-grade results come from the Feasibility Study workflow"}
         breadcrumb={[{ label: ar ? "الأدوات" : "Tools", href: "/tools" }]}
       />
 
       <div className="container-page space-y-8 py-8">
+        <div
+          className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950"
+          data-testid="financial-study-workflow-banner"
+          role="note"
+        >
+          <p className="font-semibold">
+            {ar ? "المسار المعتمد: دراسة الجدوى" : "Canonical path: Feasibility Study"}
+          </p>
+          <p className="mt-1 text-amber-900/90">
+            {ar
+              ? "لاعتماد NPV/IRR/فترة الاسترداد على افتراضات مشروعك، افتح المشروع ← ابدأ الدراسة ← الافتراضات ← التحليل المالي داخل مساحة الدراسة."
+              : "For NPV/IRR/payback tied to your project assumptions, open Projects → start a study → Assumptions → Financial inside the study workspace."}
+          </p>
+          <a
+            href="/projects"
+            className="mt-3 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+          >
+            {ar ? "الذهاب إلى المشاريع" : "Go to Projects"}
+          </a>
+        </div>
         {project && (
           <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">
             {ar ? "التحليل مرتبط بالمشروع:" : "Analysis linked to project:"} <strong>{project.name}</strong>

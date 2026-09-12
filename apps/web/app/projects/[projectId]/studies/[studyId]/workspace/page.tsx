@@ -9,6 +9,7 @@ import { ArchetypeClassificationPanel } from "@/components/study/ArchetypeClassi
 import { DiscoveryQuestionsPanel } from "@/components/study/DiscoveryQuestionsPanel";
 import { AssumptionReviewPanel } from "@/components/study/AssumptionReviewPanel";
 import { KnowledgePanel } from "@/components/study/KnowledgePanel";
+import { archetypeLabel } from "@/lib/archetypeLabels";
 
 type Message = {
   role: "user" | "assistant" | "system";
@@ -552,7 +553,9 @@ export default function StudyWorkspacePage() {
       {study?.profile && (
         <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs" data-testid="study-profile-panel">
           <div className="mb-2 flex flex-wrap gap-2">
-            <span className="rounded bg-white px-2 py-1 font-medium text-ink-700">{study.profile.archetype}</span>
+            <span className="rounded bg-white px-2 py-1 font-medium text-ink-700">
+              {archetypeLabel(study.profile.archetype, ar ? "ar" : "en")}
+            </span>
             <span className="rounded bg-white px-2 py-1 text-ink-600">{study.profile.sector}</span>
             <span className="rounded bg-white px-2 py-1 text-ink-600">{study.profile.stage}</span>
             {study.profile.decision_goal && (

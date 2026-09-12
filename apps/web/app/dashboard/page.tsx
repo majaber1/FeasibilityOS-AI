@@ -140,7 +140,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#f5f7f6]">
       <section className="relative overflow-hidden border-b border-brand-800 bg-brand-900 text-white">
         <div className="absolute inset-0 opacity-30 [background:radial-gradient(circle_at_15%_0%,#1a9d5c,transparent_35%),radial-gradient(circle_at_90%_10%,#c9a227,transparent_25%)]" />
-        <div className="container-page relative py-10 sm:py-14">
+        <div className="container-page relative py-6 sm:py-8">
           <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
             <div>
               <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold-300">
@@ -160,7 +160,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div className="container-page space-y-7 py-8 sm:py-10">
+      <div className="container-page space-y-5 py-5 sm:py-6">
         {error && (
           <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <span>{ar ? "تعذر تحميل بيانات الحساب. لم نستبدلها ببيانات وهمية." : "Account data could not be loaded. It was not replaced with fabricated figures."}</span>

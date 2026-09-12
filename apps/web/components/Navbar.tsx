@@ -6,7 +6,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { clearToken, getToken, me } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
-export function Navbar() {
+export function Navbar({ dense = false }: { dense?: boolean }) {
   const { t, locale, toggle } = useLanguage();
   const [signedIn, setSignedIn] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -29,24 +29,48 @@ export function Navbar() {
     return () => window.removeEventListener("sb-auth-change", refreshAuth);
   }, []);
 
-  const links = [
-    { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
-    ...(signedIn ? [{ href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" }] : []),
-    ...(signedIn ? [{ href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" }] : []),
-    { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
-    { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
-    { href: "/opportunities", label: t.nav.opportunities },
-    { href: "/pricing", label: t.nav.pricing },
-  ];
+  // Product shell: workspace links first. Marketing shell keeps discovery links.
+  const links = dense
+    ? [
+        { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
+        ...(signedIn ? [{ href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" }] : []),
+        ...(signedIn ? [{ href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" }] : []),
+        { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
+        { href: "/tools/reports", label: locale === "ar" ? "التقارير" : "Reports" },
+      ]
+    : [
+        { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
+        ...(signedIn ? [{ href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" }] : []),
+        ...(signedIn ? [{ href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" }] : []),
+        { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
+        { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
+        { href: "/opportunities", label: t.nav.opportunities },
+        { href: "/pricing", label: t.nav.pricing },
+      ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-      <nav className="container-page flex h-16 items-center justify-between gap-4" aria-label={locale === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 font-bold text-white shadow-card">
+    <header
+      className={`sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md ${
+        dense ? "shadow-sm" : ""
+      }`}
+      data-testid="app-navbar"
+      data-dense={dense ? "true" : "false"}
+    >
+      <nav
+        className={`container-page flex items-center justify-between gap-4 ${dense ? "h-14" : "h-16"}`}
+        aria-label={locale === "ar" ? "التنقل الرئيسي" : "Primary navigation"}
+      >
+        <Link href={dense ? "/dashboard" : "/"} className="flex items-center gap-2.5">
+          <span
+            className={`grid place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 font-bold text-white shadow-card ${
+              dense ? "h-8 w-8 text-sm" : "h-9 w-9"
+            }`}
+          >
             {locale === "ar" ? "س" : "S"}
           </span>
-          <span className="text-lg font-semibold tracking-tight text-ink-900">{t.brand}</span>
+          <span className={`font-semibold tracking-tight text-ink-900 ${dense ? "text-base" : "text-lg"}`}>
+            {t.brand}
+          </span>
         </Link>
 
         <ul className="hidden items-center gap-7 text-sm font-medium text-ink-600 xl:flex">
