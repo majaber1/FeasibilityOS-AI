@@ -361,3 +361,18 @@ Currently, none of these expectations are met via normal UI navigation.
 **Reported by:** Autonomous Cloud Agent (Cursor)  
 **Report location:** `/workspace/OWNER_TESTABILITY_FINAL_REPORT.md`
 
+---
+
+## Update — branch fixes (not on production yet)
+
+**Branch:** `cursor/phase65-product-ux-hardening-1831`  
+**PR:** https://github.com/majaber1/saudi-business/pull/33
+
+Added after the production FAIL baseline:
+
+1. `POST /api/v2/studies/{id}/continue` — owner CTA advances ANALYZED → risks → decision/report without chat workarounds  
+2. In-study journey nav + Financial / Risks / Report panels in the V2 workspace  
+3. Hide raw assumption keys from primary assumption cards  
+4. Financial standalone tool uses Next `Link` (CI lint) and still points owners back to Projects / study path  
+
+**Production gate remains FAIL** until these land on `main` and a fresh owner re-run passes steps 1–19.

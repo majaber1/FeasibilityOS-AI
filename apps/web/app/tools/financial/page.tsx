@@ -7,6 +7,7 @@ import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge } from "@/components/ui/Badge";
 import { evaluateFinancial, type FeasibilityEvalResponse } from "@/lib/api";
 import { useProjectContext } from "@/lib/use-project-context";
+import Link from "next/link";
 
 function money(value: number) {
   return new Intl.NumberFormat("en-SA", { style: "currency", currency: "SAR", maximumFractionDigits: 0 }).format(value);
@@ -76,12 +77,7 @@ export default function FinancialAnalysisPage() {
               ? "لاعتماد NPV/IRR/فترة الاسترداد على افتراضات مشروعك، افتح المشروع ← ابدأ الدراسة ← الافتراضات ← التحليل المالي داخل مساحة الدراسة."
               : "For NPV/IRR/payback tied to your project assumptions, open Projects → start a study → Assumptions → Financial inside the study workspace."}
           </p>
-          <a
-            href="/projects"
-            className="mt-3 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700"
-          >
-            {ar ? "الذهاب إلى المشاريع" : "Go to Projects"}
-          </a>
+          <Link href="/projects" className="mt-3 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700">{ar ? "الذهاب إلى المشاريع" : "Go to Projects"}</Link>
         </div>
         {project && (
           <div className="rounded-xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-800">

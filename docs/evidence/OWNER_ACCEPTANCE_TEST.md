@@ -2,9 +2,9 @@
 
 **Gate:** OWNER TESTABILITY (binary PASS/FAIL — no completion percentages)  
 **Production URL:** https://saudi-business-web.vercel.app  
-**Production deploy SHA (at test):** `93e4d385ac0d1338d98b1ebc33cfb27f2071263e`  
-**Shell + reopen fix PR:** https://github.com/majaber1/saudi-business/pull/33  
-**Branch commit (fixes, not yet on production):** see latest on `cursor/phase65-product-ux-hardening-1831`  
+**Production deploy SHA (at last live retest):** `93e4d385ac0d1338d98b1ebc33cfb27f2071263e`  
+**Fix PR:** https://github.com/majaber1/saudi-business/pull/33  
+**Branch:** `cursor/phase65-product-ux-hardening-1831`  
 **Test date (UTC):** 2026-09-12  
 **Language:** Arabic (RTL)
 
@@ -22,13 +22,13 @@ https://saudi-business-web.vercel.app
 
 ## 2) Account
 
-Create a fresh account on production (no shared seed account required):
+Create a fresh account on production (no shared seed account):
 
 1. Open https://saudi-business-web.vercel.app/register  
 2. Enter name, email, password (≥8 chars, letter + number)  
 3. Click إنشاء حساب  
 
-Agent run used password pattern `OwnerGateTest9!` with a fresh email.
+Agent runs used password pattern `OwnerGateTest9!` with a fresh email.
 
 Login: https://saudi-business-web.vercel.app/login
 
@@ -40,71 +40,69 @@ Login: https://saudi-business-web.vercel.app/login
 |------|--------|----------|
 | 1 | Open production URL | App loads |
 | 2 | Register or Login | Enter product (Dashboard/Projects) |
-| 3 | Click **لوحة التحكم** | Dashboard opens |
+| 3 | Click **لوحة التحكم** | Dashboard opens; no giant marketing footer covering workspace |
 | 4 | **المشاريع** → **إضافة مشروع** → enter idea text + budget → save | Project space opens |
 | 5 | Confirm idea text visible | Same Arabic MSSP sentence shown |
-| 6 | Click **دراسة جدوى بالذكاء الاصطناعي** | Study workspace opens |
+| 6 | Click **دراسة جدوى بالذكاء الاصطناعي** | Study workspace opens (or **Continue** if study already exists) |
 | 7 | Confirm classification (friendly label only) → continue | No raw IDs like `saas_digital` / `data_center` |
 | 8 | Complete AI Discovery (use **دع الذكاء الاصطناعي يقدر** where useful) | Interview completes |
-| 9 | Review assumptions in study | Assumptions visible |
-| 10 | Run **financial analysis inside the study** | NPV/IRR from study assumptions |
-| 11 | View risks | Risks for this study |
-| 12 | View decision | Decision for this study |
-| 13 | Open report | Report for this study |
+| 9 | Review assumptions in study → approve | Assumptions panel visible; no raw keys as primary labels |
+| 10 | Use in-study **Financial** panel / **Continue** | NPV/IRR from study assumptions (not `/tools/financial` calculator) |
+| 11 | View risks → **Continue** | Risks listed for this study |
+| 12 | View decision | Verdict + rationale for this study |
+| 13 | Open report panel | Report summary + print/save available |
 | 14 | Refresh browser | Progress still there |
 | 15 | **خروج** | Logged out |
 | 16 | Login again | Dashboard |
 | 17 | Open **المشاريع** / recent projects | Same project listed (no pasted URL) |
-| 18 | Continue AI study | Same study reopens |
+| 18 | Continue AI study | Same study reopens (not `/studies/new`) |
 | 19 | Confirm answers / assumptions / analysis / report still present | Persisted |
 
-Screenshots from production run: `docs/evidence/owner-gate-screenshots/`
+Screenshots from production baseline: `docs/evidence/owner-gate-screenshots/`
 
 ---
 
-## 4) PASS/FAIL (production UI, 2026-09-12)
+## 4) PASS/FAIL (production UI, last live run)
 
 | Step | Result | Evidence | Classification if fail |
 |------|--------|----------|------------------------|
 | 1 Open URL | **PASS** | owner-01 | |
 | 2 Register/Login | **PASS** | owner-01 | |
-| 3 Dashboard | **PASS** | owner-02 / owner-09 | Marketing hero noise (not a hard fail) |
+| 3 Dashboard | **PASS** | owner-02 / owner-09 | Marketing footer noise (hard fail for shell cleanliness) |
 | 4 Create project | **PASS** | owner-03 | |
 | 5 Idea visible | **PASS** | owner-03 | |
 | 6 Start AI study | **PASS** | owner-04 / owner-05 | |
-| 7 Archetype | **FAIL** | owner-05 | **PRODUCT_FAILURE** — raw IDs shown (`saas_digital`, `data_center`, `real_estate`, `services`) |
-| 8 AI Discovery | **PASS** | owner-06 | Q7/7 + AI estimate CTA works |
+| 7 Archetype | **FAIL** | owner-05 | **PRODUCT_FAILURE** — raw IDs on production |
+| 8 AI Discovery | **PASS** | owner-06 | |
 | 9 AI Estimate | **PASS** | owner-06 | |
-| 10 Assumptions | **FAIL** | — | **PRODUCT_FAILURE** — not reachable as clear next step in owner UI |
-| 11 In-study financial | **FAIL** | owner-07 | **PRODUCT_FAILURE** — lands on standalone `/tools/financial` calculator |
-| 12 Risks | **FAIL** | — | **PRODUCT_FAILURE** — not reachable |
-| 13 Decision | **FAIL** | — | **PRODUCT_FAILURE** — not reachable |
-| 14 Report | **FAIL** | — | **PRODUCT_FAILURE** — not reachable |
+| 10 Assumptions | **FAIL** | — | **PRODUCT_FAILURE** — not a clear next step on production |
+| 11 In-study financial | **FAIL** | owner-07 | **PRODUCT_FAILURE** — standalone `/tools/financial` |
+| 12 Risks | **FAIL** | — | **PRODUCT_FAILURE** — no owner CTA |
+| 13 Decision | **FAIL** | — | **PRODUCT_FAILURE** — no owner CTA |
+| 14 Report | **FAIL** | — | **PRODUCT_FAILURE** — no owner CTA |
 | 15 Refresh | **PASS** | owner-08 | In-session |
 | 16 Logout | **PASS** | | |
 | 17 Re-login | **PASS** | owner-09 | |
-| 18 Find project | **PASS** | owner-09 | Project listed |
-| 19 Reopen study + persistence | **FAIL** | owner-09, owner-11 | **PRODUCT_FAILURE** — AI study CTA pointed at `/studies/new`; dashboard showed 0 studies; workspace hang / new study instead of reopen |
+| 18 Find project | **PASS** | owner-09 | |
+| 19 Reopen study + persistence | **FAIL** | owner-09, owner-11 | **PRODUCT_FAILURE** — `/studies/new` + V1 study count |
 
-### Shell blockers on production
+### Shell blockers on production (still)
 
-| Issue | Evidence | Status |
-|-------|----------|--------|
-| Marketing footer on Projects / Project / Workspace | owner-03, owner-06, owner-10 | **PRODUCT_FAILURE** (fix in PR #33 AppChrome — not deployed) |
-| Raw archetype IDs | owner-05 | **PRODUCT_FAILURE** (fix in PR #33 — not deployed) |
-| Disconnected Financial tool | owner-07 | **PRODUCT_FAILURE** (banner in PR #33; in-study financial path still incomplete) |
-| Always-new AI study link | owner-11 | **PRODUCT_FAILURE** (reopen wiring added on branch — not deployed) |
+| Issue | Status |
+|-------|--------|
+| Marketing footer on app pages | Fix on PR #33 — **not deployed** |
+| Raw archetype IDs | Fix on PR #33 — **not deployed** |
+| Disconnected Financial tool | Banner + in-study continue path on PR #33 — **not deployed** |
+| Always-new AI study link | Reopen wiring on PR #33 — **not deployed** |
+| Assumptions → Financial → Risks → Decision → Report buttons | Journey nav + `/continue` on PR #33 — **not deployed** |
 
 ---
 
-## 5) Known remaining blockers (OWNER GATE still FAIL)
-
-1. **Study reopen after logout** — production still routes owners to `studies/new` and dashboard V1 study count ignores V2 AI studies.  
-2. **Assumptions / Risks / Decision / Report** not proven as owner-reachable stages after Discovery.  
-3. **Financial** still a standalone calculator unless used inside study financial tab.  
-4. **Shell UX** (footer + raw IDs) fixed on branch, **not on production** until PR #33 merges and deploys.  
+## 5) Known remaining blockers
 
 **OWNER GATE: FAIL — not DONE.**
+
+Fixes exist on PR #33 (shell, labels, reopen, journey continue panels, `/api/v2/studies/{id}/continue`) but are **not on production** until merge + deploy.
 
 Do not claim DONE until a fresh production re-run shows PASS on steps 1–19 without workarounds.
 
@@ -123,7 +121,7 @@ Do not claim DONE until a fresh production re-run shows PASS on steps 1–19 wit
 
 ## Re-test after deploy
 
-After merging PR #33 (and any follow-up for assumptions/risks/decision/report navigation):
+After merging PR #33:
 
 1. Repeat this script on production with a **new** account.  
 2. Fill the PASS/FAIL table again.  

@@ -147,8 +147,8 @@ export function AssumptionReviewPanel({
           data-testid="invalid-assumptions-banner"
         >
           {ar
-            ? `${invalid.length} افتراض غير صالح يمنع الاعتماد الجماعي حتى يُعدَّل أو يُعاد توليده: ${invalid.map((a) => a.key).join(", ")}`
-            : `${invalid.length} invalid assumption(s) block bulk approval until edited or regenerated: ${invalid.map((a) => a.key).join(", ")}`}
+            ? `${invalid.length} افتراض غير صالح يمنع الاعتماد الجماعي حتى يُعدَّل أو يُعاد توليده: ${invalid.map((a) => (ar ? a.label_ar || a.key : a.label_en || a.key)).join(", ")}`
+            : `${invalid.length} invalid assumption(s) block bulk approval until edited or regenerated: ${invalid.map((a) => (ar ? a.label_ar || a.key : a.label_en || a.key)).join(", ")}`}
         </p>
       ) : null}
 
@@ -193,10 +193,9 @@ export function AssumptionReviewPanel({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold text-ink-900">{label}</p>
-                    <p className="text-[11px] text-ink-500">
-                      {a.key}
-                      {a.unit ? ` · ${a.unit}` : ""}
-                    </p>
+                    {a.unit ? (
+                      <p className="text-[11px] text-ink-500">{a.unit}</p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {ai ? (

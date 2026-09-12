@@ -9,6 +9,7 @@ import { ArchetypeClassificationPanel } from "@/components/study/ArchetypeClassi
 import { DiscoveryQuestionsPanel } from "@/components/study/DiscoveryQuestionsPanel";
 import { AssumptionReviewPanel } from "@/components/study/AssumptionReviewPanel";
 import { KnowledgePanel } from "@/components/study/KnowledgePanel";
+import { StudyJourneyNav, StudyLateStagePanels } from "@/components/study/StudyJourneyPanels";
 import { archetypeLabel } from "@/lib/archetypeLabels";
 
 type Message = {
@@ -546,6 +547,47 @@ export default function StudyWorkspacePage() {
     }
   }
 
+
+  async function continueStudy() {
+    if (!study || loading) return;
+    const token = getToken();
+    if (!token) {
+      setError(ar ? "الرجاء تسجيل الدخول" : "Please sign in");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/v2/studies/${study.study_id}/continue`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: studyFetchHeaders(token),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const detail = data.detail;
+        const message = Array.isArray(detail)
+          ? detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join("; ")
+          : detail || "Failed to continue";
+        throw new Error(message);
+      }
+      applyStudyPayload(data, setStudy, setMessages, { replaceMessages: true });
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "system",
+          content: ar ? "تم الانتقال إلى المرحلة التالية." : "Advanced to the next study stage.",
+        },
+      ]);
+      if (data.error) setError(data.error);
+      else setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const phaseLabel = study?.phase ? (PHASE_LABELS[study.phase]?.[locale] ?? study.phase) : "";
   const claims = study?.claims || [];
   const assumptions = study?.assumptions || [];
@@ -576,6 +618,8 @@ export default function StudyWorkspacePage() {
           </div>
         )}
       </header>
+
+      {study?.phase ? <StudyJourneyNav ar={ar} phase={study.phase} /> : null}
 
       {study?.profile && (
         <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs" data-testid="study-profile-panel">
@@ -657,6 +701,20 @@ export default function StudyWorkspacePage() {
           onCardAction={assumptionCardAction}
         />
       )}
+
+      {study?.phase ? (
+        <StudyLateStagePanels
+          ar={ar}
+          phase={study.phase}
+          loading={loading}
+          financial={study.financial_results}
+          risks={study.decision_risks || []}
+          verdict={study.verdict}
+          rationale={study.decision_rationale}
+          conditions={study.decision_conditions || []}
+          onContinue={() => void continueStudy()}
+        />
+      ) : null}
 
       {(claims.length > 0 || assumptions.length > 0 || financial || study?.verdict) && (
         <div
