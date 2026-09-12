@@ -1,6 +1,7 @@
 "use client";
 
 import { ARCHETYPE_OPTIONS } from "./archetypeOptions";
+import { archetypeLabel } from "@/lib/archetypeLabels";
 
 type Props = {
   ar: boolean;
@@ -20,6 +21,7 @@ export function ArchetypeClassificationPanel({
   onConfirm,
 }: Props) {
   const value = selected || suggested || null;
+  const locale = ar ? "ar" : "en";
 
   return (
     <section
@@ -27,17 +29,17 @@ export function ArchetypeClassificationPanel({
       data-testid="archetype-classification-panel"
     >
       <h2 className="text-base font-bold text-ink-900">
-        {ar ? "تصنيف نوع المشروع (إلزامي)" : "Project Archetype Classification (required)"}
+        {ar ? "تصنيف نوع المشروع (إلزامي)" : "Project type classification (required)"}
       </h2>
       <p className="mt-1 text-xs text-ink-500">
         {ar
           ? "أكد نوع المشروع قبل جمع الافتراضات — تختلف الأسئلة حسب النوع."
-          : "Confirm the project type before assumptions — questions differ by archetype."}
+          : "Confirm the project type before assumptions — questions differ by type."}
       </p>
       {suggested ? (
         <p className="mt-2 text-xs text-ink-600" data-testid="archetype-suggestion">
           {ar ? "اقتراح الذكاء الاصطناعي:" : "AI suggestion:"}{" "}
-          <span className="font-semibold">{suggested}</span>
+          <span className="font-semibold">{archetypeLabel(suggested, locale)}</span>
         </p>
       ) : null}
 
@@ -58,7 +60,6 @@ export function ArchetypeClassificationPanel({
               }`}
             >
               <div className="font-semibold">{ar ? opt.label_ar : opt.label_en}</div>
-              <div className="mt-1 text-[11px] text-ink-500">{opt.id}</div>
             </button>
           );
         })}
@@ -77,7 +78,7 @@ export function ArchetypeClassificationPanel({
             : "Confirming..."
           : ar
             ? "تأكيد التصنيف والمتابعة"
-            : "Confirm archetype & continue"}
+            : "Confirm type & continue"}
       </button>
     </section>
   );

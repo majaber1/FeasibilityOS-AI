@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { API_BASE, getToken } from "@/lib/api";
 import { useLanguage } from "@/components/LanguageProvider";
+import { archetypeLabel } from "@/lib/archetypeLabels";
 
 type Dashboard = {
   documents_count: number;
@@ -182,7 +183,9 @@ export default function KnowledgeDashboardPage() {
                   <li key={m.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                     <p className="font-medium text-ink-900">{m.source_study_id}</p>
                     <p className="mt-1 text-xs text-ink-500">
-                      {[m.archetype, m.sector].filter(Boolean).join(" · ")}
+                      {[m.archetype ? archetypeLabel(m.archetype, ar ? "ar" : "en") : null, m.sector]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                     {m.summary_text ? <p className="mt-1 text-xs text-ink-600">{m.summary_text}</p> : null}
                   </li>

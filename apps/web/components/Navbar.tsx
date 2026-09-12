@@ -6,7 +6,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { clearToken, getToken, me } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
-export function Navbar() {
+export function Navbar({ dense = false }: { dense?: boolean }) {
   const { t, locale, toggle } = useLanguage();
   const [signedIn, setSignedIn] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -29,24 +29,55 @@ export function Navbar() {
     return () => window.removeEventListener("sb-auth-change", refreshAuth);
   }, []);
 
-  const links = [
-    { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
-    ...(signedIn ? [{ href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" }] : []),
-    ...(signedIn ? [{ href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" }] : []),
-    { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
-    { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
-    { href: "/opportunities", label: t.nav.opportunities },
-    { href: "/pricing", label: t.nav.pricing },
-  ];
+  // Product shell: workspace links first. Marketing shell keeps discovery links.
+  const links = dense
+    ? [
+        { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
+        ...(signedIn ? [{ href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" }] : []),
+        ...(signedIn ? [{ href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" }] : []),
+        { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
+        { href: "/tools/reports", label: locale === "ar" ? "التقارير" : "Reports" },
+      ]
+    : signedIn
+        ? [
+            // Signed-in owners stay in product routes — avoid Opportunities confusion.
+            { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
+            { href: "/projects", label: locale === "ar" ? "المشاريع" : "Projects" },
+            { href: "/tools/knowledge", label: locale === "ar" ? "المعرفة" : "Knowledge" },
+            { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
+            { href: "/tools/reports", label: locale === "ar" ? "التقارير" : "Reports" },
+          ]
+        : [
+            { href: "/dashboard", label: locale === "ar" ? "لوحة التحكم" : "Dashboard" },
+            { href: "/businesses", label: locale === "ar" ? "أعمالي" : "My Businesses" },
+            { href: "/tools", label: locale === "ar" ? "الأدوات" : "Tools" },
+            { href: "/opportunities", label: t.nav.opportunities },
+            { href: "/pricing", label: t.nav.pricing },
+          ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-      <nav className="container-page flex h-16 items-center justify-between gap-4" aria-label={locale === "ar" ? "التنقل الرئيسي" : "Primary navigation"}>
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 font-bold text-white shadow-card">
+    <header
+      className={`sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md ${
+        dense ? "shadow-sm" : ""
+      }`}
+      data-testid="app-navbar"
+      data-dense={dense ? "true" : "false"}
+    >
+      <nav
+        className={`container-page flex items-center justify-between gap-4 ${dense ? "h-14" : "h-16"}`}
+        aria-label={locale === "ar" ? "التنقل الرئيسي" : "Primary navigation"}
+      >
+        <Link href={dense ? "/dashboard" : "/"} className="flex items-center gap-2.5">
+          <span
+            className={`grid place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-800 font-bold text-white shadow-card ${
+              dense ? "h-8 w-8 text-sm" : "h-9 w-9"
+            }`}
+          >
             {locale === "ar" ? "س" : "S"}
           </span>
-          <span className="text-lg font-semibold tracking-tight text-ink-900">{t.brand}</span>
+          <span className={`font-semibold tracking-tight text-ink-900 ${dense ? "text-base" : "text-lg"}`}>
+            {t.brand}
+          </span>
         </Link>
 
         <ul className="hidden items-center gap-7 text-sm font-medium text-ink-600 xl:flex">
@@ -69,12 +100,24 @@ export function Navbar() {
           </button>
           {signedIn ? (
             <>
-              <Link href="/account" className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-ink-700 hover:text-brand-600 sm:inline-block">
+              <Link
+                href="/account"
+                data-testid="nav-account-link"
+                className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-ink-700 hover:text-brand-600 sm:inline-block"
+              >
                 {locale === "ar" ? "حسابي" : "My account"}
               </Link>
               <button
-                onClick={() => { clearToken(); setSignedIn(false); router.push("/"); router.refresh(); }}
-                className="rounded-md bg-slate-100 px-4 py-1.5 text-sm font-medium text-ink-700 hover:bg-slate-200"
+                type="button"
+                data-testid="nav-logout-btn"
+                onClick={() => {
+                  clearToken();
+                  setSignedIn(false);
+                  window.dispatchEvent(new Event("sb-auth-change"));
+                  router.push("/login");
+                  router.refresh();
+                }}
+                className="rounded-md border border-slate-300 bg-white px-4 py-1.5 text-sm font-semibold text-ink-800 hover:border-brand-500 hover:text-brand-700"
               >
                 {locale === "ar" ? "خروج" : "Log out"}
               </button>
@@ -124,6 +167,25 @@ export function Navbar() {
                 {t.nav.help}
               </Link>
             </li>
+            {signedIn ? (
+              <li className="border-t border-slate-100 pt-2">
+                <button
+                  type="button"
+                  data-testid="nav-logout-btn-mobile"
+                  onClick={() => {
+                    clearToken();
+                    setSignedIn(false);
+                    setMobileOpen(false);
+                    window.dispatchEvent(new Event("sb-auth-change"));
+                    router.push("/login");
+                    router.refresh();
+                  }}
+                  className="block w-full rounded-lg px-3 py-2.5 text-start text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                >
+                  {locale === "ar" ? "خروج" : "Log out"}
+                </button>
+              </li>
+            ) : null}
           </ul>
         </div>
       )}

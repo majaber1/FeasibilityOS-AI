@@ -568,6 +568,50 @@ class TestV2StudyAPI:
         assert len(listing) >= 3
 
 
+
+    def test_continue_from_wrong_phase_400(self):
+        headers = _auth("continue_bad")
+        create = client.post("/api/v2/studies", json={
+            "project_id": "proj_cont_bad", "language": "en",
+        }, headers=headers)
+        study_id = create.json()["study_id"]
+
+        r = client.post(f"/api/v2/studies/{study_id}/continue", headers=headers)
+        assert r.status_code == 400
+        assert "Cannot continue" in r.json()["detail"]
+
+    def test_continue_from_analyzed_invokes_step(self):
+        headers = _auth("continue_ok")
+        create = client.post("/api/v2/studies", json={
+            "project_id": "proj_cont_ok", "language": "en",
+        }, headers=headers)
+        study_id = create.json()["study_id"]
+
+        db = app_db.SessionLocal()
+        try:
+            from app.api.v2.study_engine import StudyStateRow
+            row = db.query(StudyStateRow).filter_by(study_id=study_id).first()
+            assert row is not None
+            row.phase = "ANALYZED"
+            db.commit()
+        finally:
+            db.close()
+
+        async def _fake_step(state):
+            state.phase = "DECISION_READY"
+            state.decision_risks = ["Market adoption risk"]
+            return state
+
+        from unittest.mock import patch
+
+        with patch("app.api.v2.study_engine._import_engine", return_value=(None, _fake_step)):
+            r = client.post(f"/api/v2/studies/{study_id}/continue", headers=headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["phase"] == "DECISION_READY"
+        assert "Market adoption risk" in (body.get("decision_risks") or [])
+
+
 # =============================================================================
 # 5. Financial scenario computation tests
 # =============================================================================

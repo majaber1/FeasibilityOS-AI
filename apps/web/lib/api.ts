@@ -189,6 +189,27 @@ export function listStudies(token: string, projectId?: number) {
   return authedRequest<Study[]>("/feasibility/" + qs, token);
 }
 
+/** V2 AI study engine list — used for reopen/persistence of the owner journey. */
+export type V2StudySummary = {
+  study_id: string;
+  project_id?: string | null;
+  phase?: string | null;
+  archetype?: string | null;
+  verdict?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export async function listV2Studies(token: string): Promise<V2StudySummary[]> {
+  const data = await authedRequest<{ studies: V2StudySummary[] }>("/api/v2/studies", token);
+  return data.studies ?? [];
+}
+
+export function findV2StudyForProject(studies: V2StudySummary[], projectId: number | string) {
+  const key = String(projectId);
+  return studies.find((s) => String(s.project_id ?? "") === key) ?? null;
+}
+
 export function getStudy(token: string, studyId: number) {
   return authedRequest<Study>("/feasibility/" + studyId, token);
 }

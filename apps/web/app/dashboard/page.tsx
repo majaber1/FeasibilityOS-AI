@@ -8,6 +8,7 @@ import {
   listProjects,
   listQualificationProfiles,
   listStudies,
+  listV2Studies,
   type Project,
   type QualificationProfile,
   type Study,
@@ -16,6 +17,7 @@ import {
 type DashboardData = {
   projects: Project[];
   studies: Study[];
+  v2StudyCount: number;
   qualifications: QualificationProfile[];
 };
 
@@ -87,10 +89,18 @@ export default function DashboardPage() {
     Promise.all([
       listProjects(token),
       listStudies(token),
+      listV2Studies(token).catch(() => []),
       listQualificationProfiles(token).catch(() => []),
     ])
-      .then(([projects, studies, qualifications]) => {
-        if (!cancelled) setData({ projects, studies, qualifications });
+      .then(([projects, studies, v2Studies, qualifications]) => {
+        if (!cancelled) {
+          setData({
+            projects,
+            studies,
+            v2StudyCount: Array.isArray(v2Studies) ? v2Studies.length : 0,
+            qualifications,
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -105,6 +115,8 @@ export default function DashboardPage() {
 
   const projects = data?.projects ?? [];
   const studies = data?.studies ?? [];
+  const v2StudyCount = data?.v2StudyCount ?? 0;
+  const studyCount = Math.max(studies.length, v2StudyCount);
   const completed = studies.filter((study) => study.status === "completed");
   const readiness = data?.qualifications[0]?.overall_score ?? 0;
   const activeInvestment = projects
@@ -113,7 +125,7 @@ export default function DashboardPage() {
 
   const nextStep = !projects.length
     ? { href: "/projects", title: ar ? "أضف مشروعك الأول" : "Add your first project", detail: ar ? "ابدأ بالاسم والقطاع والاستثمار المتوقع." : "Start with its name, sector, and expected investment." }
-    : !studies.length
+    : !studyCount
       ? { href: "/projects", title: ar ? "أنشئ دراسة جدوى ذكية" : "Start an AI feasibility study", detail: ar ? "استخدم محرك الذكاء الاصطناعي V2 لتحليل مشروعك خطوة بخطوة." : "Use the V2 AI engine to analyze your project step by step." }
       : !readiness
         ? { href: "/tools/qualification", title: ar ? "قيّم جاهزية مشروعك" : "Assess business readiness", detail: ar ? "اعرف متطلبات التمويل والامتثال التي تحتاجها." : "Find the funding and compliance requirements still needed." }
@@ -122,7 +134,7 @@ export default function DashboardPage() {
   const cards = data
     ? [
         { label: ar ? "المشاريع النشطة" : "Active projects", value: String(projects.filter((p) => !p.is_archived).length), hint: ar ? `${projects.filter((p) => p.is_archived).length} مؤرشف` : `${projects.filter((p) => p.is_archived).length} archived` },
-        { label: ar ? "دراسات الجدوى" : "Feasibility studies", value: String(studies.length), hint: ar ? `${completed.length} مكتملة` : `${completed.length} completed` },
+        { label: ar ? "دراسات الجدوى" : "Feasibility studies", value: String(studyCount), hint: ar ? `${completed.length} مكتملة (V1)` : `${completed.length} completed (V1)` },
         { label: ar ? "الاستثمار المخطط" : "Planned investment", value: money(activeInvestment, lang), hint: ar ? "عبر المشاريع النشطة" : "Across active projects" },
         { label: ar ? "درجة الجاهزية" : "Readiness score", value: readiness ? `${Math.round(readiness)}%` : "—", hint: readiness ? (ar ? "آخر تقييم" : "Latest assessment") : (ar ? "لم يتم التقييم" : "Not assessed") },
       ]
@@ -140,7 +152,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#f5f7f6]">
       <section className="relative overflow-hidden border-b border-brand-800 bg-brand-900 text-white">
         <div className="absolute inset-0 opacity-30 [background:radial-gradient(circle_at_15%_0%,#1a9d5c,transparent_35%),radial-gradient(circle_at_90%_10%,#c9a227,transparent_25%)]" />
-        <div className="container-page relative py-10 sm:py-14">
+        <div className="container-page relative py-6 sm:py-8">
           <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
             <div>
               <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold-300">
@@ -160,7 +172,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div className="container-page space-y-7 py-8 sm:py-10">
+      <div className="container-page space-y-5 py-5 sm:py-6">
         {error && (
           <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <span>{ar ? "تعذر تحميل بيانات الحساب. لم نستبدلها ببيانات وهمية." : "Account data could not be loaded. It was not replaced with fabricated figures."}</span>

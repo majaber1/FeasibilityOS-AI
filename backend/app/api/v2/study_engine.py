@@ -235,6 +235,7 @@ def _list_user_studies(user_id: str) -> list[dict]:
             return [
                 {
                     "study_id": r.study_id,
+                    "project_id": r.project_id,
                     "phase": r.phase,
                     "archetype": (r.profile_json or {}).get("archetype") if isinstance(r.profile_json, dict) else None,
                     "verdict": r.verdict,
@@ -254,6 +255,7 @@ def _list_user_studies(user_id: str) -> list[dict]:
             s = record["state"]
             results.append({
                 "study_id": sid,
+                "project_id": s.get("project_id"),
                 "phase": s.get("phase"),
                 "archetype": (s.get("profile") or {}).get("archetype") if isinstance(s.get("profile"), dict) else None,
                 "verdict": s.get("verdict"),
@@ -833,6 +835,55 @@ async def send_message(study_id: str, req: StudyMessageRequest, user=Depends(get
         state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
 
     _save_study(study_id, state.model_dump(), user_id); _remember_study_if_ready(state, user_id)
+
+    last_ai_message = None
+    for msg in reversed(state.messages):
+        if hasattr(msg, "type") and msg.type == "ai":
+            last_ai_message = msg.content
+            break
+
+    return _payload_from_state(study_id, state, response=last_ai_message, record_meta=record)
+
+
+
+@router.post("/{study_id}/continue")
+async def continue_study(study_id: str, user=Depends(get_current_user)):
+    """Owner-facing advance: one orchestrator step without chat workarounds.
+
+    Allowed when the study is waiting on financial → risk → decision progression.
+    """
+    user_id = str(user.id)
+    record = _load_study(study_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    _, run_study_step = _import_engine()
+    state = _state_from_record(record)
+
+    allowed = {"READY_FOR_ANALYSIS", "ANALYZED", "DECISION_READY"}
+    if state.phase not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot continue from phase '{state.phase}'. Expected one of: {sorted(allowed)}.",
+        )
+
+    from langchain_core.messages import HumanMessage
+
+    prompts = {
+        "READY_FOR_ANALYSIS": "Continue: run financial analysis from approved assumptions.",
+        "ANALYZED": "Continue: assess risks for this study.",
+        "DECISION_READY": "Continue: issue the final decision and prepare the report.",
+    }
+    state.messages.append(HumanMessage(content=prompts[state.phase]))
+    state.error = None
+
+    try:
+        state = await run_study_step(state)
+    except Exception as e:
+        state.error = _safe_ai_error(e, getattr(state, "language", "en"), "study_engine")
+
+    _save_study(study_id, state.model_dump(), user_id)
+    _remember_study_if_ready(state, user_id)
 
     last_ai_message = None
     for msg in reversed(state.messages):
