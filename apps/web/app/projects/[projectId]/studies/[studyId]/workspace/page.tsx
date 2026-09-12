@@ -10,6 +10,7 @@ import { DiscoveryQuestionsPanel } from "@/components/study/DiscoveryQuestionsPa
 import { AssumptionReviewPanel } from "@/components/study/AssumptionReviewPanel";
 import { KnowledgePanel } from "@/components/study/KnowledgePanel";
 import { StudyJourneyNav, StudyLateStagePanels } from "@/components/study/StudyJourneyPanels";
+import { formatIrrMetric, formatPaybackMetric } from "@/lib/financialDisplay";
 import { archetypeLabel } from "@/lib/archetypeLabels";
 
 type Message = {
@@ -198,6 +199,7 @@ export default function StudyWorkspacePage() {
 
   useEffect(() => {
     // Owner reopen path: `/studies/new` must not orphan an existing V2 study.
+    // Prefill start prompt from project name so the first CTA is obvious.
     if (studyId !== "new") return;
     const token = getToken();
     if (!token || !projectId) return;
@@ -213,9 +215,23 @@ export default function StudyWorkspacePage() {
         const existing = (data.studies || []).find((s) => String(s.project_id ?? "") === String(projectId));
         if (!cancelled && existing?.study_id) {
           router.replace(`/projects/${projectId}/studies/${existing.study_id}/workspace`);
+          return;
         }
       } catch {
         /* keep "new" create path if list fails */
+      }
+      try {
+        const projRes = await fetch(`${API_BASE}/projects/${projectId}`, {
+          credentials: "same-origin",
+          headers: studyFetchHeaders(token),
+        });
+        if (!projRes.ok) return;
+        const project = (await projRes.json()) as { name?: string; industry?: string };
+        if (cancelled || !project?.name) return;
+        const seed = [project.name, project.industry].filter(Boolean).join(" — ");
+        setInput((prev) => (prev.trim() ? prev : seed));
+      } catch {
+        /* optional prefill only */
       }
     })();
     return () => {
@@ -774,10 +790,46 @@ export default function StudyWorkspacePage() {
               </h2>
               {financial && (
                 <div className="mt-2 space-y-1 text-xs text-ink-700">
-                  {"npv" in financial && <p>NPV: {String(financial.npv)}</p>}
-                  {"irr" in financial && <p>IRR: {String(financial.irr)}</p>}
-                  {"payback_months" in financial && <p>Payback (months): {String(financial.payback_months)}</p>}
-                  {"capex" in financial && <p>CAPEX: {String(financial.capex)}</p>}
+                  {"npv" in financial && financial.npv != null && <p>NPV: {String(financial.npv)}</p>}
+                  {(() => {
+                    const irrMetric = formatIrrMetric(financial, ar);
+                    const paybackMetric = formatPaybackMetric(financial, ar);
+                    return (
+                      <>
+                        <div data-testid="workspace-irr">
+                          <p>
+                            {irrMetric.label}: {irrMetric.display}
+                          </p>
+                          {!irrMetric.available && irrMetric.reason ? (
+                            <p className="text-[11px] text-ink-600">{irrMetric.reason}</p>
+                          ) : null}
+                          {!irrMetric.available && irrMetric.missing_condition ? (
+                            <p className="text-[11px] text-ink-500">{irrMetric.missing_condition}</p>
+                          ) : null}
+                        </div>
+                        <div data-testid="workspace-payback">
+                          <p>
+                            {paybackMetric.label}: {paybackMetric.display}
+                          </p>
+                          {!paybackMetric.available && paybackMetric.reason ? (
+                            <p className="text-[11px] text-ink-600">{paybackMetric.reason}</p>
+                          ) : null}
+                          {!paybackMetric.available && paybackMetric.missing_condition ? (
+                            <p className="text-[11px] text-ink-500">{paybackMetric.missing_condition}</p>
+                          ) : null}
+                        </div>
+                      </>
+                    );
+                  })()}
+                  {"capex" in financial && financial.capex != null && <p>CAPEX: {String(financial.capex)}</p>}
+                  {Array.isArray((financial as { warnings?: string[] }).warnings) &&
+                    ((financial as { warnings?: string[] }).warnings || []).length > 0 && (
+                      <ul data-testid="workspace-financial-warnings" className="mt-2 space-y-1 text-amber-800">
+                        {((financial as { warnings?: string[] }).warnings || []).map((w) => (
+                          <li key={w}>⚠ {w}</li>
+                        ))}
+                      </ul>
+                    )}
                 </div>
               )}
               {study?.decision_rationale && (
@@ -801,6 +853,7 @@ export default function StudyWorkspacePage() {
             type="button"
             onClick={() => approveStage("evidence")}
             disabled={loading || claims.length === 0}
+            data-testid="approve-evidence-btn"
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {ar ? "الموافقة على الأدلة" : "Approve Evidence"}

@@ -11,19 +11,38 @@ def calculate_npv(cash_flows: List[float], discount_rate: float = 0.12) -> float
 
 
 def calculate_irr(cash_flows: List[float], tolerance: float = 0.0001, max_iter: int = 1000) -> float | None:
+    """IRR via bisection. Returns None when undefined (no sign change / no root)."""
     if not cash_flows or len(cash_flows) < 2:
         return None
+    # IRR requires at least one outflow and one inflow.
+    if not any(cf < 0 for cf in cash_flows) or not any(cf > 0 for cf in cash_flows):
+        return None
 
+    def _npv(rate: float) -> float:
+        return sum(cf / ((1 + rate) ** t) for t, cf in enumerate(cash_flows))
+
+    # Expand high bound for very high IRRs (e.g. low CAPEX + strong services cash flows).
     low, high = -0.99, 10.0
+    f_low, f_high = _npv(low), _npv(high)
+    expand = 0
+    while f_low * f_high > 0 and high < 1000.0 and expand < 8:
+        high *= 2.0
+        f_high = _npv(high)
+        expand += 1
+    if f_low * f_high > 0:
+        return None
+
     for _ in range(max_iter):
         mid = (low + high) / 2
-        npv = sum(cf / ((1 + mid) ** t) for t, cf in enumerate(cash_flows))
+        npv = _npv(mid)
         if abs(npv) < tolerance:
             return round(mid, 4)
-        if npv > 0:
-            low = mid
-        else:
+        if f_low * npv < 0:
             high = mid
+            f_high = npv
+        else:
+            low = mid
+            f_low = npv
     return None
 
 

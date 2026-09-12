@@ -1,0 +1,435 @@
+{
+  "aggregate": "PASS",
+  "passed": 5,
+  "total": 5,
+  "scenarios": [
+    {
+      "id": "1_residential",
+      "name": "Residential project",
+      "overall": "PASS",
+      "inputs": {
+        "capex": 250000000,
+        "revenues": [
+          90000000.0,
+          110000000.0,
+          95000000.0,
+          40000000.0
+        ],
+        "opex": [
+          25000000.0,
+          18000000.0,
+          12000000.0,
+          8000000.0
+        ],
+        "timeline_years": 4,
+        "discount_rate": 0.12,
+        "assumptions": {
+          "units": 500.0
+        }
+      },
+      "calculation": {
+        "cash_flows": [
+          -250000000,
+          65000000.0,
+          92000000.0,
+          83000000.0,
+          32000000.0
+        ],
+        "npv_hand": -39208109.9,
+        "npv_engine": -39208109.9,
+        "irr_raw": 0.0376,
+        "irr_display": "3.8%",
+        "payback_years": 3.31,
+        "payback_display": "39.7 months",
+        "payback_state": {
+          "label": "Payback Period",
+          "available": true,
+          "display": "39.7 months",
+          "reason": null,
+          "missing_condition": null
+        },
+        "irr_state": {
+          "label": "IRR",
+          "available": true,
+          "display": "3.8%",
+          "reason": null,
+          "missing_condition": null
+        }
+      },
+      "output": {
+        "financial_result": {
+          "npv": -39208109.9,
+          "irr_display": "3.8%",
+          "payback_display": "39.7 months",
+          "warnings": [],
+          "chat_summary": "Financial analysis complete. Review the results panel for details (NPV: -39208109.9, IRR: 3.8%, Payback: 39.7 months)."
+        },
+        "decision_result": {
+          "verdict": "CONDITIONAL",
+          "rationale": "Based on NPV/IRR/payback profile.",
+          "phase": "REPORT_READY",
+          "conditions": []
+        },
+        "report_status": "REPORT_READY"
+      },
+      "checks": {
+        "no_raw_null": true,
+        "null_issues": [],
+        "npv_correct": true,
+        "services_formula_ok": true,
+        "dc_soft_warning_pass": null,
+        "dc_soft_warnings": [],
+        "persistence_display_ok": true,
+        "no_unknown": true
+      }
+    },
+    {
+      "id": "2_data_center",
+      "name": "Data Center project",
+      "overall": "PASS",
+      "inputs": {
+        "capex": 320000000,
+        "revenues": [
+          80000000.0,
+          95000000.0,
+          110000000.0,
+          120000000.0
+        ],
+        "opex": [
+          45000000.0,
+          48000000.0,
+          52000000.0,
+          55000000.0
+        ],
+        "timeline_years": 4,
+        "discount_rate": 0.12,
+        "assumptions": {
+          "mw_capacity": 20.0
+        }
+      },
+      "calculation": {
+        "cash_flows": [
+          -320000000,
+          35000000.0,
+          47000000.0,
+          58000000.0,
+          65000000.0
+        ],
+        "npv_hand": -168689958.29,
+        "npv_engine": -168689958.29,
+        "irr_raw": -0.1453,
+        "irr_display": "-14.5%",
+        "payback_years": null,
+        "payback_display": "Payback period cannot be calculated for these cash flows.",
+        "payback_state": {
+          "label": "Payback Period",
+          "available": false,
+          "display": "Payback period cannot be calculated for these cash flows.",
+          "reason": "Cumulative cash flow never recovers the initial investment inside the projection window.",
+          "missing_condition": "Requires cumulative net cash flows to turn non-negative within the modeled years."
+        },
+        "irr_state": {
+          "label": "IRR",
+          "available": true,
+          "display": "-14.5%",
+          "reason": null,
+          "missing_condition": null
+        }
+      },
+      "output": {
+        "financial_result": {
+          "npv": -168689958.29,
+          "irr_display": "-14.5%",
+          "payback_display": "Payback period cannot be calculated for these cash flows.",
+          "warnings": [],
+          "chat_summary": "Financial analysis complete. Review the results panel for details (NPV: -168689958.29, IRR: -14.5%, Payback: Payback period cannot be calculated for these cash flows.)."
+        },
+        "decision_result": {
+          "verdict": "NO_GO",
+          "rationale": "Based on NPV/IRR/payback profile.",
+          "phase": "REPORT_READY",
+          "conditions": []
+        },
+        "report_status": "REPORT_READY"
+      },
+      "checks": {
+        "no_raw_null": true,
+        "null_issues": [],
+        "npv_correct": true,
+        "services_formula_ok": true,
+        "dc_soft_warning_pass": true,
+        "dc_soft_warnings": [
+          "CAPEX looks unusually low for a 20 MW data center (~SAR 1,250,000/MW). Expected range about SAR 160,000,000–400,000,000."
+        ],
+        "persistence_display_ok": true,
+        "no_unknown": true
+      }
+    },
+    {
+      "id": "3_cyber_mssp",
+      "name": "Cybersecurity MSSP Services",
+      "overall": "PASS",
+      "inputs": {
+        "capex": 2000000,
+        "revenues": [
+          16200000.0,
+          20250000.0,
+          24300000.0
+        ],
+        "opex": [
+          8910000.0,
+          11137500.0,
+          13365000.0
+        ],
+        "timeline_years": 3,
+        "discount_rate": 0.12,
+        "assumptions": {
+          "billing_rate": 450.0,
+          "utilization_rate": 0.75,
+          "consultants_headcount": 25.0,
+          "billable_period": 1920.0
+        },
+        "services_formula": "billing_rate × utilization × resources × billable_period",
+        "services_expected_y1": 16200000.0,
+        "services_actual_y1": 16200000.0,
+        "services_notes": [
+          "services_billable_period_annual_hours",
+          "services_revenue_from_billing_rate_x_utilization_x_resources"
+        ]
+      },
+      "calculation": {
+        "cash_flows": [
+          -2000000,
+          7290000.0,
+          9112500.0,
+          10935000.0
+        ],
+        "npv_hand": 19556674.79,
+        "npv_engine": 19556674.79,
+        "irr_raw": 3.8243,
+        "irr_display": "382.4%",
+        "payback_years": 0.27,
+        "payback_display": "3.2 months",
+        "payback_state": {
+          "label": "Payback Period",
+          "available": true,
+          "display": "3.2 months",
+          "reason": null,
+          "missing_condition": null
+        },
+        "irr_state": {
+          "label": "IRR",
+          "available": true,
+          "display": "382.4%",
+          "reason": null,
+          "missing_condition": null
+        }
+      },
+      "output": {
+        "financial_result": {
+          "npv": 19556674.79,
+          "irr_display": "382.4%",
+          "payback_display": "3.2 months",
+          "warnings": [],
+          "chat_summary": "Financial analysis complete. Review the results panel for details (NPV: 19556674.79, IRR: 382.4%, Payback: 3.2 months)."
+        },
+        "decision_result": {
+          "verdict": "GO",
+          "rationale": "Based on NPV/IRR/payback profile.",
+          "phase": "REPORT_READY",
+          "conditions": []
+        },
+        "report_status": "REPORT_READY"
+      },
+      "checks": {
+        "no_raw_null": true,
+        "null_issues": [],
+        "npv_correct": true,
+        "services_formula_ok": true,
+        "dc_soft_warning_pass": null,
+        "dc_soft_warnings": [],
+        "persistence_display_ok": true,
+        "no_unknown": true
+      }
+    },
+    {
+      "id": "4_saas",
+      "name": "SaaS platform",
+      "overall": "PASS",
+      "inputs": {
+        "capex": 1500000,
+        "revenues": [
+          3600000,
+          4471200.0,
+          5553230.400000001
+        ],
+        "opex": [
+          2400000,
+          2800000,
+          3100000
+        ],
+        "timeline_years": 3,
+        "discount_rate": 0.12,
+        "assumptions": {
+          "arr_y1": 3600000.0,
+          "churn": 0.08,
+          "cac": 1200.0
+        }
+      },
+      "calculation": {
+        "cash_flows": [
+          -1500000,
+          1200000,
+          1671200.0,
+          2453230.4000000013
+        ],
+        "npv_hand": 2649859.92,
+        "npv_engine": 2649859.92,
+        "irr_raw": 0.8664,
+        "irr_display": "86.6%",
+        "payback_years": 1.18,
+        "payback_display": "14.2 months",
+        "payback_state": {
+          "label": "Payback Period",
+          "available": true,
+          "display": "14.2 months",
+          "reason": null,
+          "missing_condition": null
+        },
+        "irr_state": {
+          "label": "IRR",
+          "available": true,
+          "display": "86.6%",
+          "reason": null,
+          "missing_condition": null
+        }
+      },
+      "output": {
+        "financial_result": {
+          "npv": 2649859.92,
+          "irr_display": "86.6%",
+          "payback_display": "14.2 months",
+          "warnings": [],
+          "chat_summary": "Financial analysis complete. Review the results panel for details (NPV: 2649859.92, IRR: 86.6%, Payback: 14.2 months)."
+        },
+        "decision_result": {
+          "verdict": "GO",
+          "rationale": "Based on NPV/IRR/payback profile.",
+          "phase": "REPORT_READY",
+          "conditions": []
+        },
+        "report_status": "REPORT_READY"
+      },
+      "checks": {
+        "no_raw_null": true,
+        "null_issues": [],
+        "npv_correct": true,
+        "services_formula_ok": true,
+        "dc_soft_warning_pass": null,
+        "dc_soft_warnings": [],
+        "persistence_display_ok": true,
+        "no_unknown": true
+      }
+    },
+    {
+      "id": "5_uber_mobility",
+      "name": "Uber mobility",
+      "overall": "PASS",
+      "inputs": {
+        "capex": 15000000,
+        "revenues": [
+          19008000.0,
+          24710400.0,
+          30412800.0
+        ],
+        "opex": [
+          13305600.0,
+          16803072.0,
+          19768320.0
+        ],
+        "timeline_years": 3,
+        "discount_rate": 0.12,
+        "assumptions": {
+          "drivers": 2000.0,
+          "take_rate": 0.22
+        }
+      },
+      "calculation": {
+        "cash_flows": [
+          -15000000,
+          5702400.0,
+          7907328.0,
+          10644480.0
+        ],
+        "npv_hand": 3971632.65,
+        "npv_engine": 3971632.65,
+        "irr_raw": 0.2529,
+        "irr_display": "25.3%",
+        "payback_years": 2.13,
+        "payback_display": "25.6 months",
+        "payback_state": {
+          "label": "Payback Period",
+          "available": true,
+          "display": "25.6 months",
+          "reason": null,
+          "missing_condition": null
+        },
+        "irr_state": {
+          "label": "IRR",
+          "available": true,
+          "display": "25.3%",
+          "reason": null,
+          "missing_condition": null
+        }
+      },
+      "output": {
+        "financial_result": {
+          "npv": 3971632.65,
+          "irr_display": "25.3%",
+          "payback_display": "25.6 months",
+          "warnings": [],
+          "chat_summary": "Financial analysis complete. Review the results panel for details (NPV: 3971632.65, IRR: 25.3%, Payback: 25.6 months)."
+        },
+        "decision_result": {
+          "verdict": "GO",
+          "rationale": "Based on NPV/IRR/payback profile.",
+          "phase": "REPORT_READY",
+          "conditions": []
+        },
+        "report_status": "REPORT_READY"
+      },
+      "checks": {
+        "no_raw_null": true,
+        "null_issues": [],
+        "npv_correct": true,
+        "services_formula_ok": true,
+        "dc_soft_warning_pass": null,
+        "dc_soft_warnings": [],
+        "persistence_display_ok": true,
+        "no_unknown": true
+      }
+    }
+  ],
+  "persistence": {
+    "overall": "PASS",
+    "email": "ft.persist.1789226368@example.com",
+    "project_id": 435,
+    "study_id": "study_7500d57ee1d1",
+    "reopened_phase": "ANALYZED",
+    "reopened_irr_display": "3.8%",
+    "reopened_payback_display": "39.7 months",
+    "reopened_npv": -39208109.9,
+    "verdict": "CONDITIONAL"
+  },
+  "regression": {
+    "exit_code": 0,
+    "summary": "15 passed in 0.24s",
+    "overall": "PASS"
+  },
+  "owner_gate": {
+    "result": "19/19 PASS",
+    "note": "Already validated on this candidate"
+  },
+  "generated_at": "2026-09-12T15:19:32Z",
+  "candidate_sha": "8ea17a5c3cfdb57426a72dcffab45f176e265156"
+}

@@ -198,6 +198,22 @@ def sanitize_chat_content(
         if _PROMPT_LEAK_RE.search(cleaned) and len(cleaned) < 80:
             cleaned = ""
 
+    # Never leak raw null financial metrics to end users.
+    cleaned = re.sub(
+        r"(?i)\bIRR\s*[:=]\s*null\b",
+        "IRR: cannot be calculated for these cash flows",
+        cleaned,
+    )
+    cleaned = re.sub(
+        r"(?i)\bPayback(?:\s*\(months\))?\s*[:=]\s*null\b",
+        "Payback: cannot be calculated for these cash flows",
+        cleaned,
+    )
+    cleaned = re.sub(
+        r"(?i)\bPayback(?:\s*months)?\s*[:=]\s*None\b",
+        "Payback: cannot be calculated for these cash flows",
+        cleaned,
+    )
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
     cleaned = cleaned.strip("`").strip()
 

@@ -560,6 +560,18 @@ def _attach_archetype_meta(payload: dict, state_like) -> dict:
         payload.setdefault("assumption_schema", [])
     return payload
 
+
+def _enrich_financial_results(financial_results, language: str = "en"):
+    """Attach user-facing IRR/payback display states; keep raw nulls for logs only."""
+    if not isinstance(financial_results, dict):
+        return financial_results
+    try:
+        from ai_engine.tools.financial_trust import attach_financial_display_fields
+        return attach_financial_display_fields(financial_results, language=language or "en")
+    except Exception:
+        return financial_results
+
+
 def _study_payload(study_id: str, record: dict, *, response: str | None = None) -> dict:
     """Full study payload so the UI can show AI-filled information."""
     s = record["state"] if "state" in record else record
@@ -579,7 +591,12 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
         "structured_answers": s.get("structured_answers") or {},
         "assumptions_version": s.get("assumptions_version", 0),
         "archetype_options": None,
-        "financial_results": s.get("financial_results"),
+        "financial_results": _enrich_financial_results(
+            s.get("financial_results"),
+            language=s.get("language")
+            or ((s.get("profile") or {}).get("language") if isinstance(s.get("profile"), dict) else None)
+            or "en",
+        ),
         "verdict": s.get("verdict"),
         "decision_rationale": s.get("decision_rationale"),
         "decision_conditions": s.get("decision_conditions") or [],
@@ -629,7 +646,7 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
         "structured_answers": getattr(state, "structured_answers", None) or {},
         "assumptions_version": getattr(state, "assumptions_version", 0) or 0,
         "archetype_options": None,
-        "financial_results": state.financial_results,
+        "financial_results": _enrich_financial_results(state.financial_results, language=getattr(state, "language", None) or "en"),
         "verdict": state.verdict,
         "decision_rationale": state.decision_rationale,
         "decision_conditions": state.decision_conditions or [],

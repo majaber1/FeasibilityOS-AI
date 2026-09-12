@@ -158,10 +158,14 @@ export function setProjectArchived(token: string, projectId: number, archived: b
 export type FinancialResultOut = {
   roi_percent: number | null;
   payback_years: number | null;
+  payback_display?: string;
   npv: number | null;
   irr_percent: number | null;
+  irr_display?: string;
+  irr_available?: boolean;
   break_even?: number | null;
   verdict: string;
+  warnings?: string[];
   sensitivity: Array<{
     revenue_change_percent: number;
     npv: number | null;
@@ -1030,8 +1034,11 @@ export function retireAssumption(token: string, studyId: number, assumptionId: n
 export type FeasibilityEvalResponse = {
   roi_percent: number | null;
   payback_years: number | null;
+  payback_display?: string;
   npv: number | null;
   irr_percent: number | null;
+  irr_display?: string;
+  irr_available?: boolean;
   verdict: string;
 };
 

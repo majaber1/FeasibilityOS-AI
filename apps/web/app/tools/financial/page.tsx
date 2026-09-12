@@ -159,8 +159,30 @@ export default function FinancialAnalysisPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <KpiCard label={ar ? "العائد على الاستثمار" : "ROI"} value={result.roi_percent !== null ? `${result.roi_percent.toFixed(1)}%` : "—"} icon="📈" />
                   <KpiCard label={ar ? "القيمة الحالية الصافية" : "NPV"} value={result.npv !== null ? money(result.npv) : "—"} icon="💎" />
-                  <KpiCard label={ar ? "معدل العائد الداخلي" : "IRR"} value={result.irr_percent !== null ? `${result.irr_percent.toFixed(1)}%` : "—"} icon="📊" />
-                  <KpiCard label={ar ? "فترة الاسترداد" : "Payback"} value={result.payback_years !== null ? `${result.payback_years.toFixed(1)} ${ar ? "سنة" : "years"}` : "—"} icon="⏱️" />
+                  <KpiCard
+                    label={ar ? "معدل العائد الداخلي" : "IRR"}
+                    value={
+                      result.irr_display ||
+                      (result.irr_percent !== null
+                        ? `${result.irr_percent.toFixed(1)}%`
+                        : ar
+                          ? "لا يمكن حساب معدل العائد الداخلي لهذه التدفقات."
+                          : "IRR cannot be calculated for these cash flows.")
+                    }
+                    icon="📊"
+                  />
+                  <KpiCard
+                    label={ar ? "فترة الاسترداد" : "Payback Period"}
+                    value={
+                      result.payback_years !== null
+                        ? `${result.payback_years.toFixed(1)} ${ar ? "سنة" : "years"}`
+                        : result.payback_display ||
+                          (ar
+                            ? "لا يمكن حساب فترة الاسترداد لهذه التدفقات النقدية."
+                            : "Payback period cannot be calculated for these cash flows.")
+                    }
+                    icon="⏱️"
+                  />
                 </div>
               </>
             ) : (
