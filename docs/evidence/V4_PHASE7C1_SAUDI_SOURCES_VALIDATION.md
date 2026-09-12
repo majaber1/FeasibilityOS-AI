@@ -2,7 +2,7 @@
 
 **Status:** NOT PASS  
 **Branch:** `cursor/v4-phase7c1-saudi-sources-1831`  
-**Commit:** `6b3df8f8f742b3f782214e09d2ce459b4b05fcf2`  
+**Commit:** `c1134190095bce3e8f78452ec0c62aa0c0c32dc2`  
 **Baseline V3 frozen:** `v3.0.0` @ `33e216e2ed939b065bca0357c3855184e219a68d`  
 **Phase 7A:** `dc2117bf1a001f85f859d685100fb528b2933d70`  
 **Phase 7B:** `64cfd189fe7046ea93efd03def9068b498e21166`  
@@ -31,25 +31,25 @@ No agents. No second RAG pipeline. Financial / Risk / Decision / Archetype / Stu
 
 ## Live acceptance
 
-**Capture timestamp (UTC):** `2026-09-12T20:13:19.740536+00:00`  
-**Artifact:** `/opt/cursor/artifacts/phase7c1_live_acceptance.json`
+**Capture timestamp (UTC):** `2026-09-12T20:17:16.314466+00:00`  
+**Artifact:** `docs/evidence/V4_PHASE7C1_live_acceptance.json`
 
 ### MISA — PASS (2 live official pages)
 
 | # | Title | Official URL | content_hash | knowledge_document_id | chunk_ids | retrieved_at |
 |---|-------|--------------|--------------|-----------------------|-----------|--------------|
-| 1 | National Investment Strategy - MISA | `https://misa.gov.sa/activities/national-investment-strategy/` | `ebfa7fb06f1c29e42e73033eb05244be73fdef9c363da7a147e8766e3812c194` | `10396ceb-8c18-4287-a8da-aa5bce2f0fb7` | `49c15907-1fc6-425b-8be9-745d7f4a0cee`, `266d10bf-ad5b-4589-94db-9d6fc93e469d` | `2026-09-12T20:14:10.021215+00:00` |
-| 2 | Investment Development - MISA | `https://misa.gov.sa/activities/investment-development/` | `7b4e6eac702f8bb1c8e09c87e9f0f63aea09950566706f6ef5bd6758fdbd020f` | `a17a6a34-1727-4e67-a831-a52c3c28b9f5` | `ddc51648-6c72-473e-affc-a49947cd0d8a`, `38e9988f-6ddb-498f-998f-e6676c4a7295` | `2026-09-12T20:14:11.270129+00:00` |
+| 1 | National Investment Strategy - MISA | `https://misa.gov.sa/activities/national-investment-strategy/` | `ebfa7fb06f1c29e42e73033eb05244be73fdef9c363da7a147e8766e3812c194` | `69f33f94-38b8-4571-9729-88f6eeff5c81` | `3e47e93e-3458-44a9-ae38-f7ac425a19e0`, `cda602ce-5164-4525-ab02-3d7112b01c15` | `2026-09-12T20:17:34.928704+00:00` |
+| 2 | Investment Development - MISA | `https://misa.gov.sa/activities/investment-development/` | `7b4e6eac702f8bb1c8e09c87e9f0f63aea09950566706f6ef5bd6758fdbd020f` | `4e55f605-a98f-4158-8a60-74eda68ee0ad` | `be5dd051-0dea-4060-9bb9-802f1abcd334`, `cdd116a9-c7ff-454c-9bbf-01850728fff3` | `2026-09-12T20:17:36.286795+00:00` |
 
-**MISA health:** `healthy` — `MISA home reachable` @ `2026-09-12T20:14:08.729377+00:00`
+**MISA health:** `healthy` — `MISA home reachable` @ `2026-09-12T20:17:33.684216+00:00`
 
 **Retrieval question (no hardcoded answers):**  
 `What does MISA say about National Investment Strategy and investment development?`
 
 Citations returned (ingested MISA knowledge IDs):
 
-- `document_id=a17a6a34-1727-4e67-a831-a52c3c28b9f5` — ion and development of investment opportunities published on Invest Saudi In enhancing and improving policy & regulation With enablement and
-- `document_id=10396ceb-8c18-4287-a8da-aa5bce2f0fb7` — 30% in 2030 (*as measured by Gross Fixed Capital Formation) Catalyze new investment across existing and emerging sectors Target Initiatives 
+- `document_id=4e55f605-a98f-4158-8a60-74eda68ee0ad` — ion and development of investment opportunities published on Invest Saudi In enhancing and improving policy & regulation With enablement and entailments to fost
+- `document_id=69f33f94-38b8-4571-9729-88f6eeff5c81` — 30% in 2030 (*as measured by Gross Fixed Capital Formation) Catalyze new investment across existing and emerging sectors Target Initiatives 01 Investment Opport
 
 Provenance preserved on Knowledge assumptions/`external_source`: `source_id`, `url`, `content_hash`, `retrieved_at`, `provenance.connector_id=live.misa`, `provenance.registry_key=misa`, `provenance.original_url`.
 
@@ -59,7 +59,7 @@ Provenance preserved on Knowledge assumptions/`external_source`: `source_id`, `u
 |-------|--------|
 | Official domains allowlisted | PASS (`monshaat.gov.sa`, `www.monshaat.gov.sa`) |
 | Connector contract (stubbed official pages) | PASS |
-| Live health | `unavailable` — `timeout fetching https://www.monshaat.gov.sa/en` @ `2026-09-12T20:13:36.050794+00:00` |
+| Live health | `unavailable` — `timeout fetching https://www.monshaat.gov.sa/en` @ `2026-09-12T20:17:32.342079+00:00` |
 | Live documents (minimum 2) | **0** (TLS handshake times out from this agent network) |
 
 Default official URLs attempted (not fetched live):
