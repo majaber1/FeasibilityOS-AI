@@ -264,3 +264,44 @@ def test_sanitize_strips_raw_null_financial_metrics():
     assert "IRR: null" not in cleaned
     assert "Payback (months): null" not in cleaned
     assert "null" not in cleaned.lower()
+
+
+def test_financial_horizon_keeps_all_provided_years():
+    """Do not silently truncate >3 years — that produces incorrect NPV."""
+    from unittest.mock import MagicMock, patch
+    from ai_engine.agents.financial_analyst import run_financial_analysis
+    from ai_engine.models.study_state import Assumption, ProjectProfile, StudyState
+
+    capex = 250_000_000
+    revenues = [90e6, 110e6, 95e6, 40e6]
+    costs = [25e6, 18e6, 12e6, 8e6]
+    state = StudyState(
+        study_id="horizon",
+        project_id="p",
+        user_id="u",
+        language="en",
+        phase="READY_FOR_ANALYSIS",
+        assumptions=[
+            Assumption(key="initial_investment", value=str(capex), source="user", confidence="confirmed", base=str(capex))
+        ],
+        profile=ProjectProfile(archetype="real_estate", sector="real_estate"),
+    )
+    mock = MagicMock()
+    mock.invoke.return_value = MagicMock(content='```json\n{"analysis_complete": true}\n```')
+    with patch("ai_engine.agents.financial_analyst.get_llm", return_value=mock):
+        with patch(
+            "ai_engine.agents.financial_analyst._extract_financials_from_assumptions",
+            return_value={
+                "capex": capex,
+                "annual_revenues": revenues,
+                "annual_costs": costs,
+                "discount_rate": 0.12,
+                "extract_notes": ["horizon_seed"],
+            },
+        ):
+            out = run_financial_analysis(state)
+    fr = out.financial_results or {}
+    assert fr.get("cash_flows") == [-250000000.0, 65000000.0, 92000000.0, 83000000.0, 32000000.0]
+    assert abs(float(fr["npv"]) - (-39208109.9)) < 0.05
+    assert fr.get("payback_months") is not None
+    assert "null" not in str(fr.get("payback_display")).lower()

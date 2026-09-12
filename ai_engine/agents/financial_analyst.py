@@ -468,13 +468,16 @@ def run_financial_analysis(state: StudyState) -> StudyState:
     extract_notes = list(extracted.get("extract_notes") or [])
     assumption_values = dict(extracted.get("assumption_values") or {})
 
-    # Normalize lengths to 3 years
-    while len(revenues) < 3:
-        revenues.append(revenues[-1] if revenues else 0)
-    while len(costs) < 3:
-        costs.append(costs[-1] if costs else 0)
-    revenues = [float(r) if r else 0 for r in revenues[:3]]
-    costs = [float(c) if c else 0 for c in costs[:3]]
+    # Normalize lengths: keep the full provided horizon (do not truncate longer
+    # series — silent 3-year cuts produce incorrect NPV/IRR/payback). Pad short
+    # series to at least 3 years by repeating the last observed value.
+    revenues = [float(r) if r else 0.0 for r in (revenues or [0.0, 0.0, 0.0])]
+    costs = [float(c) if c else 0.0 for c in (costs or [0.0, 0.0, 0.0])]
+    horizon = max(len(revenues), len(costs), 3)
+    while len(revenues) < horizon:
+        revenues.append(revenues[-1] if revenues else 0.0)
+    while len(costs) < horizon:
+        costs.append(costs[-1] if costs else 0.0)
     # Trust hardening: never silently treat missing costs as zero when revenue exists.
     if any(r > 0 for r in revenues) and all(c == 0 for c in costs):
         costs = [r * 0.45 for r in revenues]
@@ -514,8 +517,9 @@ def run_financial_analysis(state: StudyState) -> StudyState:
 
     computed = {
         "capex": capex,
-        "revenue_projections": {"year_1": revenues[0], "year_2": revenues[1], "year_3": revenues[2]},
-        "cost_projections": {"year_1": costs[0], "year_2": costs[1], "year_3": costs[2]},
+        "revenue_projections": {f"year_{i+1}": revenues[i] for i in range(len(revenues))},
+        "cost_projections": {f"year_{i+1}": costs[i] for i in range(len(costs))},
+        "projection_years": len(revenues),
         "cash_flows": base["cash_flows"],
         "discount_rate": discount_rate,
         "npv": base["npv"],
@@ -592,8 +596,9 @@ def run_financial_analysis(state: StudyState) -> StudyState:
         financial_data = attach_financial_display_fields(financial_data, language=lang or "en")
         financial_data["discount_rate"] = computed["discount_rate"]
         financial_data["scenarios"] = computed["scenarios"]
-        financial_data.setdefault("revenue_projections", computed["revenue_projections"])
-        financial_data.setdefault("cost_projections", computed["cost_projections"])
+        financial_data["projection_years"] = computed.get("projection_years")
+        financial_data["revenue_projections"] = computed["revenue_projections"]
+        financial_data["cost_projections"] = computed["cost_projections"]
         financial_data.setdefault("capex", computed["capex"])
         existing_warnings = financial_data.get("warnings") or []
         if isinstance(existing_warnings, str):
