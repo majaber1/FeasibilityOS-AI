@@ -17,6 +17,8 @@ from app import models
 from app.integrations.sources.base import ConnectorHealth, ConnectorStatus
 from app.integrations.sources.fixture_connector import FixtureSaudiOpenDataConnector
 from app.integrations.sources.gastat import GastatConnector
+from app.integrations.sources.monshaat import MonshaatConnector
+from app.integrations.sources.misa import MisaConnector
 
 # Keys that must never persist inside connector_config JSON.
 _SECRET_KEY_RE = re.compile(
@@ -43,28 +45,32 @@ SEED_SOURCES: List[Dict[str, Any]] = [
     {
         "key": "monshaat",
         "name": "Monsha'at — Small & Medium Enterprises General Authority",
-        "description": "SME programs, indicators, and support resources.",
-        "source_type": "funding_program",
+        "description": "SME market intelligence, entrepreneurship indicators, and business-environment reports (live HTML connector in Phase 7C.1).",
+        "source_type": "market_report",
         "authority_type": "OFFICIAL_PRIMARY",
         "base_url": "https://www.monshaat.gov.sa",
         "trust_score": 0.9,
-        "connector_type": "registry_only",
-        "enabled": False,
-        "refresh_policy": "manual",
+        "connector_type": "live",
+        "enabled": True,
+        "refresh_policy": "on_demand",
         "languages": ["ar", "en"],
+        "sectors": ["sme", "entrepreneurship", "business_environment"],
+        "connector_config": {"live": True, "retrieval": "official_public_html"},
     },
     {
         "key": "misa",
         "name": "MISA — Ministry of Investment",
-        "description": "Investment regulations and opportunity guidance.",
-        "source_type": "regulation",
+        "description": "Investment intelligence, sector attractiveness, and investor guidance (live HTML connector in Phase 7C.1).",
+        "source_type": "market_report",
         "authority_type": "OFFICIAL_PRIMARY",
         "base_url": "https://misa.gov.sa",
         "trust_score": 0.9,
-        "connector_type": "registry_only",
-        "enabled": False,
-        "refresh_policy": "manual",
+        "connector_type": "live",
+        "enabled": True,
+        "refresh_policy": "on_demand",
         "languages": ["ar", "en"],
+        "sectors": ["investment", "sector_attractiveness", "foreign_investment"],
+        "connector_config": {"live": True, "retrieval": "official_public_html"},
     },
     {
         "key": "sama",
@@ -279,6 +285,10 @@ def connector_for_source(row: models.KnowledgeSource):
     """Resolve a SourceConnector for a registry row."""
     if row.key == "gastat" and row.connector_type in {"live", "gastat"}:
         return GastatConnector(enabled=bool(row.enabled))
+    if row.key == "monshaat" and row.connector_type in {"live", "monshaat"}:
+        return MonshaatConnector(enabled=bool(row.enabled))
+    if row.key == "misa" and row.connector_type in {"live", "misa"}:
+        return MisaConnector(enabled=bool(row.enabled))
     if row.connector_type == "fixture" and row.key == "saudi_open_data":
         return FixtureSaudiOpenDataConnector(enabled=bool(row.enabled))
     return None
@@ -318,12 +328,13 @@ def source_status(db: Session, source_id: str) -> Dict[str, Any]:
 
 
 def ensure_seed_sources(db: Session) -> List[models.KnowledgeSource]:
-    """Idempotently insert Saudi source registry definitions; promote gastat to live in 7B."""
+    """Idempotently insert Saudi source registry definitions; promote live connectors."""
     created: List[models.KnowledgeSource] = []
+    promote_keys = {"gastat", "monshaat", "misa"}
     for seed in SEED_SOURCES:
         existing = get_source_by_key(db, seed["key"])
         if existing:
-            if seed["key"] == "gastat":
+            if seed["key"] in promote_keys and seed.get("connector_type") == "live":
                 changed = False
                 if existing.connector_type != seed.get("connector_type", "live"):
                     existing.connector_type = seed.get("connector_type", "live")
@@ -336,6 +347,15 @@ def ensure_seed_sources(db: Session) -> List[models.KnowledgeSource]:
                     changed = True
                 if seed.get("refresh_policy") and existing.refresh_policy != seed.get("refresh_policy"):
                     existing.refresh_policy = seed.get("refresh_policy")
+                    changed = True
+                if seed.get("source_type") and existing.source_type != seed.get("source_type"):
+                    existing.source_type = seed.get("source_type")
+                    changed = True
+                if seed.get("description") and existing.description != seed.get("description"):
+                    existing.description = seed.get("description")
+                    changed = True
+                if seed.get("sectors") is not None and list(existing.sectors or []) != list(seed.get("sectors") or []):
+                    existing.sectors = list(seed.get("sectors") or [])
                     changed = True
                 if changed:
                     db.commit()
@@ -430,7 +450,7 @@ def list_source_knowledge_documents(
             source_id_ext = None
             url = None
         src = str(doc.source or "").lower()
-        if registry_key != row.key and row.key not in src and "gastat" not in src:
+        if registry_key != row.key and row.key not in src:
             continue
         chunks = (
             db.query(models.KnowledgeChunk)
