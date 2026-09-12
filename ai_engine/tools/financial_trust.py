@@ -134,16 +134,33 @@ def services_capacity_revenue(
     headcount: float | None,
     active_contracts: float | None = None,
     billable_hours_month: float | None = None,
+    billable_period: float | None = None,
     mrc: float | None = None,
 ) -> tuple[float | None, list[str]]:
     """Revenue for professional services.
 
-    Preferred: billing_rate × utilization × resources × hours/month × 12
+    Preferred:
+      billing_rate × utilization × resources × billable_period
+    where billable_period is annual billable hours when provided, otherwise
+    hours/month × 12 (default 160 × 12).
+
     Fallback: MRC × 12
     Returns (annual_year1_revenue, notes).
     """
     notes: list[str] = []
     hours = billable_hours_month if billable_hours_month and billable_hours_month > 0 else 160.0
+    # billable_period: prefer explicit annual hours; values ≤ 24 treated as months.
+    if billable_period is not None and billable_period > 0:
+        if billable_period <= 24:
+            period = float(hours) * float(billable_period)
+            notes.append("services_billable_period_interpreted_as_months")
+        else:
+            period = float(billable_period)
+            notes.append("services_billable_period_annual_hours")
+    else:
+        period = float(hours) * 12.0
+        notes.append("services_billable_period_defaulted_hours_x_12")
+
     util = utilization_rate
     if util is not None and util > 1:
         util = util / 100.0
@@ -156,7 +173,7 @@ def services_capacity_revenue(
 
     tm_annual = None
     if billing_rate and util is not None and resources:
-        tm_annual = float(billing_rate) * float(util) * float(resources) * float(hours) * 12.0
+        tm_annual = float(billing_rate) * float(util) * float(resources) * float(period)
         notes.append("services_revenue_from_billing_rate_x_utilization_x_resources")
 
     mrc_annual = float(mrc) * 12.0 if mrc is not None and mrc > 0 else None

@@ -16,25 +16,23 @@
         8000000.0
       ],
       "discount_rate": 0.12,
-      "units": 500,
-      "city": "Riyadh"
+      "units": 500
     },
-    "year0_cf": -250000000,
-    "year_1_n_cfs": [
+    "cash_flows": [
+      -250000000,
       65000000.0,
       92000000.0,
       83000000.0,
       32000000.0
     ],
-    "expected_hand_npv": -39208109.9,
-    "actual_npv": -39208109.9,
-    "actual_irr": 0.0376,
-    "irr_residual_at_engine_irr": 5269.009508099407,
+    "npv_hand": -39208109.9,
+    "npv_engine": -39208109.9,
+    "irr": 0.0376,
     "irr_display": "3.8%",
-    "actual_payback_years": 3.31,
+    "irr_residual": 5269.009508099407,
+    "payback_years": 3.31,
     "npv_pass": true,
     "irr_pass": true,
-    "payback_pass": true,
     "overall": "PASS"
   },
   {
@@ -54,30 +52,28 @@
         55000000.0
       ],
       "discount_rate": 0.12,
-      "mw": 20,
-      "city": "Riyadh"
+      "mw": 20
     },
-    "year0_cf": -320000000,
-    "year_1_n_cfs": [
+    "cash_flows": [
+      -320000000,
       35000000.0,
       47000000.0,
       58000000.0,
       65000000.0
     ],
-    "expected_hand_npv": -168689958.29,
-    "actual_npv": -168689958.29,
-    "actual_irr": -0.1453,
-    "irr_residual_at_engine_irr": -14541.830054044724,
+    "npv_hand": -168689958.29,
+    "npv_engine": -168689958.29,
+    "irr": -0.1453,
     "irr_display": "-14.5%",
-    "actual_payback_years": null,
+    "irr_residual": -14541.830054044724,
+    "payback_years": null,
     "npv_pass": true,
     "irr_pass": true,
-    "payback_pass": true,
     "overall": "PASS",
     "unrealistic_25m_warning": [
       "CAPEX looks unusually low for a 20 MW data center (~SAR 1,250,000/MW). Expected range about SAR 160,000,000\u2013400,000,000."
     ],
-    "unrealistic_25m_warning_pass": true
+    "unrealistic_warning_pass": true
   },
   {
     "scenario": "C_Cyber_MSSP_Services",
@@ -94,34 +90,29 @@
         13365000.000000002
       ],
       "discount_rate": 0.12,
-      "billing_rate": 450.0,
-      "utilization": 0.75,
-      "billable_resources": 25.0,
-      "billable_hours_month": 160.0,
-      "services_notes": [
+      "formula": "billing_rate\u00d7utilization\u00d7resources\u00d7billable_period",
+      "notes": [
+        "services_billable_period_annual_hours",
         "services_revenue_from_billing_rate_x_utilization_x_resources"
-      ],
-      "opex_note": "services_opex_defaulted_from_55pct_cost_ratio",
-      "formula": "billing_rate \u00d7 utilization \u00d7 billable_resources \u00d7 billable_hours_month \u00d7 12"
+      ]
     },
-    "year0_cf": -2000000,
-    "year_1_n_cfs": [
+    "cash_flows": [
+      -2000000,
       7290000.0,
       9112500.0,
       10934999.999999998
     ],
-    "expected_hand_npv": 19556674.79,
-    "actual_npv": 19556674.79,
-    "actual_irr": 3.8243,
-    "irr_residual_at_engine_irr": 23.89391786993656,
+    "npv_hand": 19556674.79,
+    "npv_engine": 19556674.79,
+    "irr": 3.8243,
     "irr_display": "382.4%",
-    "actual_payback_years": 0.27,
+    "irr_residual": 23.89391786993656,
+    "payback_years": 0.27,
     "npv_pass": true,
     "irr_pass": true,
-    "payback_pass": true,
     "overall": "PASS",
-    "zero_opex_guard_pass": true,
-    "capacity_formula_pass": true
+    "zero_opex_guard": true,
+    "formula_pass": true
   },
   {
     "scenario": "D_SaaS_ARR_Churn_CAC",
@@ -137,26 +128,22 @@
         2800000,
         3100000
       ],
-      "discount_rate": 0.12,
-      "arr_y1": 3600000,
-      "churn": 0.08,
-      "growth": 0.35
+      "discount_rate": 0.12
     },
-    "year0_cf": -1500000,
-    "year_1_n_cfs": [
+    "cash_flows": [
+      -1500000,
       1200000,
       1671200.0,
       2453230.4000000013
     ],
-    "expected_hand_npv": 2649859.92,
-    "actual_npv": 2649859.92,
-    "actual_irr": 0.8664,
-    "irr_residual_at_engine_irr": 35.85684169916203,
+    "npv_hand": 2649859.92,
+    "npv_engine": 2649859.92,
+    "irr": 0.8664,
     "irr_display": "86.6%",
-    "actual_payback_years": 1.18,
+    "irr_residual": 35.85684169916203,
+    "payback_years": 1.18,
     "npv_pass": true,
     "irr_pass": true,
-    "payback_pass": true,
     "overall": "PASS"
   },
   {
@@ -175,26 +162,22 @@
       ],
       "discount_rate": 0.12,
       "drivers": 2000,
-      "trips_per_driver_month": 80,
-      "atv": 45.0,
-      "take_rate": 0.22,
-      "monthly_platform_revenue": 1584000.0
+      "take_rate": 0.22
     },
-    "year0_cf": -15000000,
-    "year_1_n_cfs": [
+    "cash_flows": [
+      -15000000,
       5702400.0,
       7907328.0,
       10644480.0
     ],
-    "expected_hand_npv": 3971632.65,
-    "actual_npv": 3971632.65,
-    "actual_irr": 0.2529,
-    "irr_residual_at_engine_irr": 867.8936206018552,
+    "npv_hand": 3971632.65,
+    "npv_engine": 3971632.65,
+    "irr": 0.2529,
     "irr_display": "25.3%",
-    "actual_payback_years": 2.13,
+    "irr_residual": 867.8936206018552,
+    "payback_years": 2.13,
     "npv_pass": true,
     "irr_pass": true,
-    "payback_pass": true,
     "overall": "PASS"
   }
 ]

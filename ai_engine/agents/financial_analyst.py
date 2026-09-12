@@ -218,6 +218,13 @@ def _deterministic_extract(state: StudyState) -> dict | None:
     )
     active_contracts = first("active_contracts", "contracts", "clients", "عقود")
     billable_hours_month = first("billable_hours_month", "billable_hours", "hours_per_month")
+    billable_period = first(
+        "billable_period",
+        "billable_period_hours",
+        "annual_billable_hours",
+        "billable_months",
+        "فترة الفوترة",
+    )
     extract_notes: list[str] = []
 
     # Real estate sales model
@@ -261,6 +268,7 @@ def _deterministic_extract(state: StudyState) -> dict | None:
         headcount=consultants_headcount,
         active_contracts=active_contracts,
         billable_hours_month=billable_hours_month,
+        billable_period=billable_period,
         mrc=mrc,
     )
     extract_notes.extend(services_notes)

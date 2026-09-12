@@ -198,6 +198,7 @@ export default function StudyWorkspacePage() {
 
   useEffect(() => {
     // Owner reopen path: `/studies/new` must not orphan an existing V2 study.
+    // Prefill start prompt from project name so the first CTA is obvious.
     if (studyId !== "new") return;
     const token = getToken();
     if (!token || !projectId) return;
@@ -213,9 +214,23 @@ export default function StudyWorkspacePage() {
         const existing = (data.studies || []).find((s) => String(s.project_id ?? "") === String(projectId));
         if (!cancelled && existing?.study_id) {
           router.replace(`/projects/${projectId}/studies/${existing.study_id}/workspace`);
+          return;
         }
       } catch {
         /* keep "new" create path if list fails */
+      }
+      try {
+        const projRes = await fetch(`${API_BASE}/projects/${projectId}`, {
+          credentials: "same-origin",
+          headers: studyFetchHeaders(token),
+        });
+        if (!projRes.ok) return;
+        const project = (await projRes.json()) as { name?: string; industry?: string };
+        if (cancelled || !project?.name) return;
+        const seed = [project.name, project.industry].filter(Boolean).join(" — ");
+        setInput((prev) => (prev.trim() ? prev : seed));
+      } catch {
+        /* optional prefill only */
       }
     })();
     return () => {

@@ -82,6 +82,19 @@ def test_services_capacity_revenue_not_mrc_only():
     assert "services_revenue_from_billing_rate_x_utilization_x_resources" in notes
 
 
+def test_services_billable_period_formula():
+    """billing_rate × utilization × resources × billable_period (annual hours)."""
+    annual, notes = services_capacity_revenue(
+        billing_rate=450,
+        utilization_rate=0.75,
+        headcount=25,
+        billable_period=1920,  # 160h × 12
+        mrc=None,
+    )
+    assert annual == 450 * 0.75 * 25 * 1920
+    assert "services_billable_period_annual_hours" in notes
+
+
 def test_data_center_unrealistic_capex_soft_warning():
     warnings = validate_financial_inputs(
         archetype="data_center",
