@@ -1,7 +1,7 @@
 {
-  "email": "owner.v3.1789223185063@example.com",
-  "projectId": "431",
-  "studyUrl": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace",
+  "email": "owner.v3.1789224768744@example.com",
+  "projectId": "432",
+  "studyUrl": "http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace",
   "passed": 19,
   "failed": 0,
   "total": 19,
@@ -15,7 +15,7 @@
     {
       "step": 2,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects owner.v3.1789223185063@example.com"
+      "notes": "http://127.0.0.1:3000/projects owner.v3.1789224768744@example.com"
     },
     {
       "step": 3,
@@ -25,7 +25,7 @@
     {
       "step": 4,
       "status": "PASS",
-      "notes": "projectId=431 url=http://127.0.0.1:3000/projects/431"
+      "notes": "projectId=432 url=http://127.0.0.1:3000/projects/432"
     },
     {
       "step": 5,
@@ -35,17 +35,17 @@
     {
       "step": 6,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/431/studies/new/workspace"
+      "notes": "http://127.0.0.1:3000/projects/432/studies/new/workspace"
     },
     {
       "step": 7,
       "status": "PASS",
-      "notes": "rawId=false url=http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
+      "notes": "rawId=false url=http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace"
     },
     {
       "step": 8,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
+      "notes": "http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace"
     },
     {
       "step": 9,
@@ -55,27 +55,27 @@
     {
       "step": 10,
       "status": "PASS",
-      "notes": "onTools=false hasFin=true rawBad=false url=http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
+      "notes": "onTools=false hasFin=true rawBad=false url=http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace"
     },
     {
       "step": 11,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
+      "notes": "http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace"
     },
     {
       "step": 12,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
+      "notes": "http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace"
     },
     {
       "step": 13,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
+      "notes": "http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace"
     },
     {
       "step": 14,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
+      "notes": "http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace"
     },
     {
       "step": 15,
@@ -95,7 +95,7 @@
     {
       "step": 18,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
+      "notes": "http://127.0.0.1:3000/projects/432/studies/study_0afa56e77c76/workspace"
     },
     {
       "step": 19,
@@ -105,5 +105,5 @@
   ],
   "candidate": "local release/v3.0.0",
   "base": "http://127.0.0.1:3000",
-  "ts": "2026-09-12T14:29:52.032Z"
+  "ts": "2026-09-12T14:56:29.094Z"
 }

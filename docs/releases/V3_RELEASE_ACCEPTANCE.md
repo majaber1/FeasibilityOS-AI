@@ -3,7 +3,7 @@
 **Release candidate:** v3.0.0
 **Branch:** release/v3.0.0
 **Baseline SHA (origin/main):** `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4`
-**V3 candidate tip:** `f31af34bf597bb03958d504057c03e594b7ebebd`
+**V3 candidate tip:** `dfe7bfabb936be1854a45d253fd6c5a3a0b2e615`
 **Date (UTC):** 2026-09-12
 **PR:** https://github.com/majaber1/saudi-business/pull/36
 **PR #33 merge ancestor:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`
@@ -45,6 +45,22 @@ Clean, testable, financially trustworthy production release. No new product feat
 - Raw archetype ID display
 - Standalone financial as canonical path
 
+## Financial Trust re-validation (null-display fix)
+
+**Result: PASS (5/5)** on tip `dfe7bfabb936be1854a45d253fd6c5a3a0b2e615`
+
+Evidence:
+- docs/evidence/v3-financial-proof/FIVE_SCENARIO_FINANCIAL_TRUST.md
+- docs/evidence/v3-financial-proof/FIVE_SCENARIO_FINANCIAL_TRUST.json
+
+Verified for Residential, Data Center, Cybersecurity Services, SaaS, Uber Mobility:
+- no raw `Payback: null` / `IRR: null` in user-facing display or chat summary
+- correct NPV/IRR/payback calculations vs hand check
+- Data Center soft CAPEX warning visible
+- display fields survive persistence round-trip
+
+Owner Gate step 10 `rawBad=false` after product fix (not by weakening the gate assertion).
+
 ## Five-scenario mathematical proof
 
 Evidence: docs/evidence/v3-financial-proof/FIVE_SCENARIO_MATH_PROOF.md
@@ -64,7 +80,7 @@ Scenario proofs: 5/5 PASS
 | ID | Finding | Status |
 |----|---------|--------|
 | P0 | Incorrect real-estate NPV | FIXED |
-| P1 | Raw null IRR/payback in UI | FIXED |
+| P1 | Raw null IRR/payback in UI | FIXED (structured display + reason + missing condition; revalidated) |
 | P1 | Silent AI JSON fallback | PARTIALLY_FIXED |
 | P1 | Unrealistic input without warning | FIXED |
 | P1 | Services ignore billing/utilization/resources | FIXED |
@@ -74,7 +90,7 @@ Scenario proofs: 5/5 PASS
 
 ## Owner Gate (19/19)
 
-**Result: 19/19 PASS** on local V3 candidate (`12d40971ce1c126ce22607cf8e2ea2d3b718b574`)
+**Result: 19/19 PASS** on local V3 candidate (`dfe7bfabb936be1854a45d253fd6c5a3a0b2e615`)
 
 Normal UI journey only. Evidence: docs/evidence/v3-owner-gate/
 
