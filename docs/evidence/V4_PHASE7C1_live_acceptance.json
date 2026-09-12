@@ -1,0 +1,80 @@
+{
+  "captured_at": "2026-09-12T21:43:55.043736+00:00",
+  "phase7b_merge_sha": "af8c2d65ec165e3b5cc42c9a6a30085aab2f193f",
+  "phase7c1_status": "SPLIT",
+  "monshaat": {
+    "status": "BLOCKED_EXTERNAL_REACHABILITY",
+    "note": "Deferred to separate draft PR. GHA + Cursor egress cannot complete TLS/TCP to pservices.monshaat.gov.sa."
+  },
+  "misa": {
+    "health": {
+      "status": "healthy",
+      "detail": "MISA home reachable",
+      "checked_at": "2026-09-12T21:15:54.226119+00:00"
+    },
+    "live_e2e": "PASS",
+    "live_docs": [
+      {
+        "url": "https://misa.gov.sa/activities/national-investment-strategy/",
+        "title": "National Investment Strategy - MISA",
+        "content_hash": "ebfa7fb06f1c29e42e73033eb05244be73fdef9c363da7a147e8766e3812c194",
+        "retrieved_at": "2026-09-12T20:17:34.928704+00:00",
+        "published_at": "2023-12-07T07:08:58+03:00",
+        "knowledge_document_id": "69f33f94-38b8-4571-9729-88f6eeff5c81",
+        "chunk_ids": [
+          "3e47e93e-3458-44a9-ae38-f7ac425a19e0",
+          "cda602ce-5164-4525-ab02-3d7112b01c15"
+        ],
+        "content_len": 1698,
+        "language": "ar"
+      },
+      {
+        "url": "https://misa.gov.sa/activities/investment-development/",
+        "title": "Investment Development - MISA",
+        "content_hash": "7b4e6eac702f8bb1c8e09c87e9f0f63aea09950566706f6ef5bd6758fdbd020f",
+        "retrieved_at": "2026-09-12T20:17:36.286795+00:00",
+        "published_at": "2023-12-10T22:01:44+03:00",
+        "knowledge_document_id": "4e55f605-a98f-4158-8a60-74eda68ee0ad",
+        "chunk_ids": [
+          "be5dd051-0dea-4060-9bb9-802f1abcd334",
+          "cdd116a9-c7ff-454c-9bbf-01850728fff3"
+        ],
+        "content_len": 1095,
+        "language": "en"
+      }
+    ]
+  },
+  "retrieval": {
+    "query": "What does MISA say about National Investment Strategy and investment development?",
+    "citations": [
+      {
+        "document_id": "4e55f605-a98f-4158-8a60-74eda68ee0ad",
+        "claim": "ion and development of investment opportunities published on Invest Saudi In enhancing and improving policy & regulation With enablement and entailments to foster investment in the Kingdom As the leading body for the int"
+      },
+      {
+        "document_id": "69f33f94-38b8-4571-9729-88f6eeff5c81",
+        "claim": "30% in 2030 (*as measured by Gross Fixed Capital Formation) Catalyze new investment across existing and emerging sectors Target Initiatives 01 Investment Opportunites 02 Investors 03 Funding 04 Competitiveness and enable"
+      }
+    ]
+  },
+  "failure_tests": {
+    "domain": "UrlSecurityError: host not in allowlist: example.com",
+    "ssrf": "UrlSecurityError: host not in allowlist: 127.0.0.1"
+  },
+  "regression": {
+    "phase7a_7b_7c1": "50 passed",
+    "phase7c1_alone": "22 passed",
+    "gastat_live_smoke": "SMOKE_OK"
+  },
+  "slice": "misa_live_only",
+  "network_gate": {
+    "second_environment": "github-actions-ubuntu-latest",
+    "run_id": 34720217133,
+    "host": "pservices.monshaat.gov.sa",
+    "dns": "PASS",
+    "tcp_443": "FAIL",
+    "tls": "FAIL",
+    "http": "FAIL",
+    "artifact": "/opt/cursor/artifacts/monshaat_reachability_gate_gha.json"
+  }
+}

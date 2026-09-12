@@ -1,0 +1,63 @@
+{
+  "captured_at": "2026-09-12T21:33:12.942418+00:00",
+  "environment": "github-actions-ubuntu-latest",
+  "host": "pservices.monshaat.gov.sa",
+  "summary": {
+    "environment": "github-actions-ubuntu-latest",
+    "host": "pservices.monshaat.gov.sa",
+    "dns": "PASS",
+    "tcp_443": "FAIL",
+    "tls": "FAIL",
+    "http": "FAIL",
+    "any_official_api_success": false
+  },
+  "dns": {
+    "status": "PASS",
+    "addresses": [
+      "185.118.120.212"
+    ],
+    "elapsed_ms": 1171
+  },
+  "tcp_443": {
+    "status": "FAIL",
+    "error": "TimeoutError: timed out",
+    "elapsed_ms": 11178
+  },
+  "tls": {
+    "status": "FAIL",
+    "error": "TimeoutError: timed out",
+    "elapsed_ms": 16218
+  },
+  "http": [
+    {
+      "status": "FAIL",
+      "http_status": null,
+      "content_type": null,
+      "bytes": 0,
+      "body_preview": null,
+      "final_url": "https://pservices.monshaat.gov.sa/BI/TaskService/OpenData/EnterprisesStatistics/2023/4?paginationIndex=1&recordsPerPage=5",
+      "elapsed_ms": 21176,
+      "error": "ConnectTimeout: timed out",
+      "url": "https://pservices.monshaat.gov.sa/BI/TaskService/OpenData/EnterprisesStatistics/2023/4?paginationIndex=1&recordsPerPage=5",
+      "host": "pservices.monshaat.gov.sa"
+    },
+    {
+      "status": "FAIL",
+      "http_status": null,
+      "content_type": null,
+      "bytes": 0,
+      "body_preview": null,
+      "final_url": "https://pservices.monshaat.gov.sa/BI/TaskService/OpenData/EnterprisesStatistics/2024/1?paginationIndex=1&recordsPerPage=5",
+      "elapsed_ms": 21178,
+      "error": "ConnectTimeout: timed out",
+      "url": "https://pservices.monshaat.gov.sa/BI/TaskService/OpenData/EnterprisesStatistics/2024/1?paginationIndex=1&recordsPerPage=5",
+      "host": "pservices.monshaat.gov.sa"
+    }
+  ],
+  "policy": {
+    "no_mirrors": true,
+    "no_search_cache": true,
+    "no_third_party_proxy": true,
+    "official_host_only": "pservices.monshaat.gov.sa"
+  }
+}
