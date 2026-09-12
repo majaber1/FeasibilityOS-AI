@@ -1726,3 +1726,45 @@ class StudyMemory(TimestampMixin, Base):
     visibility: Mapped[str] = mapped_column(String(20), default="private", nullable=False)
     conditions: Mapped[Optional[list]] = mapped_column(JSON)
     influence_summary: Mapped[Optional[dict]] = mapped_column(JSON)
+
+
+class KnowledgeSource(TimestampMixin, Base):
+    """Governed registry of Saudi / external knowledge sources (Phase 7A).
+
+    Secrets must never be stored in connector_config — use env/secret refs only.
+    """
+
+    __tablename__ = "knowledge_sources"
+    __table_args__ = (UniqueConstraint("key", name="uq_knowledge_sources_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+
+    source_type: Mapped[str] = mapped_column(String(80), nullable=False, default="UNKNOWN")
+    authority_type: Mapped[str] = mapped_column(String(80), nullable=False, default="UNKNOWN")
+
+    base_url: Mapped[Optional[str]] = mapped_column(String(500))
+
+    country: Mapped[str] = mapped_column(String(8), default="SA", nullable=False)
+    geography: Mapped[Optional[str]] = mapped_column(String(120))
+    sectors: Mapped[list] = mapped_column(JSON, default=list)
+    languages: Mapped[list] = mapped_column(JSON, default=list)
+
+    trust_score: Mapped[Optional[float]] = mapped_column(Float)
+    quality_score: Mapped[Optional[float]] = mapped_column(Float)
+
+    refresh_policy: Mapped[Optional[str]] = mapped_column(String(80))
+    refresh_interval_hours: Mapped[Optional[int]] = mapped_column(Integer)
+
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    connector_type: Mapped[str] = mapped_column(String(80), default="registry_only", nullable=False)
+    # Non-secret config only (endpoint paths, dataset ids). Never API keys/tokens.
+    connector_config: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_success_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_failure_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_error: Mapped[Optional[str]] = mapped_column(Text)
