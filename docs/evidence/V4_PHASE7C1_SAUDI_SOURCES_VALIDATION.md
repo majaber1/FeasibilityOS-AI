@@ -2,7 +2,7 @@
 
 **Status:** NOT PASS  
 **Branch:** `cursor/v4-phase7c1-saudi-sources-1831`  
-**Commit:** branch tip `cursor/v4-phase7c1-saudi-sources-1831` (see `git rev-parse HEAD`) (evidence refresh pending next commit)  
+**Commit:** `fe294fbe5cb068ea8ae56b17d9a17059de18c453`
 **Baseline V3 frozen:** `v3.0.0` @ `33e216e2ed939b065bca0357c3855184e219a68d`  
 **Phase 7A:** `dc2117bf1a001f85f859d685100fb528b2933d70`  
 **Phase 7B:** `64cfd189fe7046ea93efd03def9068b498e21166`  
