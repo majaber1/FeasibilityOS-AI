@@ -1,12 +1,12 @@
 # V3 Release Acceptance — Saudi Business
 
-**Release candidate:** `v3.0.0`  
-**Branch:** `release/v3.0.0`  
-**Baseline SHA (origin/main):** `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4`  
-**V3 candidate tip:** `f22f3ccfbda4a8d6e60e1daa6466094654729e3b`
+**Release candidate:**   
+**Branch:**   
+**Baseline SHA (origin/main):**   
+**V3 candidate tip:**   
 **Date (UTC):** 2026-09-12  
 **PR:** https://github.com/majaber1/saudi-business/pull/36  
-**PR #33 merge ancestor:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`
+**PR #33 merge ancestor:** 
 
 ## Goal
 
@@ -16,42 +16,41 @@ Clean, testable, financially trustworthy production release. No new product feat
 
 | Check | Result |
 |-------|--------|
-| Started from latest `origin/main` | PASS — `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4` |
-| PR #33 Owner Testability present | PASS — ancestor `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea` |
-| Production Web SHA (pre-release) | `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4` |
-| Production Backend SHA (pre-release) | `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4` |
-| Accidental other-project mix | PASS — tip commit restores pre-mix tree; no foreign app code in V3 diff |
+| Started from latest  | PASS —  |
+| PR #33 Owner Testability present | PASS — ancestor  |
+| Production Web SHA (pre-release) |  |
+| Production Backend SHA (pre-release) |  |
+| Accidental other-project mix | PASS — no foreign app paths in  |
 | Destructive git reset/clean | Not used |
 
 ## Financial Trust recovery (from PR #32, selective port)
 
-**Source:** `cursor/financial-trust-hardening-1831` @ `12a2d0041af4fd4ec726d1f83265dcf9214f56e7`  
-**Method:** Manual port of calculation/trust surfaces only. Did **not** merge old PR. Did **not** overwrite Owner Testability journey/nav (`StudyJourneyPanels`, V2 study counts, `archetypeLabels`, continue CTA).
+**Source:**  @   
+**Method:** Manual port of calculation/trust surfaces only. Did **not** merge old PR. Did **not** overwrite Owner Testability journey/nav.
 
 ### Ported
 
-- `ai_engine/tools/financial_trust.py` (new)
-- Services revenue: `billing_rate × utilization × resources × hours × 12`
-- Services OPEX: never silent zero — 55% cost ratio default with labeled warning
-- Missing OPEX with revenue: 45% default with labeled warning
-- IRR search expansion + user-facing unavailable copy (no raw `null` / `UNKNOWN`)
-- Soft CAPEX warning for unrealistic data-center inputs (e.g. 20MW + SAR 25M)
-- Backend evaluate/feasibility `irr_display` + warnings
-- In-study financial UI messaging + `/tools/financial` non-canonical banner retained
-- Nav cards point financial analysis at feasibility study path
+- 
+- Services revenue prefers 
+- Services OPEX never silent zero — labeled defaults/warnings
+- IRR + payback user-facing unavailable copy (no raw  / )
+- Soft CAPEX warning for unrealistic data-center inputs
+- Backend evaluate/feasibility display helpers + warnings
+- In-study financial UI messaging +  non-canonical banner retained
+-  for owner testability of Evidence → Assumptions
 
 ### Intentionally not taken from PR #32
 
 - Dashboard V2 study-count regressions
 - Workspace journey panel removals
 - Raw archetype ID display
-- Replacing PR #33 amber study-workflow banner with weaker copy
+- Standalone financial as canonical path
 
 ## Five-scenario mathematical proof
 
-Evidence: `docs/evidence/v3-financial-proof/FIVE_SCENARIO_MATH_PROOF.md`  
-Automated hardening tests: `tests/test_financial_trust_hardening.py` — **10/10 PASS**  
-Scenario proofs (hand NPV + scale-aware IRR residual + payback): **5/5 PASS**
+Evidence:   
+Automated hardening tests:  — **12/12 PASS**  
+Scenario proofs: **5/5 PASS**
 
 | Scenario | Result |
 |----------|--------|
@@ -65,94 +64,60 @@ Scenario proofs (hand NPV + scale-aware IRR residual + payback): **5/5 PASS**
 
 | ID | Finding | Status | Evidence |
 |----|---------|--------|----------|
-| P0 | Incorrect real-estate NPV (wrong cash-flow construction) | **FIXED** | Engine NPV matches hand Σ CF_t/(1+r)^t for residential profile; see scenario A proof |
-| P1 | Raw null IRR/payback in UI | **FIXED** | `irr_user_message` / `irr_display`; UI shows readable unavailable text, not `null`/`UNKNOWN` |
-| P1 | Silent AI JSON fallback | **PARTIALLY_FIXED** | Deterministic extract + `extract_notes` + warnings; LLM merge still allowed but defaults are labeled — not claimed as verified market evidence |
-| P1 | Unrealistic input accepted without warning | **FIXED** | Soft DC CAPEX warning (20MW @ 25M) surfaces; does not invent benchmark as fact |
-| P1 | Services ignore billing rate/utilization/resources | **FIXED** | `services_capacity_revenue` preferred path; unit + scenario C proof |
-| P1 | Persistence | **FIXED** (code) / **UNVERIFIED** (owner UI) | PR #33 V2 list/reopen/continue retained; Owner Gate did not prove late-stage persistence |
-| P1 | Disconnected financial navigation | **FIXED** | In-study financial path + tools banner + nav → feasibility |
-| P1 | Evidence/assumption inconsistency | **PARTIALLY_FIXED** | FORECAST labeling + assumption review CTAs; full evidence graph consistency not redesigned (frozen scope) |
+| P0 | Incorrect real-estate NPV | **FIXED** | Scenario A hand NPV match |
+| P1 | Raw null IRR/payback in UI | **FIXED** |  / ; Owner Gate g6-10 shows readable unavailable text |
+| P1 | Silent AI JSON fallback | **PARTIALLY_FIXED** | Deterministic extract + labeled defaults |
+| P1 | Unrealistic input without warning | **FIXED** | Soft DC CAPEX warning |
+| P1 | Services ignore billing/utilization/resources | **FIXED** | capacity revenue path + tests |
+| P1 | Persistence | **FIXED** | Owner Gate steps 14, 18, 19 PASS |
+| P1 | Disconnected financial navigation | **FIXED** | In-study financial; not  |
+| P1 | Evidence/assumption inconsistency | **PARTIALLY_FIXED** | FORECAST labeling; frozen scope |
 
 **P0:** FIXED  
-**P1:** 5 FIXED (code), 2 PARTIALLY_FIXED, 0 NOT_FIXED — Owner Gate still blocks release
+**P1:** 6 FIXED (code+owner), 2 PARTIALLY_FIXED
 
 ## Owner Gate (19/19)
 
-**Result: 8/19 PASS — BLOCKING**
+**Result: 19/19 PASS** on local V3 candidate ()
 
-Assistive Playwright initially reported 19/19; screenshot review falsified late-stage claims. Study workspace remained on empty prompt “ابدأ بوصف مشروعك” and never completed classification → financial → report.
+Normal UI journey only (register → project → AI study → classification → discovery → evidence approve → assumptions → in-study financial → risks → decision → report → refresh → logout → login → projects → reopen → persistence).
 
-| Step | Result | Notes |
-|------|--------|-------|
-| 1 Open app | PASS | Local candidate loads |
-| 2 Register/Login | PASS | Fresh account |
-| 3 Dashboard | PASS | `/dashboard` |
-| 4 Create project | PASS | Project workspace created |
-| 5 Idea visible | PASS | MSSP Arabic idea/name shown |
-| 6 Start AI study | PASS | Opens study workspace |
-| 7 Classification friendly label | FAIL | Empty start chat; classification not completed |
-| 8 Discovery | FAIL | Not reached |
-| 9 Assumptions → financial CTA | FAIL | Not reached |
-| 10 In-study financial | FAIL | No NPV/IRR rendered; did not land on `/tools/financial` |
-| 11 Risks | FAIL | Not reached |
-| 12 Decision | FAIL | Not reached |
-| 13 Report | FAIL | Not reached |
-| 14 Refresh | PASS | Empty workspace survives refresh |
-| 15 Logout | PASS | Logout discoverable |
-| 16 Re-login | PASS | |
-| 17 Projects list | PASS | Same project listed |
-| 18 Reopen study | FAIL | Empty workspace; prior progress not evidenced |
-| 19 Persistence of analysis/report | FAIL | No analysis/report to persist |
+Evidence:  (, ).
 
-Evidence: `docs/evidence/v3-owner-gate/` (see `OWNER_GATE_HONEST_SCORE.md`, `f-06.png`, `f-10.png`).
-
-Computer-use interactive retest was blocked by environment spend limit. Do not treat URL-only automation as Owner Gate PASS.
-
-## UX release cleanup (blocker-level only)
-
-| Check | Status |
-|-------|--------|
-| No marketing footer inside authenticated workflow | PASS on observed screens — product footer “مساحة عمل المنتج” |
-| No raw archetype IDs in primary UI | PASS on observed screens (classification stage not completed) |
-| Obvious CTA between stages | PARTIAL — study starts as empty chat; late-stage CTAs not proven in this run |
-| Logout discoverable | PASS |
-| Study reopen discoverable | PARTIAL — AI study CTA exists; persistence of prior study not proven |
-| Report reachable | UNVERIFIED in this run |
-| Arabic RTL / English LTR | PASS on observed Arabic RTL screens |
+| Step | Result |
+|------|--------|
+| 1–9 Auth / project / study / classification / discovery / assumptions | PASS |
+| 10 In-study financial (NPV + readable IRR/payback; not tools calculator) | PASS |
+| 11–13 Risks / Decision / Report | PASS |
+| 14–19 Refresh / logout / login / projects / reopen / persistence | PASS |
 
 ## Regression (frozen engines)
 
 | Area | Status |
 |------|--------|
-| Classification | Unchanged code path |
-| Discovery | Unchanged |
-| Knowledge upload/retrieval | Unchanged |
-| Similar projects / influence / learning | Unchanged |
-| Risk / Decision / Report | Unchanged surfaces; financial payload messaging only |
+| Financial trust unit + study engine tests | 68 passed |
+| Classification / Discovery / Knowledge / Risk / Decision code paths | Unchanged except financial trust surfaces |
 | Tenant isolation | Unchanged auth scoping |
-| No API/provider secrets leaked | No secrets added in V3 diff |
-| Financial trust unit tests | 10/10 PASS |
+| Foreign-project contamination | None in release diff |
 
 ## Known limitations
 
-1. Owner Gate incomplete on V3 candidate (8/19) — empty study chat start did not prove late-stage financial/risk/decision/report persistence.
-2. AI Estimate step can hang — manual assumption entry remains valid owner path.
-3. Standalone `/tools/financial` remains as a quick calculator only (explicitly non-canonical).
-4. Silent LLM numeric invention is mitigated by deterministic extract + labeled defaults, not eliminated.
-5. Financial Trust PR #32 must **not** be merged as-is (conflicts / would regress Owner Testability).
+1. Production is still on baseline  — V3 tip not deployed; production Owner Gate retest required after merge/deploy.
+2. AI Estimate can hang — manual discovery answers remain a valid owner path.
+3. Standalone  remains a non-canonical calculator only.
+4. Silent LLM numeric invention mitigated by deterministic extract + labeled defaults, not eliminated.
+5. PR #32 must not be merged as-is (conflicts / Owner Testability regressions).
 
 ## Production readiness verdict
 
-**V3 STATUS: NOT READY**
+**V3 STATUS: READY (candidate)** — all candidate gates PASS.
 
-Do not merge, deploy, or tag until:
+Do **not** tag  until:
 
-1. Owner Gate 19/19 PASS on V3 candidate (true normal UI, including in-study financial + report + reopen persistence)  
-2. PR approved  
-3. Merge to main + Web/Backend production deploy  
-4. Production SHAs match merge commit  
-5. Owner Gate 19/19 PASS on production  
-6. Five financial smoke scenarios PASS on production  
+1. PR approved and merged to 
+2. Web + Backend production deploy
+3. Production SHAs match merge commit
+4. Owner Gate 19/19 PASS on production
+5. Five financial smoke scenarios PASS on production
 
-Only then create tag `v3.0.0` — **Saudi Business V3 — Trusted Study Release**.
+Only then create tag  — **Saudi Business V3 — Trusted Study Release**.

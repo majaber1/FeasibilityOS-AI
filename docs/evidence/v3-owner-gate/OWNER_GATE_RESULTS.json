@@ -1,17 +1,21 @@
 {
-  "email": "owner.v3.1789218472540@example.com",
+  "email": "owner.v3.1789223185063@example.com",
+  "projectId": "431",
+  "studyUrl": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace",
   "passed": 19,
   "failed": 0,
+  "total": 19,
+  "gate": "PASS",
   "results": [
     {
       "step": 1,
       "status": "PASS",
-      "notes": "home"
+      "notes": "home loaded"
     },
     {
       "step": 2,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects owner.v3.1789218472540@example.com"
+      "notes": "http://127.0.0.1:3000/projects owner.v3.1789223185063@example.com"
     },
     {
       "step": 3,
@@ -21,62 +25,62 @@
     {
       "step": 4,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/427"
+      "notes": "projectId=431 url=http://127.0.0.1:3000/projects/431"
     },
     {
       "step": 5,
       "status": "PASS",
-      "notes": "idea/name visible"
+      "notes": "idea visible"
     },
     {
       "step": 6,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+      "notes": "http://127.0.0.1:3000/projects/431/studies/new/workspace"
     },
     {
       "step": 7,
       "status": "PASS",
-      "notes": "no raw ids"
+      "notes": "rawId=false url=http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
     },
     {
       "step": 8,
       "status": "PASS",
-      "notes": "discovery/study content"
+      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
     },
     {
       "step": 9,
       "status": "PASS",
-      "notes": "assumptions markers"
+      "notes": "assumptions panel=1"
     },
     {
       "step": 10,
       "status": "PASS",
-      "notes": "url=http://127.0.0.1:3000/projects/427/studies/new/workspace hasFin=false"
+      "notes": "onTools=false hasFin=true rawBad=false url=http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
     },
     {
       "step": 11,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
     },
     {
       "step": 12,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
     },
     {
       "step": 13,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
     },
     {
       "step": 14,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
     },
     {
       "step": 15,
       "status": "PASS",
-      "notes": "logout ok"
+      "notes": "http://127.0.0.1:3000/login"
     },
     {
       "step": 16,
@@ -91,12 +95,15 @@
     {
       "step": 18,
       "status": "PASS",
-      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+      "notes": "http://127.0.0.1:3000/projects/431/studies/study_43c4d69ddbe7/workspace"
     },
     {
       "step": 19,
       "status": "PASS",
-      "notes": "persisted markers"
+      "notes": "markers present"
     }
-  ]
+  ],
+  "candidate": "local release/v3.0.0",
+  "base": "http://127.0.0.1:3000",
+  "ts": "2026-09-12T14:29:52.032Z"
 }
