@@ -114,3 +114,8 @@ class StudyState(BaseModel):
 
     # Phase 6 — Evidence Pack from Knowledge Intelligence (never embeddings)
     knowledge_context: Optional[Dict[str, Any]] = None
+
+    # Phase 8A — Research Intelligence (Knowledge/MCP before AI assumption)
+    research_context: Optional[Dict[str, Any]] = None
+    research_status: Optional[str] = None
+    research_attempts: List[Dict[str, Any]] = Field(default_factory=list)

@@ -11,13 +11,15 @@ from .agents.assumption import run_assumptions
 from .agents.financial_analyst import run_financial_analysis
 from .agents.risk import run_risk_analysis
 from .agents.decision import run_decision
+from .research.nodes.research import run_research
 
 PHASE_TRANSITIONS = {
     "DRAFT": "discovery",
     "ARCHETYPE_CLASSIFICATION": "discovery",
     "UNDERSTANDING": "discovery",
     "NEEDS_INFORMATION": "discovery",
-    "EVIDENCE_REVIEW": "evidence",
+    # Phase 8A: research before evidence / AI assumption
+    "EVIDENCE_REVIEW": "research",
     "ASSUMPTIONS_REVIEW": "assumptions",
     "READY_FOR_ANALYSIS": "financial",
     "ANALYZED": "risk",
@@ -44,6 +46,7 @@ def build_graph() -> StateGraph:
     graph = StateGraph(StudyState)
 
     graph.add_node("discovery", run_discovery)
+    graph.add_node("research", run_research)
     graph.add_node("evidence", run_evidence)
     graph.add_node("assumptions", run_assumptions)
     graph.add_node("financial", run_financial_analysis)
@@ -54,6 +57,8 @@ def build_graph() -> StateGraph:
     graph.set_conditional_entry_point(route_by_phase)
 
     graph.add_edge("discovery", END)
+    # Research → Evidence → END (single study step may traverse both)
+    graph.add_edge("research", "evidence")
     graph.add_edge("evidence", END)
     graph.add_edge("assumptions", END)
     graph.add_edge("financial", END)
@@ -72,6 +77,12 @@ def get_graph():
     if _compiled_graph is None:
         _compiled_graph = build_graph().compile()
     return _compiled_graph
+
+
+def reset_graph_cache() -> None:
+    """Test helper — clear compiled graph so wiring changes take effect."""
+    global _compiled_graph
+    _compiled_graph = None
 
 
 async def run_study_step(state: StudyState) -> StudyState:

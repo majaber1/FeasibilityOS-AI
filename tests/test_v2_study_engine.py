@@ -219,7 +219,7 @@ class TestOrchestratorRouting:
             "DRAFT": "discovery",
             "UNDERSTANDING": "discovery",
             "NEEDS_INFORMATION": "discovery",
-            "EVIDENCE_REVIEW": "evidence",
+            "EVIDENCE_REVIEW": "research",
             "ASSUMPTIONS_REVIEW": "assumptions",
             "READY_FOR_ANALYSIS": "financial",
             "ANALYZED": "risk",
@@ -254,7 +254,16 @@ class TestOrchestratorRouting:
     def test_graph_has_all_nodes(self):
         from ai_engine.orchestrator import build_graph
         graph = build_graph()
-        expected_nodes = {"discovery", "evidence", "assumptions", "financial", "risk", "decision", "error_handler"}
+        expected_nodes = {
+            "discovery",
+            "research",
+            "evidence",
+            "assumptions",
+            "financial",
+            "risk",
+            "decision",
+            "error_handler",
+        }
         assert expected_nodes.issubset(set(graph.nodes.keys()))
 
 

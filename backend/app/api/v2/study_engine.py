@@ -605,6 +605,9 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
         "next_action": s.get("next_action"),
         "error": s.get("error"),
         "knowledge_context": _public_knowledge_context(s.get("knowledge_context")),
+        "research_context": s.get("research_context"),
+        "research_status": s.get("research_status"),
+        "research_attempts": s.get("research_attempts") or [],
         "created_at": record.get("created_at"),
         "updated_at": record.get("updated_at"),
     }
@@ -655,6 +658,9 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
         "next_action": state.next_action,
         "error": state.error,
         "knowledge_context": _public_knowledge_context(getattr(state, "knowledge_context", None)),
+        "research_context": getattr(state, "research_context", None),
+        "research_status": getattr(state, "research_status", None),
+        "research_attempts": list(getattr(state, "research_attempts", None) or []),
         "created_at": (record_meta or {}).get("created_at"),
         "updated_at": (record_meta or {}).get("updated_at"),
     }

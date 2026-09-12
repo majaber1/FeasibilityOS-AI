@@ -281,8 +281,90 @@ def _default_gaps_for_archetype(archetype: str, sector: str) -> list[str]:
     ]
 
 
+def _research_has_run(state: StudyState) -> bool:
+    return bool(state.research_status) or bool(state.research_context)
+
+
+def _official_claims(claims: list | None) -> list:
+    out = []
+    for c in claims or []:
+        st = c.source_type if hasattr(c, "source_type") else c.get("source_type")
+        if st == "official":
+            out.append(c)
+    return out
+
+
+def _merge_claims_preserving_official(existing: list, new_claims: list) -> list:
+    """Trust gate: keep official research; AI assumptions never replace official."""
+    from ..models.study_state import Claim
+
+    kept: list = []
+    seen: set[str] = set()
+
+    for c in existing or []:
+        st = c.source_type if hasattr(c, "source_type") else c.get("source_type")
+        stmt = c.statement if hasattr(c, "statement") else c.get("statement")
+        if st in {"official", "document", "user_input"}:
+            if isinstance(c, Claim):
+                kept.append(c)
+            else:
+                kept.append(
+                    Claim(
+                        statement=str(stmt or ""),
+                        source_type=st,
+                        source_url=c.get("source_url"),
+                        retrieved_date=c.get("retrieved_date"),
+                        confidence=float(c.get("confidence") or 0.0),
+                    )
+                )
+            if stmt:
+                seen.add(str(stmt))
+
+    has_official = bool(_official_claims(kept))
+
+    for c in new_claims or []:
+        if isinstance(c, Claim):
+            source_type = c.source_type
+            statement = c.statement
+            confidence = float(c.confidence or 0.0)
+            source_url = c.source_url
+            retrieved_date = c.retrieved_date
+        else:
+            source_type = c.get("source_type") or "unverified"
+            statement = c.get("statement") or ""
+            confidence = float(c.get("confidence") or 0.0)
+            source_url = c.get("source_url")
+            retrieved_date = c.get("retrieved_date")
+
+        if source_type == "ai_assumption":
+            confidence = min(confidence, 0.45)
+            if has_official:
+                continue
+
+        if statement and statement in seen:
+            continue
+        kept.append(
+            Claim(
+                statement=statement,
+                source_type=source_type,
+                confidence=max(0.0, min(1.0, confidence)),
+                source_url=source_url,
+                retrieved_date=retrieved_date,
+            )
+        )
+        if statement:
+            seen.add(statement)
+    return kept
+
+
 def _provisional_estimate_claims(state: StudyState) -> list:
     from ..models.study_state import Claim
+
+    # Phase 8A: never invent assumptions before research has run
+    if not _research_has_run(state):
+        return []
+    if _official_claims(state.claims):
+        return []
 
     sector = ""
     archetype = "other"
@@ -310,30 +392,39 @@ def _provisional_estimate_claims(state: StudyState) -> list:
 def run_evidence(state: StudyState) -> StudyState:
     lang = state.language
     system_prompt = SYSTEM_PROMPT_AR if lang == "ar" else SYSTEM_PROMPT_EN
+    system_prompt += (
+        "\n\nPhase 8A trust rules: Prefer official research claims already in state. "
+        "Create ai_assumption ONLY for remaining gaps after research. "
+        "ai_assumption must be low confidence (≤0.45), reviewable, and must NOT "
+        "override or replace official/document claims. Mark estimates clearly."
+    )
     if state.profile_confirmed:
         if lang == "ar":
             system_prompt += (
-                "\n\nملاحظة: تم تأكيد الملف. إذا طُلب منك تقدير الفجوات، أنشئ claims من نوع "
-                "ai_assumption بقيم تقديرية واقعية ولا تترك القائمة فارغة."
+                "\n\nملاحظة: تم تأكيد الملف. بعد اكتمال البحث، إذا بقيت فجوات فأنشئ claims من نوع "
+                "ai_assumption بقيم تقديرية منخفضة الثقة ولا تستبدل الأدلة الرسمية."
             )
         else:
             system_prompt += (
-                "\n\nNote: Profile is confirmed. If asked to estimate gaps, create ai_assumption "
-                "claims with realistic values and do not leave the claims list empty."
+                "\n\nNote: Profile is confirmed. After research, if gaps remain create low-confidence "
+                "ai_assumption claims and never replace official research evidence."
             )
+
+    prior_claims = list(state.claims or [])
     llm = None
     try:
         llm = get_llm("extraction")
     except Exception as e:
         if state.profile_confirmed:
-            state.claims = _provisional_estimate_claims(state)
+            fallback = _provisional_estimate_claims(state)
+            state.claims = _merge_claims_preserving_official(prior_claims, fallback)
             state.phase = "EVIDENCE_REVIEW"
             state.next_action = "review_evidence"
             state.error = None
             note = (
-                "تعذر تهيئة نموذج الذكاء الاصطناعي، فتم إنشاء تقديرات أولية قابلة للمراجعة."
+                "تعذر تهيئة نموذج الذكاء الاصطناعي؛ تم الإبقاء على أدلة البحث مع تقديرات أولية عند الحاجة."
                 if lang == "ar"
-                else "AI model could not be initialized, so provisional reviewable estimates were created from the confirmed gaps."
+                else "AI model could not be initialized; research evidence kept, with provisional estimates only if needed."
             )
             from ..utils.safe_messages import sanitize_error_for_user
 
@@ -352,16 +443,16 @@ def run_evidence(state: StudyState) -> StudyState:
         response = llm.invoke(messages)
         response_text = response.content
     except Exception as e:
-        # After Confirm Profile, still fill visible provisional estimates so UI is not empty.
         if state.profile_confirmed:
-            state.claims = _provisional_estimate_claims(state)
+            fallback = _provisional_estimate_claims(state)
+            state.claims = _merge_claims_preserving_official(prior_claims, fallback)
             state.phase = "EVIDENCE_REVIEW"
             state.next_action = "review_evidence"
             state.error = None
             note = (
-                "تعذر الاتصال بنموذج الذكاء الاصطناعي، فتم إنشاء تقديرات أولية قابلة للمراجعة."
+                "تعذر الاتصال بنموذج الذكاء الاصطناعي؛ تم الإبقاء على أدلة البحث مع تقديرات أولية عند الحاجة."
                 if lang == "ar"
-                else "AI model unavailable, so provisional reviewable estimates were created from the confirmed gaps."
+                else "AI model unavailable; research evidence kept, with provisional estimates only if needed."
             )
             from ..utils.safe_messages import sanitize_error_for_user
 
@@ -407,6 +498,8 @@ def run_evidence(state: StudyState) -> StudyState:
                 confidence = float(c.get("confidence", 0.0) or 0.0)
             except (TypeError, ValueError):
                 confidence = 0.0
+            if source_type == "ai_assumption":
+                confidence = min(confidence, 0.45)
             claims.append(Claim(
                 statement=c.get("statement", "") or "",
                 source_type=source_type,
@@ -415,22 +508,23 @@ def run_evidence(state: StudyState) -> StudyState:
             ))
         if not claims and state.profile_confirmed:
             claims = _provisional_estimate_claims(state)
-        state.claims = claims
+        state.claims = _merge_claims_preserving_official(prior_claims, claims)
         state.error = None
 
-        if evidence_data.get("evidence_sufficient", False) and claims:
+        if evidence_data.get("evidence_sufficient", False) and state.claims:
             state.phase = "ASSUMPTIONS_REVIEW"
             state.evidence_approved = True
         else:
             state.phase = "EVIDENCE_REVIEW"
     elif state.profile_confirmed:
-        state.claims = _provisional_estimate_claims(state)
+        fallback = _provisional_estimate_claims(state)
+        state.claims = _merge_claims_preserving_official(prior_claims, fallback)
         state.phase = "EVIDENCE_REVIEW"
         state.error = None
         response_text = (
-            "تعذر استخراج JSON من النموذج؛ تم إنشاء تقديرات أولية للمراجعة."
+            "تعذر استخراج JSON من النموذج؛ تم الإبقاء على أدلة البحث مع تقديرات أولية عند الحاجة."
             if lang == "ar"
-            else "Could not parse model JSON; provisional estimates were created for review."
+            else "Could not parse model JSON; research evidence kept, with provisional estimates if needed."
         )
 
     from ..utils.safe_messages import sanitize_chat_content
