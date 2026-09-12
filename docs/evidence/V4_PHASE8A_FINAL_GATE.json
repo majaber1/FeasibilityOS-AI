@@ -1,0 +1,83 @@
+{
+  "sha": "7297359e0cb210524a4ee12f20fa05d48c8557e7",
+  "orchestrator": {
+    "EVIDENCE_REVIEW": "research",
+    "READY_FOR_ANALYSIS": "financial",
+    "ANALYZED": "risk",
+    "DECISION_READY": "decision",
+    "nodes": [
+      "assumptions",
+      "decision",
+      "discovery",
+      "error_handler",
+      "evidence",
+      "financial",
+      "research",
+      "risk"
+    ]
+  },
+  "research": {
+    "status": "complete",
+    "claim_count": 5,
+    "blocked": [],
+    "sample": [
+      {
+        "statement": "Inflation in Saudi Arabia reaches 1.8% in March 2026: Inflation in Saudi Arabia reaches 1.8% in March 2026\n\n15-04-2026\n\n",
+        "source_type": "official",
+        "origin": "research",
+        "source_url": "https://www.stats.gov.sa/en/w/news/180",
+        "source_key": "gastat",
+        "document_id": "gastat-180-5f4357cf295a2d8c",
+        "chunk_id": null,
+        "confidence": 0.85
+      },
+      {
+        "statement": "GASTAT: Saudi economy records 3.0% growth in Q1 of 2026: GASTAT: Saudi economy records 3.0% growth in Q1 of 2026\n\n09-06-",
+        "source_type": "official",
+        "origin": "research",
+        "source_url": "https://www.stats.gov.sa/en/w/news/199",
+        "source_key": "gastat",
+        "document_id": "gastat-199-910ee729f55280ca",
+        "chunk_id": null,
+        "confidence": 0.85
+      },
+      {
+        "statement": "GASTAT: Operating Revenues Index for Wholesale and Retail Trade Increases by 3.2% in Q2 of 2026: GASTAT: Operating Reven",
+        "source_type": "official",
+        "origin": "research",
+        "source_url": "https://www.stats.gov.sa/en/w/news/212",
+        "source_key": "gastat",
+        "document_id": "gastat-212-cf62ea4744dcc638",
+        "chunk_id": null,
+        "confidence": 0.85
+      },
+      {
+        "statement": "National Investment Strategy - MISA: National Investment Strategy\n\nWhat Is The NIS?\n\nBuilding on the Kingdom\u2019s existing ",
+        "source_type": "official",
+        "origin": "research",
+        "source_url": "https://misa.gov.sa/activities/national-investment-strategy/",
+        "source_key": "misa",
+        "document_id": "misa-national-investment-strategy-d94ad116cec98aa0",
+        "chunk_id": null,
+        "confidence": 0.85
+      },
+      {
+        "statement": "Investment Development - MISA: Investment Development\n\nHow can the Ministry of Investment of Saudi Arabia directly suppo",
+        "source_type": "official",
+        "origin": "research",
+        "source_url": "https://misa.gov.sa/activities/investment-development/",
+        "source_key": "misa",
+        "document_id": "misa-investment-development-ad62c0fcbb88d9b3",
+        "chunk_id": null,
+        "confidence": 0.85
+      }
+    ]
+  },
+  "trust_merge": {
+    "types": [
+      "official"
+    ],
+    "ai_assumption_remaining": false,
+    "official_count": 5
+  }
+}
