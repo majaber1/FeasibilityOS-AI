@@ -148,3 +148,17 @@ Evidence: `docs/evidence/V3_PREVIEW_API_PROVISIONING_BLOCKER.md`
 **V3 STATUS: READY (candidate)** — all candidate gates PASS.
 
 **Tag readiness: NOT READY** until: PR merge → Web+Backend production deploy → production SHAs match tip → Owner Gate 19/19 on production → five financial smokes on production.
+
+
+## Production deploy + smoke (final release)
+
+| Surface | SHA | State |
+|---------|-----|-------|
+| main merge | `33e216e2ed939b065bca0357c3855184e219a68d` | MERGED PR #36 |
+| Production Web | `33e216e2ed939b065bca0357c3855184e219a68d` | READY |
+| Production API | `33e216e2ed939b065bca0357c3855184e219a68d` | READY |
+
+**Production smoke:** PASS 5/5 — evidence `docs/evidence/v3-prod-smoke/`
+
+**Tag:** `v3.0.0` — Saudi Business V3 — Trusted Study Release
+
