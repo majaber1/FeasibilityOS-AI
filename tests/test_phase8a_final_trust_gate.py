@@ -134,7 +134,7 @@ class TestEvidenceTrust:
 
 class TestPersistence:
     def test_research_context_and_claims_survive_reload(self):
-        from backend.app.api.v2 import study_engine as se
+        from app.api.v2 import study_engine as se
 
         study_id = f"persist8a_{uuid.uuid4().hex[:10]}"
         user_id = "owner-8a"
@@ -199,7 +199,7 @@ class TestPersistence:
 
 class TestApiVisibility:
     def test_public_payload_exposes_research_and_claim_provenance(self):
-        from backend.app.api.v2 import study_engine as se
+        from app.api.v2 import study_engine as se
         from ai_engine.models.study_state import StudyState, Claim, ProjectProfile
 
         state = StudyState(
