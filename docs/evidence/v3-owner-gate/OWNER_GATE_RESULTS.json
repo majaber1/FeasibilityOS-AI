@@ -1,0 +1,102 @@
+{
+  "email": "owner.v3.1789218472540@example.com",
+  "passed": 19,
+  "failed": 0,
+  "results": [
+    {
+      "step": 1,
+      "status": "PASS",
+      "notes": "home"
+    },
+    {
+      "step": 2,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/projects owner.v3.1789218472540@example.com"
+    },
+    {
+      "step": 3,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/dashboard"
+    },
+    {
+      "step": 4,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/projects/427"
+    },
+    {
+      "step": 5,
+      "status": "PASS",
+      "notes": "idea/name visible"
+    },
+    {
+      "step": 6,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+    },
+    {
+      "step": 7,
+      "status": "PASS",
+      "notes": "no raw ids"
+    },
+    {
+      "step": 8,
+      "status": "PASS",
+      "notes": "discovery/study content"
+    },
+    {
+      "step": 9,
+      "status": "PASS",
+      "notes": "assumptions markers"
+    },
+    {
+      "step": 10,
+      "status": "PASS",
+      "notes": "url=http://127.0.0.1:3000/projects/427/studies/new/workspace hasFin=false"
+    },
+    {
+      "step": 11,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+    },
+    {
+      "step": 12,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+    },
+    {
+      "step": 13,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+    },
+    {
+      "step": 14,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+    },
+    {
+      "step": 15,
+      "status": "PASS",
+      "notes": "logout ok"
+    },
+    {
+      "step": 16,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/dashboard"
+    },
+    {
+      "step": 17,
+      "status": "PASS",
+      "notes": "cards=1"
+    },
+    {
+      "step": 18,
+      "status": "PASS",
+      "notes": "http://127.0.0.1:3000/projects/427/studies/new/workspace"
+    },
+    {
+      "step": 19,
+      "status": "PASS",
+      "notes": "persisted markers"
+    }
+  ]
+}
