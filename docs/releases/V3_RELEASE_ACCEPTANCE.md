@@ -3,7 +3,7 @@
 **Release candidate:** v3.0.0
 **Branch:** release/v3.0.0
 **Baseline SHA (origin/main):** `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4`
-**V3 candidate tip:** `54f1fa1aef08ce648b618e68630f650c17785a68`
+**V3 candidate tip:** `f31af34bf597bb03958d504057c03e594b7ebebd`
 **Date (UTC):** 2026-09-12
 **PR:** https://github.com/majaber1/saudi-business/pull/36
 **PR #33 merge ancestor:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`
