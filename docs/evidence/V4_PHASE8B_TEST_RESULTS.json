@@ -1,0 +1,78 @@
+{
+  "phase": "8B",
+  "title": "Controlled Market Research Intelligence",
+  "baseline_main": "6c8120fb65943ebb0df0c142f9de5aea6b31d7e0",
+  "branch": "cursor/v4-phase8b-controlled-market-research-1831",
+  "status": "PASS",
+  "stop": "Do not start Phase 8C",
+  "architecture": {
+    "runtime": "Existing LangGraph + Research Node",
+    "market_module": "ai_engine/research/market/",
+    "mcp": "source_status/source_fetch only",
+    "live_sources": ["gastat", "misa"],
+    "placeholders": ["sama", "zatca", "nca"],
+    "second_rag": false,
+    "generic_web_agent": false,
+    "financial_risk_decision_report_changed": false
+  },
+  "automated_tests": {
+    "phase8b": {"passed": 28, "failed": 0},
+    "regression_aggregate_8a_7a_7b_misa_knowledge_financial": {
+      "passed": 115,
+      "failed": 0
+    }
+  },
+  "business_scenarios": {
+    "A_retail_sme": {
+      "pass": true,
+      "status": "PARTIAL",
+      "sources": ["gastat", "misa"],
+      "signals": [["cpi_inflation", 1.6, "https://www.stats.gov.sa/en/w/news/180"]],
+      "competitors": [["", "NOT_FOUND"]],
+      "verified_claims": 1
+    },
+    "B_investment_misa": {
+      "pass": true,
+      "status": "VERIFIED",
+      "signals": [["fdi_inflow", 12.5, "misa"]]
+    },
+    "C_no_evidence": {
+      "pass": true,
+      "status": "NOT_FOUND",
+      "claims": 0
+    },
+    "D_conflict": {
+      "pass": true,
+      "status": "CONFLICT",
+      "conflicts": 1
+    }
+  },
+  "ai_trust_audit": {
+    "competitors_no_invention": true,
+    "market_size_no_unsupported_number": true
+  },
+  "security": {
+    "market_module_httpx_called": false,
+    "ssrf_private_ip_rejected": true,
+    "pass": true
+  },
+  "performance": {
+    "first_ms": 0.03,
+    "cached_ms": 0.01,
+    "cache_hits": 1,
+    "pass": true
+  },
+  "user_acceptance": {
+    "insight_source_url_confidence_visible": true,
+    "ui_market_research_panel": true
+  },
+  "failed_tests": [],
+  "known_limitations": [
+    "Monsha'at blocked external reachability",
+    "Competitor discovery requires sourced evidence (no open-web crawler)",
+    "SAMA/ZATCA/NCA placeholders only",
+    "Pricing requires explicit evidence amounts",
+    "Market size/TAM not invented without official numeric evidence",
+    "Research/market context persistence via version snapshot model"
+  ]
+}

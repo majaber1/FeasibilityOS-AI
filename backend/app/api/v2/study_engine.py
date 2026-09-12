@@ -112,6 +112,7 @@ def _load_study(study_id: str, user_id: str) -> dict | None:
                             "research_status",
                             "research_attempts",
                             "knowledge_context",
+                            "market_research_context",
                         ):
                             if key in snap and snap[key] is not None:
                                 state[key] = snap[key]
@@ -631,6 +632,7 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
         "research_context": s.get("research_context"),
         "research_status": s.get("research_status"),
         "research_attempts": s.get("research_attempts") or [],
+        "market_research_context": s.get("market_research_context"),
         "created_at": record.get("created_at"),
         "updated_at": record.get("updated_at"),
     }
@@ -684,6 +686,7 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
         "research_context": getattr(state, "research_context", None),
         "research_status": getattr(state, "research_status", None),
         "research_attempts": list(getattr(state, "research_attempts", None) or []),
+        "market_research_context": getattr(state, "market_research_context", None),
         "created_at": (record_meta or {}).get("created_at"),
         "updated_at": (record_meta or {}).get("updated_at"),
     }

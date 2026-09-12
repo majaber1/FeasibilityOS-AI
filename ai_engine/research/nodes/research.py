@@ -168,14 +168,19 @@ def run_research(state: StudyState) -> StudyState:
     state.research_status = result.status
     state.research_context = result.to_public_dict()
     state.research_attempts = list(result.attempts)
+    state.market_research_context = getattr(result, "market_research", None)
     state.phase = "EVIDENCE_REVIEW"
     state.error = None
+    market_status = None
+    if isinstance(state.market_research_context, dict):
+        market_status = state.market_research_context.get("status")
     state.messages.append(
         AIMessage(
             content=(
                 f"Research {result.status}: {len(result.claims)} claim(s); "
                 f"blocked={result.blocked_sources or []}; "
-                f"unavailable={result.unavailable_sources or []}."
+                f"unavailable={result.unavailable_sources or []}"
+                + (f"; market={market_status}." if market_status else ".")
             )
         )
     )

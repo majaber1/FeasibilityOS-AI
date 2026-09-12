@@ -105,6 +105,8 @@ class ResearchResult:
     unavailable_sources: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     attempts: list[dict[str, Any]] = field(default_factory=list)
+    # Phase 8B — Controlled Market Research public payload (optional)
+    market_research: dict[str, Any] | None = None
     completed_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -131,5 +133,6 @@ class ResearchResult:
             "unavailable_sources": list(self.unavailable_sources),
             "errors": list(self.errors),
             "attempts": list(self.attempts),
+            "market_research": self.market_research,
             "completed_at": self.completed_at,
         }

@@ -369,6 +369,52 @@ def execute_research(
     else:
         status = "partial" if attempts else "failed"
 
+    # Phase 8B — Controlled Market Research over collected official/document evidence.
+    # Never invents competitors/prices; never opens arbitrary URLs.
+    market_payload: dict[str, Any] | None = None
+    try:
+        from ai_engine.research.market.service import (
+            evidence_items_from_research_claims,
+            execute_market_research,
+            market_result_to_research_claims,
+        )
+
+        market = execute_market_research(
+            study_id=plan.study_id,
+            business_idea=" | ".join(plan.gaps[:3]) if plan.gaps else "",
+            sector="",
+            geography="Saudi Arabia",
+            gaps=list(plan.gaps),
+            evidence_items=evidence_items_from_research_claims(claims),
+            use_cache=True,
+        )
+        market_payload = market.to_public_dict()
+        market_claims = market_result_to_research_claims(market)
+        if market_claims:
+            claims.extend(market_claims)
+        attempts.append(
+            {
+                "source_key": "market_research",
+                "outcome": str(market.status),
+                "claim_count": len(market_claims),
+                "path": "market_8b",
+                "duration_ms": market.duration_ms,
+                "cache_hits": market.cache_hits,
+                "conflicts": len(market.conflicts),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.info("market research skipped: %s", exc)
+        errors.append(f"market_research: {exc}")
+        attempts.append(
+            {
+                "source_key": "market_research",
+                "outcome": "error",
+                "error": str(exc),
+                "path": "market_8b",
+            }
+        )
+
     result = ResearchResult(
         plan=plan,
         status=status,  # type: ignore[arg-type]
@@ -379,6 +425,7 @@ def execute_research(
         unavailable_sources=unavailable,
         errors=errors,
         attempts=attempts,
+        market_research=market_payload,
     )
     _trace(
         "phase8a_research_result",
@@ -388,6 +435,7 @@ def execute_research(
             "claim_count": len(claims),
             "blocked": blocked,
             "unavailable": unavailable,
+            "market_status": (market_payload or {}).get("status"),
         },
     )
     return result

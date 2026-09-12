@@ -93,6 +93,21 @@ type StudyInfo = {
   research_status?: string | null;
   research_context?: Record<string, unknown> | null;
   research_attempts?: Record<string, unknown>[] | null;
+  market_research_context?: {
+    status?: string;
+    insights?: Array<{
+      insight?: string;
+      research_type?: string;
+      source?: string;
+      official_url?: string | null;
+      evidence_reference?: string;
+      confidence?: number;
+      status?: string;
+      source_key?: string | null;
+    }>;
+    conflicts?: unknown[];
+    plan?: { research_types?: string[]; selected_sources?: string[]; reasons?: string[] };
+  } | null;
 };
 
 const PHASE_LABELS: Record<string, { ar: string; en: string }> = {
@@ -758,6 +773,47 @@ export default function StudyWorkspacePage() {
                     ? ` · ${study.research_attempts.length} ${ar ? "محاولة" : "attempt(s)"}`
                     : ""}
                 </p>
+              ) : null}
+              {study?.market_research_context?.status ? (
+                <div className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50/60 p-2" data-testid="market-research-panel">
+                  <p className="text-[11px] font-semibold text-emerald-900">
+                    {ar ? "أبحاث السوق:" : "Market research:"}{" "}
+                    {study.market_research_context.status}
+                  </p>
+                  {Array.isArray(study.market_research_context.plan?.selected_sources) &&
+                  study.market_research_context.plan!.selected_sources!.length > 0 ? (
+                    <p className="mt-1 text-[10px] text-emerald-800">
+                      {ar ? "المصادر:" : "Sources:"}{" "}
+                      {study.market_research_context.plan!.selected_sources!.join(", ")}
+                    </p>
+                  ) : null}
+                  <ul className="mt-2 space-y-1.5">
+                    {(study.market_research_context.insights || []).slice(0, 6).map((insight, idx) => (
+                      <li key={`mkt-${idx}`} className="text-[11px] text-ink-700">
+                        <p>{insight.insight}</p>
+                        <p className="text-[10px] text-ink-500">
+                          {insight.research_type || "INSIGHT"}
+                          {insight.status ? ` · ${insight.status}` : ""}
+                          {typeof insight.confidence === "number"
+                            ? ` · ${Math.round(insight.confidence * 100)}%`
+                            : ""}
+                          {insight.source_key ? ` · ${insight.source_key}` : ""}
+                          {insight.evidence_reference ? ` · ref:${insight.evidence_reference}` : ""}
+                        </p>
+                        {insight.official_url ? (
+                          <a
+                            href={insight.official_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block break-all text-[10px] text-brand-700 hover:underline"
+                          >
+                            {insight.official_url}
+                          </a>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
               <ul className="mt-2 space-y-2 text-xs text-ink-700">
                 {claims.map((claim, idx) => (

@@ -124,3 +124,6 @@ class StudyState(BaseModel):
     research_context: Optional[Dict[str, Any]] = None
     research_status: Optional[str] = None
     research_attempts: List[Dict[str, Any]] = Field(default_factory=list)
+
+    # Phase 8B — Controlled Market Research insights (traceable; never "AI thinks")
+    market_research_context: Optional[Dict[str, Any]] = None
