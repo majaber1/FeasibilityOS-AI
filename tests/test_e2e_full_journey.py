@@ -472,7 +472,14 @@ class TestPhaseByPhaseProgression:
 
         study = client.get(f"/api/v2/studies/{sid}", headers=headers)
         data = study.json()
-        assert data["claims_count"] == 4
+        # Phase 8A research may add official claims on top of the mocked LLM set (4).
+        assert data["claims_count"] >= 4
+        claims = data.get("claims") or []
+        if claims:
+            assert any(
+                c.get("source_type") in {"official", "user_input", "document", "ai_assumption"}
+                for c in claims
+            )
 
     @patch("ai_engine.agents.assumption.get_llm")
     def test_assumptions_agent_fills_assumptions(self, mock_get_llm):

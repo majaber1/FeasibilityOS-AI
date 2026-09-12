@@ -73,6 +73,11 @@ class Claim(BaseModel):
     source_url: Optional[str] = None
     retrieved_date: Optional[str] = None
     confidence: float = 0.0
+    # Phase 8A provenance — optional, never required for legacy claims
+    origin: Optional[str] = None  # research | knowledge | user | ai_assumption
+    document_id: Optional[str] = None
+    chunk_id: Optional[str] = None
+    source_key: Optional[str] = None
 
 
 class StudyState(BaseModel):
@@ -114,3 +119,8 @@ class StudyState(BaseModel):
 
     # Phase 6 — Evidence Pack from Knowledge Intelligence (never embeddings)
     knowledge_context: Optional[Dict[str, Any]] = None
+
+    # Phase 8A — Research Intelligence (Knowledge/MCP before AI assumption)
+    research_context: Optional[Dict[str, Any]] = None
+    research_status: Optional[str] = None
+    research_attempts: List[Dict[str, Any]] = Field(default_factory=list)

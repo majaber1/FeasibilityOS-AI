@@ -1,0 +1,26 @@
+{
+  "gastat": {
+    "status": "complete",
+    "claims": 3,
+    "live_fetches": 1,
+    "sample": "Inflation in Saudi Arabia reaches 1.8% in March 2026: Inflation in Saudi Arabia reaches 1.8% in March 2026\n\n15-04-2026\n\nThe annual inflation rate of the Consumer Price Index (CPI) in Saudi Arabia reac",
+    "source_url": "https://www.stats.gov.sa/en/w/news/180"
+  },
+  "misa": {
+    "status": "complete",
+    "claims": 5,
+    "live_fetches": 2,
+    "sample": "Inflation in Saudi Arabia reaches 1.8% in March 2026: Inflation in Saudi Arabia reaches 1.8% in March 2026\n\n15-04-2026\n\nThe annual inflation rate of the Consumer Price Index (CPI) in Saudi Arabia reac",
+    "source_url": "https://www.stats.gov.sa/en/w/news/180"
+  },
+  "mixed_monshaat": {
+    "status": "complete",
+    "claims": 3,
+    "blocked": [
+      "monshaat"
+    ]
+  },
+  "trust_merge_types": [
+    "official"
+  ]
+}

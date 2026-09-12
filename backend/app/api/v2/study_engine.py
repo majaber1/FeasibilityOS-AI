@@ -94,7 +94,30 @@ def _load_study(study_id: str, user_id: str) -> dict | None:
         try:
             row = db.query(StudyStateRow).filter_by(study_id=study_id, user_id=user_id).first()
             if row:
-                return _row_to_dict(row)
+                record = _row_to_dict(row)
+                # Phase 8A: restore research_* / knowledge_context from latest version
+                # snapshot (full state_dict). Row columns predate these fields.
+                try:
+                    last = (
+                        db.query(StudyVersionRow)
+                        .filter_by(study_id=study_id)
+                        .order_by(StudyVersionRow.version.desc())
+                        .first()
+                    )
+                    snap = getattr(last, "snapshot_json", None) if last else None
+                    if isinstance(snap, dict):
+                        state = record.setdefault("state", {})
+                        for key in (
+                            "research_context",
+                            "research_status",
+                            "research_attempts",
+                            "knowledge_context",
+                        ):
+                            if key in snap and snap[key] is not None:
+                                state[key] = snap[key]
+                except Exception:
+                    pass
+                return record
         except Exception:
             pass
         finally:
@@ -605,6 +628,9 @@ def _study_payload(study_id: str, record: dict, *, response: str | None = None) 
         "next_action": s.get("next_action"),
         "error": s.get("error"),
         "knowledge_context": _public_knowledge_context(s.get("knowledge_context")),
+        "research_context": s.get("research_context"),
+        "research_status": s.get("research_status"),
+        "research_attempts": s.get("research_attempts") or [],
         "created_at": record.get("created_at"),
         "updated_at": record.get("updated_at"),
     }
@@ -655,6 +681,9 @@ def _payload_from_state(study_id: str, state, *, response: str | None = None, re
         "next_action": state.next_action,
         "error": state.error,
         "knowledge_context": _public_knowledge_context(getattr(state, "knowledge_context", None)),
+        "research_context": getattr(state, "research_context", None),
+        "research_status": getattr(state, "research_status", None),
+        "research_attempts": list(getattr(state, "research_attempts", None) or []),
         "created_at": (record_meta or {}).get("created_at"),
         "updated_at": (record_meta or {}).get("updated_at"),
     }
