@@ -3,6 +3,7 @@
 **Status:** PASS (implementation + full validation audit)  
 **Date (UTC):** 2026-09-12  
 **Branch:** `cursor/v4-phase8b-controlled-market-research-1831`  
+**Commit:** `e26d9af621a58ddda04313f464943ba57201fc24`  
 **Baseline main:** `6c8120fb65943ebb0df0c142f9de5aea6b31d7e0` (Phase 8A merged)  
 **STOP:** Do **not** start Phase 8C.
 

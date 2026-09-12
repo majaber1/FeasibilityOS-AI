@@ -9,14 +9,24 @@
     "runtime": "Existing LangGraph + Research Node",
     "market_module": "ai_engine/research/market/",
     "mcp": "source_status/source_fetch only",
-    "live_sources": ["gastat", "misa"],
-    "placeholders": ["sama", "zatca", "nca"],
+    "live_sources": [
+      "gastat",
+      "misa"
+    ],
+    "placeholders": [
+      "sama",
+      "zatca",
+      "nca"
+    ],
     "second_rag": false,
     "generic_web_agent": false,
     "financial_risk_decision_report_changed": false
   },
   "automated_tests": {
-    "phase8b": {"passed": 28, "failed": 0},
+    "phase8b": {
+      "passed": 28,
+      "failed": 0
+    },
     "regression_aggregate_8a_7a_7b_misa_knowledge_financial": {
       "passed": 115,
       "failed": 0
@@ -26,15 +36,35 @@
     "A_retail_sme": {
       "pass": true,
       "status": "PARTIAL",
-      "sources": ["gastat", "misa"],
-      "signals": [["cpi_inflation", 1.6, "https://www.stats.gov.sa/en/w/news/180"]],
-      "competitors": [["", "NOT_FOUND"]],
+      "sources": [
+        "gastat",
+        "misa"
+      ],
+      "signals": [
+        [
+          "cpi_inflation",
+          1.6,
+          "https://www.stats.gov.sa/en/w/news/180"
+        ]
+      ],
+      "competitors": [
+        [
+          "",
+          "NOT_FOUND"
+        ]
+      ],
       "verified_claims": 1
     },
     "B_investment_misa": {
       "pass": true,
       "status": "VERIFIED",
-      "signals": [["fdi_inflow", 12.5, "misa"]]
+      "signals": [
+        [
+          "fdi_inflow",
+          12.5,
+          "misa"
+        ]
+      ]
     },
     "C_no_evidence": {
       "pass": true,
@@ -74,5 +104,6 @@
     "Pricing requires explicit evidence amounts",
     "Market size/TAM not invented without official numeric evidence",
     "Research/market context persistence via version snapshot model"
-  ]
+  ],
+  "commit_sha": "e26d9af621a58ddda04313f464943ba57201fc24"
 }
