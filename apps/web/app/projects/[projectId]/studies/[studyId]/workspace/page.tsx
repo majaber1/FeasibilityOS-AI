@@ -23,6 +23,11 @@ type Claim = {
   source_type?: string;
   confidence?: number;
   source_url?: string | null;
+  origin?: string | null;
+  document_id?: string | null;
+  chunk_id?: string | null;
+  source_key?: string | null;
+  retrieved_date?: string | null;
 };
 
 type Assumption = {
@@ -85,6 +90,9 @@ type StudyInfo = {
   messages?: Message[];
   next_action: string | null;
   error: string | null;
+  research_status?: string | null;
+  research_context?: Record<string, unknown> | null;
+  research_attempts?: Record<string, unknown>[] | null;
 };
 
 const PHASE_LABELS: Record<string, { ar: string; en: string }> = {
@@ -743,14 +751,51 @@ export default function StudyWorkspacePage() {
               <h2 className="text-sm font-semibold text-ink-900">
                 {ar ? `الأدلة (${claims.length})` : `Evidence (${claims.length})`}
               </h2>
+              {study?.research_status ? (
+                <p className="mt-1 text-[11px] text-ink-500" data-testid="research-status">
+                  {ar ? "حالة البحث:" : "Research:"} {study.research_status}
+                  {Array.isArray(study.research_attempts) && study.research_attempts.length > 0
+                    ? ` · ${study.research_attempts.length} ${ar ? "محاولة" : "attempt(s)"}`
+                    : ""}
+                </p>
+              ) : null}
               <ul className="mt-2 space-y-2 text-xs text-ink-700">
                 {claims.map((claim, idx) => (
                   <li key={`${claim.statement}-${idx}`} className="rounded-lg bg-slate-50 p-2">
                     <p>{claim.statement}</p>
                     <p className="mt-1 text-[11px] text-ink-500">
-                      {claim.source_type || "unverified"}
+                      <span
+                        className={
+                          claim.source_type === "official"
+                            ? "font-semibold text-emerald-700"
+                            : claim.source_type === "ai_assumption"
+                              ? "font-semibold text-violet-700"
+                              : ""
+                        }
+                      >
+                        {claim.source_type || "unverified"}
+                      </span>
+                      {claim.origin ? ` · ${claim.origin}` : ""}
                       {typeof claim.confidence === "number" ? ` · ${Math.round(claim.confidence * 100)}%` : ""}
+                      {claim.source_key ? ` · ${claim.source_key}` : ""}
                     </p>
+                    {claim.source_url ? (
+                      <a
+                        href={claim.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 block break-all text-[11px] text-brand-700 hover:underline"
+                      >
+                        {claim.source_url}
+                      </a>
+                    ) : null}
+                    {(claim.document_id || claim.chunk_id) && (
+                      <p className="mt-1 text-[10px] text-ink-400">
+                        {claim.document_id ? `doc:${claim.document_id}` : ""}
+                        {claim.document_id && claim.chunk_id ? " · " : ""}
+                        {claim.chunk_id ? `chunk:${claim.chunk_id}` : ""}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>

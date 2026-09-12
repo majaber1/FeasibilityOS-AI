@@ -94,7 +94,30 @@ def _load_study(study_id: str, user_id: str) -> dict | None:
         try:
             row = db.query(StudyStateRow).filter_by(study_id=study_id, user_id=user_id).first()
             if row:
-                return _row_to_dict(row)
+                record = _row_to_dict(row)
+                # Phase 8A: restore research_* / knowledge_context from latest version
+                # snapshot (full state_dict). Row columns predate these fields.
+                try:
+                    last = (
+                        db.query(StudyVersionRow)
+                        .filter_by(study_id=study_id)
+                        .order_by(StudyVersionRow.version.desc())
+                        .first()
+                    )
+                    snap = getattr(last, "snapshot_json", None) if last else None
+                    if isinstance(snap, dict):
+                        state = record.setdefault("state", {})
+                        for key in (
+                            "research_context",
+                            "research_status",
+                            "research_attempts",
+                            "knowledge_context",
+                        ):
+                            if key in snap and snap[key] is not None:
+                                state[key] = snap[key]
+                except Exception:
+                    pass
+                return record
         except Exception:
             pass
         finally:

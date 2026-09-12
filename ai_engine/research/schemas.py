@@ -50,8 +50,14 @@ class ResearchClaim:
     period: str | None = None
     source_key: str | None = None
     from_knowledge: bool = False
+    document_id: str | None = None
+    chunk_id: str | None = None
+    origin: str | None = None
 
     def to_claim_dict(self) -> dict[str, Any]:
+        origin = self.origin
+        if origin is None:
+            origin = "knowledge" if self.from_knowledge else "research"
         return {
             "statement": self.statement,
             "source_type": self.source_type,
@@ -59,6 +65,10 @@ class ResearchClaim:
             "retrieved_date": self.retrieved_date
             or datetime.now(timezone.utc).date().isoformat(),
             "confidence": float(self.confidence),
+            "origin": origin,
+            "document_id": self.document_id,
+            "chunk_id": self.chunk_id,
+            "source_key": self.source_key,
         }
 
 

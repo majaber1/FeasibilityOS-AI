@@ -298,6 +298,21 @@ def _merge_claims_preserving_official(existing: list, new_claims: list) -> list:
     """Trust gate: keep official research; AI assumptions never replace official."""
     from ..models.study_state import Claim
 
+    def _as_claim(c) -> Claim:
+        if isinstance(c, Claim):
+            return c
+        return Claim(
+            statement=str(c.get("statement") or ""),
+            source_type=c.get("source_type") or "unverified",
+            source_url=c.get("source_url"),
+            retrieved_date=c.get("retrieved_date"),
+            confidence=float(c.get("confidence") or 0.0),
+            origin=c.get("origin"),
+            document_id=c.get("document_id"),
+            chunk_id=c.get("chunk_id"),
+            source_key=c.get("source_key"),
+        )
+
     kept: list = []
     seen: set[str] = set()
 
@@ -305,53 +320,32 @@ def _merge_claims_preserving_official(existing: list, new_claims: list) -> list:
         st = c.source_type if hasattr(c, "source_type") else c.get("source_type")
         stmt = c.statement if hasattr(c, "statement") else c.get("statement")
         if st in {"official", "document", "user_input"}:
-            if isinstance(c, Claim):
-                kept.append(c)
-            else:
-                kept.append(
-                    Claim(
-                        statement=str(stmt or ""),
-                        source_type=st,
-                        source_url=c.get("source_url"),
-                        retrieved_date=c.get("retrieved_date"),
-                        confidence=float(c.get("confidence") or 0.0),
-                    )
-                )
+            claim = _as_claim(c)
+            kept.append(claim)
             if stmt:
                 seen.add(str(stmt))
 
     has_official = bool(_official_claims(kept))
 
     for c in new_claims or []:
-        if isinstance(c, Claim):
-            source_type = c.source_type
-            statement = c.statement
-            confidence = float(c.confidence or 0.0)
-            source_url = c.source_url
-            retrieved_date = c.retrieved_date
-        else:
-            source_type = c.get("source_type") or "unverified"
-            statement = c.get("statement") or ""
-            confidence = float(c.get("confidence") or 0.0)
-            source_url = c.get("source_url")
-            retrieved_date = c.get("retrieved_date")
+        claim = _as_claim(c)
+        source_type = claim.source_type
+        statement = claim.statement
+        confidence = float(claim.confidence or 0.0)
 
         if source_type == "ai_assumption":
             confidence = min(confidence, 0.45)
             if has_official:
                 continue
+            claim = claim.model_copy(
+                update={"confidence": confidence, "origin": claim.origin or "ai_assumption"}
+            )
+        else:
+            claim = claim.model_copy(update={"confidence": max(0.0, min(1.0, confidence))})
 
         if statement and statement in seen:
             continue
-        kept.append(
-            Claim(
-                statement=statement,
-                source_type=source_type,
-                confidence=max(0.0, min(1.0, confidence)),
-                source_url=source_url,
-                retrieved_date=retrieved_date,
-            )
-        )
+        kept.append(claim)
         if statement:
             seen.add(statement)
     return kept
@@ -384,6 +378,7 @@ def _provisional_estimate_claims(state: StudyState) -> list:
                 source_type="ai_assumption",
                 confidence=0.45,
                 source_url=None,
+                origin="ai_assumption",
             )
         )
     return claims

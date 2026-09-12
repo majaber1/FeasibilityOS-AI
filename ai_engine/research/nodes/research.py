@@ -53,6 +53,10 @@ def merge_evidence_claims(
                 source_url=data.get("source_url"),
                 retrieved_date=data.get("retrieved_date"),
                 confidence=float(data.get("confidence") or 0.0),
+                origin=data.get("origin"),
+                document_id=data.get("document_id"),
+                chunk_id=data.get("chunk_id"),
+                source_key=data.get("source_key"),
             )
         )
 
@@ -67,6 +71,10 @@ def merge_evidence_claims(
                     source_url=rc.get("source_url"),
                     retrieved_date=rc.get("retrieved_date"),
                     confidence=float(rc.get("confidence") or 0.7),
+                    origin=rc.get("origin") or "research",
+                    document_id=rc.get("document_id"),
+                    chunk_id=rc.get("chunk_id"),
+                    source_key=rc.get("source_key"),
                 )
             )
             seen.add(stmt)

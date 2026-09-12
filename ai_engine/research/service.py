@@ -84,6 +84,11 @@ def _knowledge_retrieve(
                 confidence=min(0.9, max(0.5, conf)),
                 source_key=source_key,
                 from_knowledge=True,
+                document_id=(
+                    str(cite.get("document_id")) if cite.get("document_id") else None
+                ),
+                chunk_id=str(cite.get("chunk_id")) if cite.get("chunk_id") else None,
+                origin="knowledge",
             )
         )
     if not claims:
@@ -100,6 +105,11 @@ def _knowledge_retrieve(
                     confidence=float(hit.get("score") or 0.6),
                     source_key=source_key,
                     from_knowledge=True,
+                    document_id=(
+                        str(hit.get("document_id")) if hit.get("document_id") else None
+                    ),
+                    chunk_id=str(hit.get("chunk_id")) if hit.get("chunk_id") else None,
+                    origin="knowledge",
                 )
             )
     return claims
@@ -128,6 +138,8 @@ def _claims_from_mcp_documents(
                 confidence=0.85,
                 metric_key=title,
                 source_key=source_key,
+                document_id=str(doc.get("source_id") or doc.get("id") or "") or None,
+                origin="research",
             )
         )
     return claims

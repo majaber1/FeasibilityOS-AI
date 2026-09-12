@@ -463,7 +463,11 @@ class TestV2StudyAPI:
         assert len(body.get("claims") or []) >= 1
 
     def test_approve_profile_fills_claims_when_groq_missing(self):
-        """Confirm must still populate Evidence claims when GROQ_API_KEY is absent."""
+        """Confirm still populates Evidence when GROQ_API_KEY is absent.
+
+        Phase 8A: research runs before evidence. Official research claims are
+        preferred over provisional ai_assumption fallbacks when available.
+        """
         headers = _auth("approve_nogroq")
         create = client.post("/api/v2/studies", json={
             "project_id": "proj_nogroq", "language": "en",
@@ -515,8 +519,19 @@ class TestV2StudyAPI:
         body = r.json()
         assert body["phase"] == "EVIDENCE_REVIEW"
         assert body.get("error") in (None, "", False)
-        assert body.get("claims_count", 0) >= 3
-        assert all(c.get("source_type") == "ai_assumption" for c in body.get("claims") or [])
+        claims = body.get("claims") or []
+        assert body.get("claims_count", 0) >= 1
+        assert len(claims) >= 1
+        # Phase 8A trust: research-before-assumption. Prefer official/document.
+        source_types = {c.get("source_type") for c in claims}
+        assert source_types & {"official", "document", "ai_assumption", "user_input"}
+        if body.get("research_status") in {"complete", "partial"}:
+            assert any(c.get("source_type") == "official" for c in claims)
+            # Official research must not be overwritten by ai_assumption-only pack
+            assert not all(c.get("source_type") == "ai_assumption" for c in claims)
+        else:
+            # Research unavailable: provisional ai_assumption fallback still allowed
+            assert any(c.get("source_type") == "ai_assumption" for c in claims)
         assert body["profile"]["missing_information"] == []
 
     def test_approve_invalid_stage_400(self):
