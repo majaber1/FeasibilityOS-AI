@@ -1,0 +1,51 @@
+%PDF-1.4
+1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj
+2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj
+3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>endobj
+4 0 obj<< /Length 2050 >>stream
+BT /F1 10 Tf 40 780 Td (Riyadh Residential Compound Feasibility Study) Tj ET
+BT /F1 10 Tf 40 766 Td (Title: Riyadh Residential Compound Feasibility Study) Tj ET
+BT /F1 10 Tf 40 752 Td (Project type: real estate residential compound apartments) Tj ET
+BT /F1 10 Tf 40 738 Td (Sector: real estate residential) Tj ET
+BT /F1 10 Tf 40 724 Td (Location: North Riyadh, Kingdom of Saudi Arabia) Tj ET
+BT /F1 10 Tf 40 710 Td (Year: 2024) Tj ET
+BT /F1 10 Tf 40 696 Td (Units: 500 apartments \(mix of 2BR and 3BR\)) Tj ET
+BT /F1 10 Tf 40 682 Td (Land area: 85,000 sqm) Tj ET
+BT /F1 10 Tf 40 668 Td (Gross floor area: 95,000 sqm) Tj ET
+BT /F1 10 Tf 40 654 Td () Tj ET
+BT /F1 10 Tf 40 640 Td (Assumptions:) Tj ET
+BT /F1 10 Tf 40 626 Td (- units = 500) Tj ET
+BT /F1 10 Tf 40 612 Td (- absorption_rate = 12% per quarter) Tj ET
+BT /F1 10 Tf 40 598 Td (- year1_occupancy = 28%) Tj ET
+BT /F1 10 Tf 40 584 Td (- avg_selling_price = 980000 SAR per apartment) Tj ET
+BT /F1 10 Tf 40 570 Td (- construction_cost_per_sqm = 3400 SAR) Tj ET
+BT /F1 10 Tf 40 556 Td (- land_cost = 195000000 SAR) Tj ET
+BT /F1 10 Tf 40 542 Td (- soft_costs_pct = 8%) Tj ET
+BT /F1 10 Tf 40 528 Td (- contingency_pct = 7%) Tj ET
+BT /F1 10 Tf 40 514 Td (- opex_annual = 32000000 SAR) Tj ET
+BT /F1 10 Tf 40 500 Td (- property_management_fee = 4% of revenue) Tj ET
+BT /F1 10 Tf 40 486 Td (- mortgage_rate = 5.5%) Tj ET
+BT /F1 10 Tf 40 472 Td (- sales_velocity = 40 units per quarter after launch) Tj ET
+BT /F1 10 Tf 40 458 Td () Tj ET
+BT /F1 10 Tf 40 444 Td (CAPEX total SAR 685,000,000) Tj ET
+BT /F1 10 Tf 40 430 Td (OPEX annual SAR 32,000,000) Tj ET
+BT /F1 10 Tf 40 416 Td (Revenue ramp: Year1 180M, Year2 320M, Year3 410M SAR) Tj ET
+BT /F1 10 Tf 40 402 Td () Tj ET
+BT /F1 10 Tf 40 388 Td (Risks: absorption delay, construction cost overrun, mortgage rate spike, off-plan cancellation) Tj ET
+BT /F1 10 Tf 40 374 Td (Outcome: GO_WITH_CONDITIONS after achieving 35% off-plan reservations) Tj ET
+BT /F1 10 Tf 40 360 Td (Similar studies: North Riyadh mid-market residential compounds 400-600 units) Tj ET
+endstream
+endobj
+5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000056 00000 n 
+0000000111 00000 n 
+0000000235 00000 n 
+0000002335 00000 n 
+trailer<< /Size 6 /Root 1 0 R >>
+startxref
+2403
+%%EOF
