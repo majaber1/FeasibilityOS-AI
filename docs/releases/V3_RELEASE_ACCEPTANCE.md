@@ -3,8 +3,9 @@
 **Release candidate:** `v3.0.0`  
 **Branch:** `release/v3.0.0`  
 **Baseline SHA (origin/main):** `fa9ecbc0d7a7f1c5fa6ac610e8d775e83b22c6e4`  
-**V3 candidate tip:** `84e6621f8a23e6c3d3cbfa23ec446d857a6ac25d`  
+**V3 candidate tip:** `76003c5e1d2195e859a696e5d05f886061dfd20e`  
 **Date (UTC):** 2026-09-12  
+**PR:** https://github.com/majaber1/saudi-business/pull/36  
 **PR #33 merge ancestor:** `1f1a3057b18ec4a4e972d0cb7178688dfef1b3ea`
 
 ## Goal
@@ -69,32 +70,56 @@ Scenario proofs (hand NPV + scale-aware IRR residual + payback): **5/5 PASS**
 | P1 | Silent AI JSON fallback | **PARTIALLY_FIXED** | Deterministic extract + `extract_notes` + warnings; LLM merge still allowed but defaults are labeled — not claimed as verified market evidence |
 | P1 | Unrealistic input accepted without warning | **FIXED** | Soft DC CAPEX warning (20MW @ 25M) surfaces; does not invent benchmark as fact |
 | P1 | Services ignore billing rate/utilization/resources | **FIXED** | `services_capacity_revenue` preferred path; unit + scenario C proof |
-| P1 | Persistence | **FIXED** | PR #33 V2 list/reopen/continue retained on baseline |
+| P1 | Persistence | **FIXED** (code) / **UNVERIFIED** (owner UI) | PR #33 V2 list/reopen/continue retained; Owner Gate did not prove late-stage persistence |
 | P1 | Disconnected financial navigation | **FIXED** | In-study financial path + tools banner + nav → feasibility |
 | P1 | Evidence/assumption inconsistency | **PARTIALLY_FIXED** | FORECAST labeling + assumption review CTAs; full evidence graph consistency not redesigned (frozen scope) |
 
 **P0:** FIXED  
-**P1:** 5 FIXED, 2 PARTIALLY_FIXED, 0 NOT_FIXED
+**P1:** 5 FIXED (code), 2 PARTIALLY_FIXED, 0 NOT_FIXED — Owner Gate still blocks release
 
 ## Owner Gate (19/19)
 
-Filled after candidate UI run of `docs/evidence/OWNER_ACCEPTANCE_TEST.md`.
+**Result: 8/19 PASS — BLOCKING**
+
+Assistive Playwright initially reported 19/19; screenshot review falsified late-stage claims. Study workspace remained on empty prompt “ابدأ بوصف مشروعك” and never completed classification → financial → report.
 
 | Step | Result | Notes |
 |------|--------|-------|
-| 1–19 | PENDING | Candidate UI run in progress |
+| 1 Open app | PASS | Local candidate loads |
+| 2 Register/Login | PASS | Fresh account |
+| 3 Dashboard | PASS | `/dashboard` |
+| 4 Create project | PASS | Project workspace created |
+| 5 Idea visible | PASS | MSSP Arabic idea/name shown |
+| 6 Start AI study | PASS | Opens study workspace |
+| 7 Classification friendly label | FAIL | Empty start chat; classification not completed |
+| 8 Discovery | FAIL | Not reached |
+| 9 Assumptions → financial CTA | FAIL | Not reached |
+| 10 In-study financial | FAIL | No NPV/IRR rendered; did not land on `/tools/financial` |
+| 11 Risks | FAIL | Not reached |
+| 12 Decision | FAIL | Not reached |
+| 13 Report | FAIL | Not reached |
+| 14 Refresh | PASS | Empty workspace survives refresh |
+| 15 Logout | PASS | Logout discoverable |
+| 16 Re-login | PASS | |
+| 17 Projects list | PASS | Same project listed |
+| 18 Reopen study | FAIL | Empty workspace; prior progress not evidenced |
+| 19 Persistence of analysis/report | FAIL | No analysis/report to persist |
+
+Evidence: `docs/evidence/v3-owner-gate/` (see `OWNER_GATE_HONEST_SCORE.md`, `f-06.png`, `f-10.png`).
+
+Computer-use interactive retest was blocked by environment spend limit. Do not treat URL-only automation as Owner Gate PASS.
 
 ## UX release cleanup (blocker-level only)
 
 | Check | Status |
 |-------|--------|
-| No marketing footer inside authenticated workflow | Inherited from PR #33 AppChrome product footer |
-| No raw archetype IDs in primary UI | Inherited `archetypeLabels` |
-| Obvious CTA between stages | `StudyJourneyPanels` continue path retained |
-| Logout discoverable | PR #33 navbar |
-| Study reopen discoverable | V2 study list + workspace redirect |
-| Report reachable | Late-stage journey panels |
-| Arabic RTL / English LTR | Existing i18n preserved |
+| No marketing footer inside authenticated workflow | PASS on observed screens — product footer “مساحة عمل المنتج” |
+| No raw archetype IDs in primary UI | PASS on observed screens (classification stage not completed) |
+| Obvious CTA between stages | PARTIAL — study starts as empty chat; late-stage CTAs not proven in this run |
+| Logout discoverable | PASS |
+| Study reopen discoverable | PARTIAL — AI study CTA exists; persistence of prior study not proven |
+| Report reachable | UNVERIFIED in this run |
+| Arabic RTL / English LTR | PASS on observed Arabic RTL screens |
 
 ## Regression (frozen engines)
 
@@ -107,19 +132,23 @@ Filled after candidate UI run of `docs/evidence/OWNER_ACCEPTANCE_TEST.md`.
 | Risk / Decision / Report | Unchanged surfaces; financial payload messaging only |
 | Tenant isolation | Unchanged auth scoping |
 | No API/provider secrets leaked | No secrets added in V3 diff |
+| Financial trust unit tests | 10/10 PASS |
 
 ## Known limitations
 
-1. AI Estimate step can hang — manual assumption entry remains valid owner path.
-2. Standalone `/tools/financial` remains as a quick calculator only (explicitly non-canonical).
-3. Silent LLM numeric invention is mitigated by deterministic extract + labeled defaults, not eliminated.
-4. Financial Trust PR #32 must **not** be merged as-is (conflicts / would regress Owner Testability).
+1. Owner Gate incomplete on V3 candidate (8/19) — empty study chat start did not prove late-stage financial/risk/decision/report persistence.
+2. AI Estimate step can hang — manual assumption entry remains valid owner path.
+3. Standalone `/tools/financial` remains as a quick calculator only (explicitly non-canonical).
+4. Silent LLM numeric invention is mitigated by deterministic extract + labeled defaults, not eliminated.
+5. Financial Trust PR #32 must **not** be merged as-is (conflicts / would regress Owner Testability).
 
 ## Production readiness verdict
 
-**NOT READY for release tag** until:
+**V3 STATUS: NOT READY**
 
-1. Owner Gate 19/19 PASS on V3 candidate  
+Do not merge, deploy, or tag until:
+
+1. Owner Gate 19/19 PASS on V3 candidate (true normal UI, including in-study financial + report + reopen persistence)  
 2. PR approved  
 3. Merge to main + Web/Backend production deploy  
 4. Production SHAs match merge commit  
